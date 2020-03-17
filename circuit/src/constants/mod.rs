@@ -212,6 +212,7 @@ impl VRFParams {
     }
 }
 
+#[allow(dead_code)]
 fn hash_to_curve(
     tag: &[u8],
     personalization: &[u8]

@@ -26,7 +26,7 @@ use rand::rngs::OsRng;
 
 use crate::{
     librustzen_verify_proof,
-    librustzen_compute_hash_commitment,
+    librustzen_compute_keys_hash_commitment,
     librustzen_sign_keygen, librustzen_sign_key_verify, librustzen_sign_message, librustzen_sign_verify,
     librustzen_get_random_fr,
 };
@@ -102,7 +102,7 @@ fn compute_hash_commitment_test() {
     let mut librustzen_h_cm_b = [0u8; 96];
 
     //Verify correct hash computation from Rust FFI and consistency with the native Rust function
-    assert!(librustzen_compute_hash_commitment(
+    assert!(librustzen_compute_keys_hash_commitment(
         pks_b.as_ptr(),
         pks_b.len(),
         &mut librustzen_h_cm_b,
@@ -115,7 +115,7 @@ fn compute_hash_commitment_test() {
     pks_b.extend_from_slice(to_bytes!(G1Projective::rand(&mut rng).into_affine()).unwrap().as_slice());
 
     //Verify correct hash computation and result not consistent anymore with the native Rust function
-    assert!(librustzen_compute_hash_commitment(
+    assert!(librustzen_compute_keys_hash_commitment(
         pks_b.as_ptr(),
         pks_b.len(),
         &mut librustzen_h_cm_b,

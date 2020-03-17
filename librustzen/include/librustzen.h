@@ -46,13 +46,12 @@ extern "C" {
         unsigned char* result
     );
 
-    bool librustzen_compute_hash_commitment(
+    bool librustzen_compute_keys_hash_commitment(
         const unsigned char* pks,
         size_t pks_len,
         unsigned char* h_cm
     );
 
-    /*
     //VRF related functions
 
     bool librustzen_vrf_keygen(
@@ -66,7 +65,7 @@ extern "C" {
 
     bool librustzen_vrf_create_proof(
         const unsigned char* message,
-        size_t message_len
+        size_t message_len,
         const unsigned char* sk,
         const unsigned char* pk,
         unsigned char* result
@@ -74,11 +73,11 @@ extern "C" {
 
     bool librustzen_vrf_proof_to_hash(
         const unsigned char* message,
-        size_t message_len
+        size_t message_len,
         const unsigned char* pk,
         const unsigned char* proof,
         unsigned char* result
-    );*/
+    );
 
     //Test functions
     bool librustzen_get_random_fr(

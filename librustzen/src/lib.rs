@@ -306,7 +306,7 @@ pub extern "C" fn librustzen_compute_poseidon_hash(
 }
 
 #[no_mangle]
-pub extern "C" fn librustzen_compute_hash_commitment(
+pub extern "C" fn librustzen_compute_keys_hash_commitment(
     pks:        *const c_uchar,
     pks_len:    usize,
     h_cm:       *mut [c_uchar; HASH_SIZE],
