@@ -17,28 +17,17 @@ use crypto_primitives::{
     },
     crh::{
         FieldBasedHash, MNT4PoseidonHash as FrHash,
-        pedersen::PedersenWindow,
     },
 };
 
-use rand::rngs::OsRng;
-
 use groth16::{Proof, verifier::verify_proof, prepare_verifying_key, VerifyingKey};
 
-use libc::c_uchar;
-use std::path::Path;
-use std::slice;
-use std::ffi::OsStr;
-use std::os::unix::ffi::OsStrExt;
-use std::fs::File;
+use rand::rngs::OsRng;
 
-//Suitable to hash one Fr
-#[derive(Clone)]
-struct TestWindow {}
-impl PedersenWindow for TestWindow {
-    const WINDOW_SIZE: usize = 128;
-    const NUM_WINDOWS: usize = 2;
-}
+use libc::c_uchar;
+use std::{
+    path::Path, slice, ffi::OsStr, os::unix::ffi::OsStrExt, fs::File,
+};
 
 //Sig types
 type SchnorrSig = FieldBasedSchnorrSignature<Fr>;
@@ -77,7 +66,7 @@ fn read_fs(from: &[u8; FS_SIZE]) -> Option<Fs> {
 }
 
 /// Reads as many FrReprs as FR_SIZE-byte chunks contained in `from`
-/// NOTE: Probably there is a smarter way to pass a vector of field elements
+/// TODO: Probably there is a smarter way to pass a vector of field elements
 fn read_frs_from_slice(from: &[u8]) -> Option<Vec<Fr>> {
     let mut fes = vec![];
     for chunk in from.chunks(FR_SIZE) {
@@ -101,7 +90,7 @@ fn read_frs_from_slice(from: &[u8]) -> Option<Vec<Fr>> {
 }
 
 /// Reads as many G1 Affine points as G1_SIZE-byte chunks contained in `from`
-/// NOTE: Probably there is a smarter way to pass a vector of curve points
+/// TODO: Probably there is a smarter way to pass a vector of curve points
 fn read_points_from_slice(from: &[u8]) -> Option<Vec<G1Affine>>
 {
     let mut points = vec![];
@@ -354,7 +343,7 @@ pub extern "C" fn librustzen_get_random_fr(
 }
 
 
-/*
+
 use crypto_primitives::{
     vrf::{
             FieldBasedVrf,
@@ -362,14 +351,24 @@ use crypto_primitives::{
                 FieldBasedEcVrf, FieldBasedEcVrfProof,
             }
         },
-    crh::{
-            bowe_hopwood::{BoweHopwoodPedersenCRH, BoweHopwoodPedersenParameters},
-            FixedLengthCRH,
-        }
+    crh::bowe_hopwood::{BoweHopwoodPedersenCRH, BoweHopwoodPedersenParameters},
+};
+
+use circuit::constants::{
+    VRFParams, VRFWindow,
+};
+
+use lazy_static::*;
+
+lazy_static! {
+    pub static ref VRF_GH_PARAMS: BoweHopwoodPedersenParameters<G1Projective> = {
+        let params = VRFParams::new();
+        BoweHopwoodPedersenParameters::<G1Projective>{generators: params.group_hash_generators}
+    };
 }
 
 //Hash types
-type GroupHash = BoweHopwoodPedersenCRH<G1Projective, TestWindow>;
+type GroupHash = BoweHopwoodPedersenCRH<G1Projective, VRFWindow>;
 
 
 //Vrf types
@@ -377,28 +376,11 @@ type EcVrfProof = FieldBasedEcVrfProof<Fr, G1Projective>;
 type EcVrfScheme = FieldBasedEcVrf<Fr, G1Projective, FrHash, GroupHash>;
 
 
-static mut GROUP_HASH_PARAMS: Option<BoweHopwoodPedersenParameters<G1Projective>> = None;
-
 const VRF_PROOF_SIZE:   usize = G1_SIZE + 2 * FR_SIZE;  // 385
 const VRF_OUTPUT_SIZE:  usize = HASH_SIZE;              // 96
 
 
 // ***********VRF UTILS************
-
-#[no_mangle]
-pub extern "C" fn librustzen_vrf_init_parameters() {
-    let mut rng = OsRng::default();
-
-    let pp = GroupHash::setup(&mut rng)
-        .expect("Should be able to generate group hash parameters");
-
-    // Caller is responsible for calling this function once, so
-    // these global mutations are safe.
-    unsafe {
-        GROUP_HASH_PARAMS = Some(pp);
-    }
-
-}
 
 // The EcVrfScheme interface wants the pk into projective for different reasons,
 // but I let the Rust FFI exposing it in Affine, because it's FR_SIZE bytes less
@@ -465,13 +447,9 @@ pub extern "C" fn librustzen_vrf_create_proof(
         None => return false,
     };
 
-    //Get group hash params
-    let pp = unsafe { GROUP_HASH_PARAMS.as_ref() }
-        .expect("group hash parameters should have been initialized");
-
     //Create proof for message
     let mut rng = OsRng::default();
-    let proof = match EcVrfScheme::prove(&mut rng, &pp, &pk, &sk, fes.as_slice()) {
+    let proof = match EcVrfScheme::prove(&mut rng, &VRF_GH_PARAMS, &pk, &sk, fes.as_slice()) {
         Ok(proof) => proof,
         Err(_) => return false,
     };
@@ -512,12 +490,8 @@ pub extern "C" fn librustzen_vrf_proof_to_hash(
         Err(_) => return false,
     };
 
-    //Get group hash params
-    let pp = unsafe { GROUP_HASH_PARAMS.as_ref() }
-        .expect("group hash parameters should have been initialized");
-
     //Verify proof
-    let vrf_out = match EcVrfScheme::verify(&pp, &pk, fes.as_slice(), &proof) {
+    let vrf_out = match EcVrfScheme::verify(&VRF_GH_PARAMS, &pk, fes.as_slice(), &proof) {
         Ok(result) => result,
         Err(_) => return false,
     };
@@ -526,4 +500,4 @@ pub extern "C" fn librustzen_vrf_proof_to_hash(
     vrf_out.write(&mut (unsafe { &mut *result })[..])
         .expect(format!("result should be {} bytes", VRF_OUTPUT_SIZE).as_str());
     true
-}*/
+}

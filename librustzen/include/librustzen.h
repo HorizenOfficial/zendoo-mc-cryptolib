@@ -54,7 +54,6 @@ extern "C" {
 
     /*
     //VRF related functions
-    void librustzen_vrf_init_parameters();
 
     bool librustzen_vrf_keygen(
         unsigned char* sk_result,
