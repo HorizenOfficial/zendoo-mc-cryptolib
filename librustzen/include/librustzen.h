@@ -6,7 +6,7 @@
 
 extern "C" {
     //SNARK related functions
-    bool librustzen_verify_proof(
+    bool librustzen_verify_zkproof(
         const uint8_t* vk_path,
         size_t vk_path_len,
         const unsigned char* zkp,
@@ -72,6 +72,14 @@ extern "C" {
     );
 
     bool librustzen_vrf_proof_to_hash(
+        const unsigned char* message,
+        size_t message_len,
+        const unsigned char* pk,
+        const unsigned char* proof,
+        unsigned char* result
+    );
+
+    bool librustzen_vrf_proof_verify(
         const unsigned char* message,
         size_t message_len,
         const unsigned char* pk,

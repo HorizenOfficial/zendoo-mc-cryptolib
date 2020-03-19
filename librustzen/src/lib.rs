@@ -501,3 +501,38 @@ pub extern "C" fn librustzen_vrf_proof_to_hash(
         .expect(format!("result should be {} bytes", VRF_OUTPUT_SIZE).as_str());
     true
 }
+
+//Just verify the proof
+#[no_mangle]
+pub extern "C" fn librustzen_vrf_proof_verify(
+    message:        *const c_uchar,
+    message_len:    usize,
+    pk:             *const [c_uchar; G1_SIZE],
+    proof:          *const [c_uchar; VRF_PROOF_SIZE],
+) -> bool
+{
+    //Read pk
+    let pk = match G1Affine::read(&(unsafe { &*pk })[..]) {
+        Ok(pk) => pk.into_projective(),
+        Err(_) => return false,
+    };
+
+    //Read message as an array of Fr elements
+    let message = unsafe { slice::from_raw_parts(message, message_len) };
+    let fes = match read_frs_from_slice(message) {
+        Some(fes) => fes,
+        None => return false,
+    };
+
+    //Read proof
+    let proof = match EcVrfProof::read(&(unsafe { &*proof })[..]) {
+        Ok(proof) => proof,
+        Err(_) => return false,
+    };
+
+    //Verify proof
+    match EcVrfScheme::verify(&VRF_GH_PARAMS, &pk, fes.as_slice(), &proof) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
