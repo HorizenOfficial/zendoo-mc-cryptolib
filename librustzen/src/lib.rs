@@ -128,7 +128,7 @@ fn read_vk(vk_path: *const u8, vk_path_len: usize) -> VerifyingKey<PairingCurve>
 
 
 #[no_mangle]
-pub extern "C" fn librustzen_verify_proof
+pub extern "C" fn librustzen_verify_zkproof
 (
     vk_path:            *const u8,
     vk_path_len:        usize,

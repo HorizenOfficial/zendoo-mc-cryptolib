@@ -25,7 +25,7 @@ use groth16::Proof;
 use rand::rngs::OsRng;
 
 use crate::{
-    librustzen_verify_proof,
+    librustzen_verify_zkproof,
     librustzen_compute_keys_hash_commitment,
     librustzen_sign_keygen, librustzen_sign_key_verify, librustzen_sign_message, librustzen_sign_verify,
     librustzen_get_random_fr,
@@ -37,7 +37,7 @@ const VK_PATH: &str = "./test_files/vk";
 const PI_LEN: usize = 4;
 
 #[test]
-fn verify_proof_test() {
+fn verify_zkproof_test() {
 
     let mut file = File::open("./test_files/good_proof").unwrap();
     let good_proof = Proof::<PairingCurve>::read(&mut file).unwrap();
@@ -61,7 +61,7 @@ fn verify_proof_test() {
     let inputs = to_bytes!(good_public_inputs).unwrap();
     assert_eq!(inputs.len(), 96 * 4);
 
-    assert!(librustzen_verify_proof(
+    assert!(librustzen_verify_zkproof(
         VK_PATH.as_ptr(),
         VK_PATH.len(),
         &zkp,
@@ -76,7 +76,7 @@ fn verify_proof_test() {
     let inputs = to_bytes!(bad_public_inputs).unwrap();
     assert_eq!(inputs.len(), 96 * 4);
 
-    assert!(!librustzen_verify_proof(
+    assert!(!librustzen_verify_zkproof(
         VK_PATH.as_ptr(),
         VK_PATH.len(),
         &zkp,
