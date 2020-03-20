@@ -12,6 +12,7 @@ crate-type = ["staticlib"]
 [dependencies]
 algebra = {version = "0.1.0", git = "https://github.com/HorizenLabs/HL_zexe", branch = "circuit_temp"}
 crypto-primitives = {version = "0.1.0", git = "https://github.com/HorizenLabs/HL_zexe", branch = "circuit_temp"}
+r1cs-core = {version = "0.1.0", git = "https://github.com/HorizenLabs/HL_zexe", branch = "circuit_temp"}
 groth16 = {version = "0.1.0", git = "https://github.com/HorizenLabs/HL_zexe", branch = "circuit_temp"}
 circuit = {path = "../circuit"}
 

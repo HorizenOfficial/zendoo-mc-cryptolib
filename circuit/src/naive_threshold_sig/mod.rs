@@ -49,6 +49,7 @@ type SchnorrVrfySigGadget = FieldBasedSchnorrSigVerificationGadget<
 //Field types
 type MNT4FrGadget = FpGadget<MNT4Fr>;
 
+#[derive(Default, Clone)]
 pub struct NaiveTresholdSignature<F: PrimeField>{
 
     //Witnesses

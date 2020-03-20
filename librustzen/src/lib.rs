@@ -20,7 +20,7 @@ use crypto_primitives::{
     },
 };
 
-use groth16::{Proof, verifier::verify_proof, prepare_verifying_key, VerifyingKey};
+use groth16::{Parameters, Proof, verifier::verify_proof, prepare_verifying_key, VerifyingKey, create_random_proof};
 
 use rand::rngs::OsRng;
 
@@ -32,6 +32,8 @@ use std::{
 //Sig types
 type SchnorrSig = FieldBasedSchnorrSignature<Fr>;
 type SchnorrSigScheme = FieldBasedSchnorrSignatureScheme<Fr, G1Projective, FrHash>;
+
+pub mod generic_circuit;
 
 #[cfg(test)]
 pub mod tests;
@@ -112,6 +114,20 @@ fn read_points_from_slice(from: &[u8]) -> Option<Vec<G1Affine>>
     Some(points)
 }
 
+fn read_params(params_path: *const u8, params_path_len: usize) -> Parameters<PairingCurve>
+{
+    // Read params path
+    let params_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(params_path, params_path_len)
+    }));
+
+    // Load params from file
+    let mut params_fs = File::open(params_path).expect("couldn't load params file");
+
+    Parameters::<PairingCurve>::read(&mut params_fs)
+        .expect("couldn't deserialize params file")
+}
+
 fn read_vk(vk_path: *const u8, vk_path_len: usize) -> VerifyingKey<PairingCurve>
 {
     // Read vk path
@@ -126,6 +142,50 @@ fn read_vk(vk_path: *const u8, vk_path_len: usize) -> VerifyingKey<PairingCurve>
         .expect("couldn't deserialize vk file")
 }
 
+//**********ZK SNARK FUNCTIONS*************
+
+use generic_circuit::GingerCircuit;
+
+#[no_mangle]
+pub extern "C" fn librustzen_empty_circuit_instance() -> *mut GingerCircuit
+{
+    Box::into_raw(Box::new(GingerCircuit::new_empty_circuit()))
+}
+
+#[no_mangle]
+pub extern "C" fn librustzen_create_zk_proof(
+    params_path:     *const u8,
+    params_path_len: usize,
+    circuit:         *mut GingerCircuit,
+    zkp:             *mut [c_uchar; GROTH_PROOF_SIZE],
+) -> bool {
+
+    //Load params from file
+    let params = read_params(params_path, params_path_len);
+
+    //Get circuit
+    let c = unsafe { &*circuit };
+
+    //Create proof
+    let mut rng = OsRng::default();
+    let proof = match create_random_proof((*c).clone(), &params, &mut rng) {
+        Ok(proof) => proof,
+        Err(_) => return false,
+    };
+
+    //Write out the proof
+    proof.write(&mut (unsafe { &mut *zkp })[..])
+        .expect(format!("result should be {} bytes", GROTH_PROOF_SIZE).as_str());
+
+    //Free the memory from the circuit instance.
+    //Note: Is it ok to automatically do it ? I don't see any use case for not doing it,
+    //and the downside is that we will have two functions for each circuit, one for
+    //getting an istance of it through a pointer, and the other one to free the
+    //memory
+    drop(unsafe { Box::from_raw(circuit) });
+
+    true
+}
 
 #[no_mangle]
 pub extern "C" fn librustzen_verify_zkproof
@@ -341,8 +401,6 @@ pub extern "C" fn librustzen_get_random_fr(
         .expect(format!("result should be {} bytes", FR_SIZE).as_str());
     true
 }
-
-
 
 use crypto_primitives::{
     vrf::{

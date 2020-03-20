@@ -6,6 +6,17 @@
 
 extern "C" {
     //SNARK related functions
+    typedef struct ginger_circuit ginger_circuit_t;
+
+    ginger_circuit_t * librustzen_empty_circuit_instance(void);
+
+    bool librustzen_create_zkproof(
+        const uint8_t* params_path,
+        size_t params_path_len,
+        ginger_circuit_t* circuit,
+        unsigned char* zkp
+    );
+
     bool librustzen_verify_zkproof(
         const uint8_t* vk_path,
         size_t vk_path_len,
