@@ -18,7 +18,6 @@ use rand::rngs::OsRng;
 use crate::{
     zendoo_verify_zkproof,
     zendoo_compute_keys_hash_commitment,
-    zendoo_compute_merkle_root, ZendooMcFieldBasedMerkleTree,
 };
 
 use std::fs::File;
@@ -115,41 +114,4 @@ fn compute_hash_commitment_test() {
 }
 
 #[test]
-fn compute_merkle_root_test() {
-    let mut rng = OsRng::default();
-
-    //Generate random field elements
-    let mut leaves = vec![];
-    for _ in 0..16 {leaves.push(Fr::rand(&mut rng));}
-
-    //Compute Merkle Root
-    let native_mr = ZendooMcFieldBasedMerkleTree::new(leaves.as_slice())
-        .unwrap()
-        .root();
-    let mut leaves_b = to_bytes!(leaves).unwrap();
-    assert_eq!(leaves_b.len(), 96 * 16);
-
-    let mut zendoo_mr_b = [0u8; 96];
-
-    //Verify correct hash computation from Rust FFI and consistency with the native Rust function
-    assert!(zendoo_compute_merkle_root(
-        leaves_b.as_ptr(),
-        leaves_b.len(),
-        &mut zendoo_mr_b,
-    ));
-    let zendoo_mr = Fr::read(&zendoo_mr_b[..]).unwrap();
-    assert_eq!(native_mr, zendoo_mr);
-
-    //Change one of the leaves
-    leaves_b = leaves_b[..96 * 15].to_vec();
-    leaves_b.extend_from_slice(to_bytes!(Fr::rand(&mut rng)).unwrap().as_slice());
-
-    //Verify correct Merkle Root computation and result not consistent anymore with the native Rust function
-    assert!(zendoo_compute_merkle_root(
-        leaves_b.as_ptr(),
-        leaves_b.len(),
-        &mut zendoo_mr_b,
-    ));
-    let zendoo_mr = Fr::read(&zendoo_mr_b[..]).unwrap();
-    assert_ne!(native_mr, zendoo_mr);
-}
+fn compute_merkle_root_test() {}

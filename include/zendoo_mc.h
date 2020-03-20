@@ -28,10 +28,39 @@ extern "C" {
     );
 
     //Poseidon-based Merkle Tree related functions
-    bool zendoo_compute_merkle_root(
+    typedef struct ginger_mt      ginger_mt_t;
+    typedef struct ginger_mt_path ginger_mt_path_t;
+
+    bool ginger_mt_new(
         const unsigned char* leaves,
         size_t leaves_len,
+        ginger_mt_t* tree
+    );
+
+    bool ginger_mt_get_root(
+        const ginger_mt_t* tree,
         unsigned char* mr
+    );
+
+    bool ginger_mt_get_merkle_path(
+        const unsigned char* leaf,
+        size_t leaf_index,
+        const ginger_mt_t* tree,
+        ginger_mt_path_t* path
+    );
+
+    bool ginger_mt_verify_merkle_path(
+        const unsigned char* leaf,
+        const unsigned char* mr,
+        const ginger_mt_path_t* path
+    );
+
+    void ginger_mt_free(
+        ginger_mt_t* tree
+    );
+
+    void ginger_mt_path_free(
+        ginger_mt_path_t* path
     );
 
     //Test functions

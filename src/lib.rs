@@ -12,14 +12,13 @@ use primitives::{
         FieldBasedHash, MNT4PoseidonHash as FrHash,
     },
     merkle_tree::field_based_mht::{
-        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig,
+        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath
     },
 };
 
 use proof_systems::groth16::{Proof, verifier::verify_proof, prepare_verifying_key, VerifyingKey};
 
 use rand::rngs::OsRng;
-
 use libc::c_uchar;
 use std::{
     path::Path, slice, ffi::OsStr, os::unix::ffi::OsStrExt, fs::File,
@@ -39,7 +38,7 @@ const GROTH_PROOF_SIZE: usize = 2 * G1_SIZE + G2_SIZE;  // 771
 
 // ************TYPES**********************
 
-struct ZendooMcFieldBasedMerkleTreeParams;
+pub struct ZendooMcFieldBasedMerkleTreeParams;
 
 impl FieldBasedMerkleTreeConfig for ZendooMcFieldBasedMerkleTreeParams {
     const HASH_LEAVES: bool = true;
@@ -47,7 +46,9 @@ impl FieldBasedMerkleTreeConfig for ZendooMcFieldBasedMerkleTreeParams {
     type H = FrHash;
 }
 
-type ZendooMcFieldBasedMerkleTree = FieldBasedMerkleHashTree<ZendooMcFieldBasedMerkleTreeParams>;
+type GingerMerkleTree = FieldBasedMerkleHashTree<ZendooMcFieldBasedMerkleTreeParams>;
+type GingerMerkleTreePath = FieldBasedMerkleTreePath<ZendooMcFieldBasedMerkleTreeParams>;
+
 
 // ***********UTILITY FUNCTIONS*************
 
@@ -213,17 +214,12 @@ pub extern "C" fn zendoo_compute_keys_hash_commitment(
 
 // ********************Merkle Tree functions********************
 #[no_mangle]
-pub extern "C" fn zendoo_get_merkle_tree_size(){}
-
-
-
-#[no_mangle]
-pub extern "C" fn zendoo_compute_merkle_root(
+pub extern "C" fn ginger_mt_new(
     leaves:        *const c_uchar,
     leaves_len:    usize,
-    mr:            *mut [c_uchar; HASH_SIZE],
-) -> bool {
-
+    tree:          *mut GingerMerkleTree,
+) -> bool
+{
     //Read field elements
     let leaves_bytes = unsafe { slice::from_raw_parts(leaves, leaves_len) };
     let leaves = match read_frs_from_slice(leaves_bytes) {
@@ -232,15 +228,90 @@ pub extern "C" fn zendoo_compute_merkle_root(
     };
 
     //Generate tree and compute Merkle Root
-    let root = match ZendooMcFieldBasedMerkleTree::new(&leaves) {
-        Ok(tree) => tree.root(),
+    let gmt = match GingerMerkleTree::new(&leaves) {
+        Ok(tree) => tree,
         Err(_) => return false,
     };
 
+    *(unsafe { &mut *tree }) = gmt;
+    true
+}
+
+#[no_mangle]
+pub extern "C" fn ginger_mt_get_root(
+    tree:   *const GingerMerkleTree,
+    mr:     *mut [c_uchar; HASH_SIZE]
+) -> bool
+{
+    let root = unsafe { &*tree }.root();
     root.write(&mut (unsafe { &mut *mr })[..])
         .expect(format!("result should be {} bytes", HASH_SIZE).as_str());
+    true
+}
+
+#[no_mangle]
+pub extern "C" fn ginger_mt_get_merkle_path(
+    leaf:       *const [c_uchar; FR_SIZE],
+    leaf_index: usize,
+    tree:       *const GingerMerkleTree,
+    path:       *mut GingerMerkleTreePath,
+) -> bool
+{
+    let tree = unsafe { &*tree };
+
+    //Read leaf
+    let leaf = match read_fr(unsafe { &*leaf }) {
+        Some(leaf) => leaf,
+        None => return false,
+    };
+
+    //Compute Merkle Path
+    let mp = match tree.generate_proof(leaf_index, &leaf) {
+        Ok(path) => path,
+        Err(_) => return false,
+    };
+
+    *(unsafe { &mut *path }) = mp;
 
     true
+}
+
+#[no_mangle]
+pub extern "C" fn ginger_mt_verify_merkle_path(
+    leaf:       *const [c_uchar; FR_SIZE],
+    mr:         *const [c_uchar; HASH_SIZE],
+    path:       *const GingerMerkleTreePath,
+) -> bool
+{
+    let path = unsafe { &*path };
+
+    //Read leaf
+    let leaf = match read_fr(unsafe { &*leaf }) {
+        Some(leaf) => leaf,
+        None => return false,
+    };
+
+    //Read root
+    let root = match read_fr(unsafe { &*mr }) {
+        Some(root) => root,
+        None => return false,
+    };
+
+    // Verify leaf belonging
+    match path.verify(&root, &leaf) {
+        Ok(true) => true,
+        _ => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ginger_mt_free(tree: *mut GingerMerkleTree) {
+    drop(unsafe { Box::from_raw(tree) });
+}
+
+#[no_mangle]
+pub extern "C" fn ginger_mt_path_free(path: *mut GingerMerkleTreePath) {
+    drop(unsafe { Box::from_raw(path) });
 }
 
 //***************Test functions*******************
