@@ -5,15 +5,25 @@
 #include <stdlib.h> //TODO: Zcash seems to have only the above import and it sees size_t. Why ?
 
 extern "C" {
+
     //SNARK related functions
-    typedef struct ginger_circuit ginger_circuit_t;
+    bool librustzen_naive_threshold_sig_get_null(
+        unsigned char* null_pk,
+        unsigned char* null_sig
+    );
 
-    ginger_circuit_t * librustzen_empty_circuit_instance(void);
-
-    bool librustzen_create_zkproof(
+    bool librustzen_create_naive_threshold_sig_proof(
         const uint8_t* params_path,
         size_t params_path_len,
-        ginger_circuit_t* circuit,
+        const unsigned char* pks,
+        size_t pks_len,
+        const unsigned char* sigs,
+        size_t sigs_len,
+        const unsigned char* threshold,
+        const unsigned char* b,
+        const unsigned char* message,
+        const unsigned char* hash_commitment,
+        size_t n,
         unsigned char* zkp
     );
 
@@ -101,6 +111,11 @@ extern "C" {
     //Test functions
     bool librustzen_get_random_fr(
         unsigned char* result
+    );
+
+    bool librustzen_get_fr_from_int(
+        size_t raw_fr,
+        unsigned char* result,
     );
 }
 

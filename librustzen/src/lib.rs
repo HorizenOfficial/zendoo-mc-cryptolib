@@ -1,6 +1,9 @@
-use algebra::{fields::{
+use algebra::{
+    biginteger::BigInteger768,
+fields::{
     mnt4753::Fr,
     mnt4753::Fq as Fs,
+    PrimeField,
 }, curves::{
     mnt4753::MNT4 as PairingCurve,
     mnt6753::{G1Projective, G1Affine},
@@ -32,8 +35,6 @@ use std::{
 //Sig types
 type SchnorrSig = FieldBasedSchnorrSignature<Fr>;
 type SchnorrSigScheme = FieldBasedSchnorrSignatureScheme<Fr, G1Projective, FrHash>;
-
-pub mod generic_circuit;
 
 #[cfg(test)]
 pub mod tests;
@@ -114,6 +115,29 @@ fn read_points_from_slice(from: &[u8]) -> Option<Vec<G1Affine>>
     Some(points)
 }
 
+/// Reads as many G1 Affine points as G1_SIZE-byte chunks contained in `from`
+/// TODO: Probably there is a smarter way to pass a vector of curve points
+fn read_sigs_from_slice(from: &[u8]) -> Option<Vec<SchnorrSig>>
+{
+    let mut sigs = vec![];
+    for chunk in from.chunks(SIG_SIZE) {
+
+        //Pad to reach expected point's number of bytes
+        let mut chunk = chunk.to_vec();
+        let len = chunk.len();
+        for _ in len..SIG_SIZE {
+            chunk.push(0u8);
+        }
+
+        //Read sig
+        match SchnorrSig::read(chunk.as_slice()) {
+            Ok(sig) => sigs.push(sig),
+            Err(_) => return None,
+        };
+    }
+    Some(sigs)
+}
+
 fn read_params(params_path: *const u8, params_path_len: usize) -> Parameters<PairingCurve>
 {
     // Read params path
@@ -143,32 +167,101 @@ fn read_vk(vk_path: *const u8, vk_path_len: usize) -> VerifyingKey<PairingCurve>
 }
 
 //**********ZK SNARK FUNCTIONS*************
+use algebra::bits::ToBits;
+use circuit::naive_threshold_sig::{
+    NaiveTresholdSignature, NULL_CONST,
+};
 
-use generic_circuit::GingerCircuit;
 
 #[no_mangle]
-pub extern "C" fn librustzen_empty_circuit_instance() -> *mut GingerCircuit
+pub extern "C" fn librustzen_naive_threshold_sig_get_null(
+    null_pk:  *mut [c_uchar; G1_SIZE],
+    null_sig: *mut [c_uchar; SIG_SIZE],
+) -> bool
 {
-    Box::into_raw(Box::new(GingerCircuit::new_empty_circuit()))
+    NULL_CONST.null_pk.into_affine().write(&mut (unsafe { &mut *null_pk })[..])
+        .expect(format!("null pk  should be {} bytes", G1_SIZE).as_str());
+
+    NULL_CONST.null_sig.write(&mut (unsafe { &mut *null_sig })[..])
+        .expect(format!("null sig  should be {} bytes", SIG_SIZE).as_str());
+
+    true
 }
 
 #[no_mangle]
-pub extern "C" fn librustzen_create_zk_proof(
-    params_path:     *const u8,
-    params_path_len: usize,
-    circuit:         *mut GingerCircuit,
-    zkp:             *mut [c_uchar; GROTH_PROOF_SIZE],
+pub extern "C" fn librustzen_create_naive_threshold_sig_proof (
+    params_path:        *const u8,
+    params_path_len:    usize,
+    //Witnesses
+    pks:                *const c_uchar,
+    pks_len:            usize,
+    sigs:               *const c_uchar,
+    sigs_len:           usize,
+    threshold:          *const [c_uchar; FR_SIZE],
+    b:                  *const [c_uchar; FR_SIZE],
+
+    //Public inputs
+    message:            *const [c_uchar; FR_SIZE],
+    hash_commitment:    *const [c_uchar; HASH_SIZE], //H(H(pks), threshold)
+
+    //Other
+    n:                   usize,
+    zkp:                *mut [c_uchar; GROTH_PROOF_SIZE],
 ) -> bool {
 
     //Load params from file
     let params = read_params(params_path, params_path_len);
 
-    //Get circuit
-    let c = unsafe { &*circuit };
+    //Read pks and map them into Options
+    let pks_bytes = unsafe { slice::from_raw_parts(pks, pks_len) };
+    let pks = match read_points_from_slice(pks_bytes) {
+        Some(pks) => pks.iter().map(|pk| Some((*pk).into_projective())).collect::<Vec<_>>(),
+        None => return false,
+    };
+
+    //Read sigs and map them into Options
+    let sigs_bytes = unsafe { slice::from_raw_parts(sigs, sigs_len) };
+    let sigs = match read_sigs_from_slice(sigs_bytes) {
+        Some(sigs) => sigs.iter().map(|sig| Some(*sig)).collect::<Vec<_>>(),
+        None => return false,
+    };
+
+    //Read threshold
+    let threshold = match read_fr(unsafe { &*threshold }) {
+        Some(threshold) => Some(threshold),
+        None => return false,
+    };
+
+    //Read b, convert to bits, skip the required leading zeros and map them into Options
+    let b_len = (n.next_power_of_two() as u64).trailing_zeros() as usize;
+    let b_field = match read_fr(unsafe { &*b }) {
+        Some(b_field) => b_field,
+        None => return false,
+    };
+    let b_bits = b_field.write_bits();
+    let to_skip = Fr::size_in_bits() - (b_len + 1);
+    let b = b_bits[to_skip..].to_vec().iter().map(|b| Some(*b)).collect::<Vec<_>>();
+
+    //Read message
+    let message = match read_fr(unsafe { &*message }) {
+        Some(message) => Some(message),
+        None => return false,
+    };
+
+    //Read hash commitment
+    let hash_commitment = match read_fr(unsafe { &*hash_commitment }) {
+        Some(hash_commitment) => Some(hash_commitment),
+        None => return false,
+    };
+
+    //Build circuit
+    let c = NaiveTresholdSignature::<Fr>::new(
+        pks, sigs, threshold, b, message, hash_commitment, n
+    );
 
     //Create proof
     let mut rng = OsRng::default();
-    let proof = match create_random_proof((*c).clone(), &params, &mut rng) {
+    let proof = match create_random_proof(c, &params, &mut rng) {
         Ok(proof) => proof,
         Err(_) => return false,
     };
@@ -176,13 +269,6 @@ pub extern "C" fn librustzen_create_zk_proof(
     //Write out the proof
     proof.write(&mut (unsafe { &mut *zkp })[..])
         .expect(format!("result should be {} bytes", GROTH_PROOF_SIZE).as_str());
-
-    //Free the memory from the circuit instance.
-    //Note: Is it ok to automatically do it ? I don't see any use case for not doing it,
-    //and the downside is that we will have two functions for each circuit, one for
-    //getting an istance of it through a pointer, and the other one to free the
-    //memory
-    drop(unsafe { Box::from_raw(circuit) });
 
     true
 }
@@ -401,6 +487,18 @@ pub extern "C" fn librustzen_get_random_fr(
         .expect(format!("result should be {} bytes", FR_SIZE).as_str());
     true
 }
+
+#[no_mangle]
+pub extern "C" fn librustzen_get_fr_from_int(
+    raw_fr: usize,
+    result: *mut [c_uchar; FR_SIZE]
+) -> bool {
+    let f = Fr::from_repr(BigInteger768::from(raw_fr as u64));
+    f.write(&mut (unsafe { &mut *result })[..])
+        .expect(format!("result should be {} bytes", FR_SIZE).as_str());
+    true
+}
+
 
 use crypto_primitives::{
     vrf::{
