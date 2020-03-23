@@ -18,6 +18,9 @@ use rand::rngs::OsRng;
 use crate::{
     zendoo_verify_zkproof,
     zendoo_compute_keys_hash_commitment,
+    ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path,
+    ginger_mt_free, ginger_mt_path_free,
+    GingerMerkleTree,
 };
 
 use std::fs::File;
@@ -114,4 +117,67 @@ fn compute_hash_commitment_test() {
 }
 
 #[test]
-fn compute_merkle_root_test() {}
+fn compute_merkle_root_test() {
+    let mut rng = OsRng::default();
+
+    //Generate random field elements
+    let mut fes = vec![];
+    for _ in 0..100 {fes.push(Fr::rand(&mut rng));}
+
+    let mut fes_b = vec![];
+    fes.iter().for_each(|fe| fes_b.extend_from_slice(to_bytes!(fe).unwrap().as_slice()));
+
+    //Get native Merkle Tree
+    let native_tree = GingerMerkleTree::new(fes.as_slice()).unwrap();
+
+    //Get Merkle Tree from lib
+    let tree = ginger_mt_new(
+        fes_b.as_ptr(),
+        fes_b.len(),
+    );
+
+    assert!(!tree.is_null());
+
+    //Get root and compare the two trees
+    let mut root = [0u8; 96];
+    assert!(ginger_mt_get_root(
+        tree,
+        &mut root,
+    ));
+
+    let root_f = Fr::read(&root[..]).unwrap();
+    assert_eq!(root_f, native_tree.root());
+
+    //Get native Merkle Path for a leaf
+    let native_mp = native_tree.generate_proof(0, &fes[0]).unwrap();
+
+    //Get Merkle Path from lib
+    let mut leaf = [0u8; 96];
+    leaf.copy_from_slice(&fes_b[..96]);
+    let path = ginger_mt_get_merkle_path(
+        &mut leaf,
+        0,
+        tree
+    );
+    assert!(!path.is_null());
+
+    //Verify path is null if errors (i.e. let's pass an invalid index)
+    let wrong_path = ginger_mt_get_merkle_path(
+        &mut leaf,
+        leaf.len(),
+        tree
+    );
+    assert!(wrong_path.is_null());
+
+    //Verify that both merkle paths are correct
+    assert!(native_mp.verify(&native_tree.root(), &fes[0]).unwrap());
+    assert!(ginger_mt_verify_merkle_path(
+        &leaf,
+        &root,
+        path
+    ));
+
+    //Deallocate tree and merkle path
+    ginger_mt_free(tree);
+    ginger_mt_path_free(path);
+}

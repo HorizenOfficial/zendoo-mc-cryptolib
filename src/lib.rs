@@ -21,7 +21,7 @@ use proof_systems::groth16::{Proof, verifier::verify_proof, prepare_verifying_ke
 use rand::rngs::OsRng;
 use libc::c_uchar;
 use std::{
-    path::Path, slice, ffi::OsStr, os::unix::ffi::OsStrExt, fs::File,
+    path::Path, slice, ffi::OsStr, os::unix::ffi::OsStrExt, fs::File, ptr::null_mut,
 };
 
 #[cfg(test)]
@@ -217,24 +217,22 @@ pub extern "C" fn zendoo_compute_keys_hash_commitment(
 pub extern "C" fn ginger_mt_new(
     leaves:        *const c_uchar,
     leaves_len:    usize,
-    tree:          *mut GingerMerkleTree,
-) -> bool
+) -> *mut GingerMerkleTree
 {
     //Read field elements
     let leaves_bytes = unsafe { slice::from_raw_parts(leaves, leaves_len) };
     let leaves = match read_frs_from_slice(leaves_bytes) {
         Some(fes) => fes,
-        None => return false,
+        None => return null_mut(),
     };
 
     //Generate tree and compute Merkle Root
     let gmt = match GingerMerkleTree::new(&leaves) {
         Ok(tree) => tree,
-        Err(_) => return false,
+        Err(_) => return null_mut(),
     };
 
-    *(unsafe { &mut *tree }) = gmt;
-    true
+    Box::into_raw(Box::new(gmt))
 }
 
 #[no_mangle]
@@ -243,6 +241,7 @@ pub extern "C" fn ginger_mt_get_root(
     mr:     *mut [c_uchar; HASH_SIZE]
 ) -> bool
 {
+    if tree.is_null() { return false }
     let root = unsafe { &*tree }.root();
     root.write(&mut (unsafe { &mut *mr })[..])
         .expect(format!("result should be {} bytes", HASH_SIZE).as_str());
@@ -254,26 +253,24 @@ pub extern "C" fn ginger_mt_get_merkle_path(
     leaf:       *const [c_uchar; FR_SIZE],
     leaf_index: usize,
     tree:       *const GingerMerkleTree,
-    path:       *mut GingerMerkleTreePath,
-) -> bool
+) -> *mut GingerMerkleTreePath
 {
+    if tree.is_null() { return null_mut() }
     let tree = unsafe { &*tree };
 
     //Read leaf
     let leaf = match read_fr(unsafe { &*leaf }) {
         Some(leaf) => leaf,
-        None => return false,
+        None => return null_mut(),
     };
 
     //Compute Merkle Path
     let mp = match tree.generate_proof(leaf_index, &leaf) {
         Ok(path) => path,
-        Err(_) => return false,
+        Err(_) => return null_mut(),
     };
 
-    *(unsafe { &mut *path }) = mp;
-
-    true
+    Box::into_raw(Box::new(mp))
 }
 
 #[no_mangle]
@@ -283,6 +280,7 @@ pub extern "C" fn ginger_mt_verify_merkle_path(
     path:       *const GingerMerkleTreePath,
 ) -> bool
 {
+    if path.is_null() { return false }
     let path = unsafe { &*path };
 
     //Read leaf
@@ -306,11 +304,13 @@ pub extern "C" fn ginger_mt_verify_merkle_path(
 
 #[no_mangle]
 pub extern "C" fn ginger_mt_free(tree: *mut GingerMerkleTree) {
+    if tree.is_null() { return }
     drop(unsafe { Box::from_raw(tree) });
 }
 
 #[no_mangle]
 pub extern "C" fn ginger_mt_path_free(path: *mut GingerMerkleTreePath) {
+    if path.is_null()  { return }
     drop(unsafe { Box::from_raw(path) });
 }
 

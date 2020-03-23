@@ -31,10 +31,9 @@ extern "C" {
     typedef struct ginger_mt      ginger_mt_t;
     typedef struct ginger_mt_path ginger_mt_path_t;
 
-    bool ginger_mt_new(
+    ginger_mt_t* ginger_mt_new(
         const unsigned char* leaves,
         size_t leaves_len,
-        ginger_mt_t* tree
     );
 
     bool ginger_mt_get_root(
@@ -42,11 +41,10 @@ extern "C" {
         unsigned char* mr
     );
 
-    bool ginger_mt_get_merkle_path(
+    ginger_mt_path_t* ginger_mt_get_merkle_path(
         const unsigned char* leaf,
         size_t leaf_index,
         const ginger_mt_t* tree,
-        ginger_mt_path_t* path
     );
 
     bool ginger_mt_verify_merkle_path(
