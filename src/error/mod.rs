@@ -11,7 +11,7 @@ type StdError = Box<dyn std::error::Error>;
 
 /// Get a short description of an error's category.
 #[no_mangle]
-pub extern "C" fn category_name(category: u32) -> *const c_char {
+pub extern "C" fn zendoo_get_category_name(category: u32) -> *const c_char {
     // NOTE: Update this every time a new category constant is added
     let s: &[u8] = match category {
         GENERAL_ERROR => b"General\0",
@@ -82,7 +82,7 @@ pub fn set_last_error(err: StdError, category: u32) {
 /// responsibility to make sure they're no longer using the `Error` before
 /// calling any function which may set `LAST_ERROR`.
 #[no_mangle]
-pub unsafe extern "C" fn last_error() -> Error {
+pub unsafe extern "C" fn zendoo_get_last_error() -> Error {
     LAST_ERROR.with(|l| match l.borrow().as_ref() {
         Some(err) => Error {
             msg: err.c_string.as_ptr(),
@@ -94,6 +94,6 @@ pub unsafe extern "C" fn last_error() -> Error {
 
 /// Clear the `LAST_ERROR` variable.
 #[no_mangle]
-pub extern "C" fn clear_error() {
+pub extern "C" fn zendoo_clear_error() {
     LAST_ERROR.with(|l| l.borrow_mut().take());
 }

@@ -24,12 +24,12 @@ extern "C" {
     /*
      * Get a short description of an error's category.
      */
-    const char *category_name(uint32_t category);
+    const char *zendoo_get_category_name(uint32_t category);
 
     /*
      * Clear the `LAST_ERROR` variable.
      */
-    void clear_error(void);
+    void zendoo_clear_error(void);
 
     /*
      * Retrieve the most recent `Error` from the `LAST_ERROR` variable.
@@ -40,16 +40,16 @@ extern "C" {
      * responsibility to make sure they're no longer using the `Error` before
      * calling any function which may set `LAST_ERROR`.
      */
-    Error last_error(void);
+    Error zendoo_get_last_error(void);
+}
 
-    void print_error(const char *msg) {
-        Error err = last_error();
+void print_error(const char *msg) {
+    Error err = zendoo_get_last_error();
 
-        fprintf(stderr,
-                "%s: %s [%d - %s]\n",
-                msg,
-                err.msg,
-                err.category,
-                category_name(err.category));
-    }
+    fprintf(stderr,
+            "%s: %s [%d - %s]\n",
+            msg,
+            err.msg,
+            err.category,
+            zendoo_get_category_name(err.category));
 }
