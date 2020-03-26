@@ -24,6 +24,9 @@ use std::{
     path::Path, slice, ffi::OsStr, os::unix::ffi::OsStrExt, fs::File, ptr::null_mut,
 };
 
+pub mod error;
+use error::*;
+
 #[cfg(test)]
 pub mod tests;
 
@@ -55,8 +58,11 @@ type GingerMerkleTreePath = FieldBasedMerkleTreePath<ZendooMcFieldBasedMerkleTre
 /// Reads a raw Fr from a [u8; FR_SIZE].
 fn read_fr(from: &[u8; FR_SIZE]) -> Option<Fr> {
     match Fr::read(&from[..]) {
-        Ok(f) => Some(f),
-        Err(_) => None,
+        Ok(fe) => Some(fe),
+        Err(e) => {
+            set_last_error(Box::new(e), IO_ERROR);
+            None
+        }
     }
 }
 
@@ -98,10 +104,13 @@ fn read_points_from_slice(from: &[u8]) -> Option<Vec<G1Affine>>
             chunk.push(0u8);
         }
 
-        //Read Fr
+        //Read point
         match G1Affine::read(chunk.as_slice()) {
             Ok(p) => points.push(p),
-            Err(_) => return None,
+            Err(e) => {
+                set_last_error(Box::new(e), IO_ERROR);
+                return None
+            }
         };
     }
     Some(points)
@@ -143,7 +152,10 @@ pub extern "C" fn zendoo_verify_zkproof
     // Deserialize the proof
     let zkp = match Proof::<PairingCurve>::read(&(unsafe { &*zkp })[..]) {
         Ok(zkp) => zkp,
-        Err(_) => return false,
+        Err(e) => {
+            set_last_error(Box::new(e), IO_ERROR);
+            return false
+        }
     };
 
     //Load Vk
@@ -152,10 +164,12 @@ pub extern "C" fn zendoo_verify_zkproof
 
     // Verify the proof
     match verify_proof(&pvk, &zkp, &public_inputs) {
-        // No error, and proof verification successful
         Ok(true) => true,
-        // Any other case
-        _ => false,
+        Ok(false) => false,
+        Err(e) => {
+            set_last_error(Box::new(e), CRYPTO_ERROR);
+            false
+        }
     }
 }
 
@@ -178,7 +192,10 @@ pub extern "C" fn zendoo_compute_poseidon_hash(
     //Compute hash
     let hash = match FrHash::evaluate(fes.as_slice()) {
         Ok(hash) => hash,
-        Err(_) => return false,
+        Err(e) =>{
+            set_last_error(e, CRYPTO_ERROR);
+            return false
+        }
     };
 
     hash.write(&mut (unsafe { &mut *result })[..])
@@ -203,7 +220,10 @@ pub extern "C" fn zendoo_compute_keys_hash_commitment(
     //Compute hash
     let hash = match FrHash::evaluate(pks_x.as_slice()) {
         Ok(hash) => hash,
-        Err(_) => return false,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            return false
+        }
     };
 
     hash.write(&mut (unsafe { &mut *h_cm })[..])
@@ -229,7 +249,10 @@ pub extern "C" fn ginger_mt_new(
     //Generate tree and compute Merkle Root
     let gmt = match GingerMerkleTree::new(&leaves) {
         Ok(tree) => tree,
-        Err(_) => return null_mut(),
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            return null_mut()
+        }
     };
 
     Box::into_raw(Box::new(gmt))
@@ -267,7 +290,10 @@ pub extern "C" fn ginger_mt_get_merkle_path(
     //Compute Merkle Path
     let mp = match tree.generate_proof(leaf_index, &leaf) {
         Ok(path) => path,
-        Err(_) => return null_mut(),
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            return null_mut()
+        }
     };
 
     Box::into_raw(Box::new(mp))
@@ -298,7 +324,11 @@ pub extern "C" fn ginger_mt_verify_merkle_path(
     // Verify leaf belonging
     match path.verify(&root, &leaf) {
         Ok(true) => true,
-        _ => false,
+        Ok(false) => false,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            false
+        }
     }
 }
 

@@ -4,7 +4,7 @@ CARGO_BIN ?= $(shell which cargo)
 all: clean build
 	./bin_SampleCalls
 clean:
-	$(CARGO_BIN) clean
+	#$(CARGO_BIN) clean
 	rm -f ./bin_SampleCalls
 build:
 	$(CARGO_BIN) build #--release

@@ -33,7 +33,7 @@ extern "C" {
 
     ginger_mt_t* ginger_mt_new(
         const unsigned char* leaves,
-        size_t leaves_len,
+        size_t leaves_len
     );
 
     bool ginger_mt_get_root(
@@ -44,7 +44,7 @@ extern "C" {
     ginger_mt_path_t* ginger_mt_get_merkle_path(
         const unsigned char* leaf,
         size_t leaf_index,
-        const ginger_mt_t* tree,
+        const ginger_mt_t* tree
     );
 
     bool ginger_mt_verify_merkle_path(
