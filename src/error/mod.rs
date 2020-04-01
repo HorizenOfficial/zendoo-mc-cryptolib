@@ -4,10 +4,30 @@ use std::os::raw::c_char;
 use std::ptr;
 
 pub const GENERAL_ERROR: u32 = 0;
-pub const IO_ERROR: u32 = 1;
-pub const CRYPTO_ERROR: u32 = 2;
+pub const NULL_PTR_ERROR: u32 = 1;
+pub const IO_ERROR: u32 = 2;
+pub const CRYPTO_ERROR: u32 = 3;
 
 type StdError = Box<dyn std::error::Error>;
+
+/// Defining an error to return when dereferencing null pointers
+#[derive(Debug, Clone)]
+pub struct NullPointerError(pub String);
+
+use std::fmt::{Display, Formatter, Result};
+
+impl Display for NullPointerError {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for NullPointerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        // Generic error, underlying cause isn't tracked.
+        None
+    }
+}
 
 /// Get a short description of an error's category.
 #[no_mangle]
@@ -15,6 +35,7 @@ pub extern "C" fn zendoo_get_category_name(category: u32) -> *const c_char {
     // NOTE: Update this every time a new category constant is added
     let s: &[u8] = match category {
         GENERAL_ERROR => b"General\0",
+        NULL_PTR_ERROR => b"Attempt to dereference null pointer\0",
         IO_ERROR => b"Unable to read/write\0",
         CRYPTO_ERROR => b"Crypto error\0",
         _ => b"Unknown\0",
