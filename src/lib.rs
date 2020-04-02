@@ -45,8 +45,7 @@ const GROTH_PROOF_SIZE: usize = 2 * G1_SIZE + G2_SIZE;  // 771
 pub struct ZendooMcFieldBasedMerkleTreeParams;
 
 impl FieldBasedMerkleTreeConfig for ZendooMcFieldBasedMerkleTreeParams {
-    const HASH_LEAVES: bool = true;
-    const HEIGHT: usize = 32;
+    const HEIGHT: usize = 5;
     type H = FrHash;
 }
 
