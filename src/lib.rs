@@ -1,11 +1,8 @@
-use algebra::{
-    fields::mnt4753::Fr,
-    curves::{
-        mnt4753::MNT4 as PairingCurve,
-        mnt6753::G1Affine,
-    }, bytes::{FromBytes, ToBytes},
-    UniformRand,
-};
+use algebra::{fields::mnt4753::Fr, curves::{
+    mnt4753::MNT4 as PairingCurve,
+    mnt6753::{G1Affine, G1Projective},
+    ProjectiveCurve}, bytes::{FromBytes, ToBytes},
+    UniformRand};
 
 use primitives::{
     crh::{
@@ -26,7 +23,7 @@ use std::{
     path::Path, slice, ffi::OsStr, os::unix::ffi::OsStrExt, fs::File, ptr::null_mut,
     io::{
         Error as IoError, ErrorKind,
-    }
+    },
 };
 
 pub mod error;
@@ -131,7 +128,7 @@ pub extern "C" fn zendoo_deserialize_field(
     field_bytes:    *const [c_uchar; FR_SIZE]
 ) -> *mut Fr
 {
-    //Read leaf
+    //Read field
     let fe_bytes = unsafe { &*field_bytes };
     let fe = match Fr::read(&fe_bytes[..]) {
         Ok(fe) => fe,
@@ -140,7 +137,6 @@ pub extern "C" fn zendoo_deserialize_field(
             return null_mut()
         },
     };
-
     Box::into_raw(Box::new(fe))
 }
 
@@ -484,4 +480,33 @@ pub extern "C" fn zendoo_get_random_field() -> *mut Fr {
     let mut rng = OsRng::default();
     let random_f = Fr::rand(&mut rng);
     Box::into_raw(Box::new(random_f))
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_field_assert_eq(
+    field_1: *const Fr,
+    field_2: *const Fr,
+) -> bool
+{
+    let field_1 = unsafe {&* field_1};
+    let field_2 = unsafe {&* field_2};
+    field_1 == field_2
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_random_pk() -> *mut G1Affine {
+    let mut rng = OsRng::default();
+    let random_g = G1Projective::rand(&mut rng);
+    Box::into_raw(Box::new(random_g.into_affine()))
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_pk_assert_eq(
+    pk_1: *const G1Affine,
+    pk_2: *const G1Affine,
+) -> bool
+{
+    let pk_1 = unsafe {&* pk_1};
+    let pk_2 = unsafe {&* pk_2};
+    pk_1 == pk_2
 }
