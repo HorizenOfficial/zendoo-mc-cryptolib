@@ -86,18 +86,23 @@ fn read_double_raw_pointer<T: Copy>(input: *const *const T, input_len: usize, el
     Some(input)
 }
 
-fn read_from_buffer<T: FromBytes>(buffer: &[u8], buff_size: usize) -> Option<T> {
+fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8], buff_size: usize) -> *mut T {
     match T::read(buffer) {
-        Ok(t) => Some(t),
+        Ok(t) => Box::into_raw(Box::new(t)),
         Err(_) => {
             let e = IoError::new(ErrorKind::InvalidData, format!("should read {} bytes", buff_size));
             set_last_error(Box::new(e), IO_ERROR);
-            return None
+            return null_mut()
         }
     }
 }
 
-fn write_to_buffer<T: ToBytes>(to_write: &T, buffer: &mut [u8], buff_size: usize) -> bool {
+fn serialize_to_buffer<T: ToBytes>(to_write: *const T, buffer: &mut [u8], buff_size: usize, elem_type: &str) -> bool {
+    let to_write = match read_raw_pointer(to_write, elem_type) {
+        Some(to_write) => to_write,
+        None => return false,
+    };
+
     match to_write.write(buffer){
         Ok(_) => true,
         Err(_) => {
@@ -143,26 +148,13 @@ pub extern "C" fn zendoo_serialize_field(
     field_element: *const Fr,
     result:        *mut [c_uchar; FR_SIZE]
 ) -> bool
-{
-    let fe = match read_raw_pointer(field_element, "field_element") {
-        Some(fe) => fe,
-        None => return false,
-    };
-    write_to_buffer(fe, &mut (unsafe { &mut *result })[..], FR_SIZE)
-}
+{ serialize_to_buffer(field_element, &mut (unsafe { &mut *result })[..], FR_SIZE, "field element") }
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_field(
     field_bytes:    *const [c_uchar; FR_SIZE]
 ) -> *mut Fr
-{
-    //Read field
-    let fe = match read_from_buffer(&(unsafe { &*field_bytes })[..], FR_SIZE) {
-        Some(fe) => fe,
-        None => return null_mut(),
-    };
-    Box::into_raw(Box::new(fe))
-}
+{ deserialize_from_buffer(&(unsafe { &*field_bytes })[..], FR_SIZE) }
 
 #[no_mangle]
 pub extern "C" fn zendoo_field_free(field: *mut Fr)
@@ -180,27 +172,13 @@ pub extern "C" fn zendoo_serialize_pk(
     pk:            *const G1Affine,
     result:        *mut [c_uchar; G1_SIZE]
 ) -> bool
-{
-    let pk = match read_raw_pointer(pk, "pk") {
-        Some(pk) => pk,
-        None => return false
-    };
-    write_to_buffer(pk, &mut (unsafe { &mut *result })[..], G1_SIZE)
-}
+{ serialize_to_buffer(pk, &mut (unsafe { &mut *result })[..], G1_SIZE, "pk") }
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_pk(
     pk_bytes:    *const [c_uchar; G1_SIZE]
 ) -> *mut G1Affine
-{
-    //Read pk
-    let pk = match read_from_buffer(&(unsafe { &*pk_bytes })[..], G1_SIZE) {
-        Some(pk) => pk,
-        None => return null_mut(),
-    };
-
-    Box::into_raw(Box::new(pk))
-}
+{ deserialize_from_buffer(&(unsafe { &*pk_bytes })[..], G1_SIZE) }
 
 #[no_mangle]
 pub extern "C" fn zendoo_pk_free(pk: *mut G1Affine)
@@ -218,28 +196,13 @@ pub extern "C" fn get_ginger_zk_proof_size() -> c_uint { GROTH_PROOF_SIZE as u32
 pub extern "C" fn serialize_ginger_zk_proof(
     zk_proof:       *const GingerProof,
     zk_proof_bytes: *mut [c_uchar; GROTH_PROOF_SIZE]
-) -> bool {
-
-    let zk_proof = match read_raw_pointer(zk_proof, "zk_proof"){
-        Some(zkp) => zkp,
-        None => return false
-    };
-    write_to_buffer(zk_proof, &mut (unsafe { &mut *zk_proof_bytes })[..], GROTH_PROOF_SIZE)
-}
+) -> bool { serialize_to_buffer(zk_proof, &mut (unsafe { &mut *zk_proof_bytes })[..], GROTH_PROOF_SIZE, "zk proof") }
 
 #[no_mangle]
 pub extern "C" fn deserialize_ginger_zk_proof(
     zk_proof_bytes: *const [c_uchar; GROTH_PROOF_SIZE]
 ) -> *mut GingerProof
-{
-    //Deserialize the proof
-    let zkp = match read_from_buffer(&(unsafe { &*zk_proof_bytes })[..], GROTH_PROOF_SIZE) {
-        Some(zkp) => zkp,
-        None => return null_mut(),
-    };
-
-    Box::into_raw(Box::new(zkp))
-}
+{ deserialize_from_buffer(&(unsafe { &*zk_proof_bytes })[..], GROTH_PROOF_SIZE) }
 
 #[no_mangle]
 pub extern "C" fn verify_ginger_zk_proof
