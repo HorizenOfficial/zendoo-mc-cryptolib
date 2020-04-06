@@ -13,7 +13,7 @@ use primitives::{
     },
 };
 
-use proof_systems::groth16::{Proof, verifier::verify_proof, prepare_verifying_key, VerifyingKey};
+use proof_systems::groth16::{Proof, verifier::verify_proof, prepare_verifying_key};
 
 use rand::rngs::OsRng;
 use libc::{
@@ -56,11 +56,19 @@ type GingerProof = Proof<PairingCurve>;
 
 // ***********UTILITY FUNCTIONS*************
 
-fn read_double_raw_pointer<T: Copy>(input: *const *const T, input_len: usize) -> Option<Vec<T>> {
+fn read_raw_pointer<T>(input: *const T, elem_type: &str) -> Option<&T> {
+    if input.is_null(){
+        set_last_error(Box::new(NullPointerError(format!("Null {}", elem_type))), NULL_PTR_ERROR);
+        return None
+    }
+    Some(unsafe{ &* input })
+}
+
+fn read_double_raw_pointer<T: Copy>(input: *const *const T, input_len: usize, elem_type: &str) -> Option<Vec<T>> {
 
     //Read *const T from *const *const T
     if input.is_null() {
-        set_last_error(Box::new(NullPointerError(format!("Input ptr is null"))), NULL_PTR_ERROR);
+        set_last_error(Box::new(NullPointerError(format!("Ptr to {}s is null", elem_type))), NULL_PTR_ERROR);
         return None
     }
     let input_raw = unsafe { slice::from_raw_parts(input, input_len) };
@@ -69,7 +77,7 @@ fn read_double_raw_pointer<T: Copy>(input: *const *const T, input_len: usize) ->
     let mut input = vec![];
     for (i, &ptr) in input_raw.iter().enumerate() {
         if ptr.is_null() {
-            set_last_error(Box::new(NullPointerError(format!("Input {} is null", i))), NULL_PTR_ERROR);
+            set_last_error(Box::new(NullPointerError(format!("{} {} is null", elem_type, i))), NULL_PTR_ERROR);
             return None
         }
         input.push(unsafe{ *ptr });
@@ -78,22 +86,51 @@ fn read_double_raw_pointer<T: Copy>(input: *const *const T, input_len: usize) ->
     Some(input)
 }
 
-fn read_vk(vk_path: *const u8, vk_path_len: usize) -> Result<VerifyingKey<PairingCurve>, IoError>
-{
-    // Read vk path
-    let vk_path = Path::new(OsStr::from_bytes(unsafe {
-        slice::from_raw_parts(vk_path, vk_path_len)
+fn read_from_buffer<T: FromBytes>(buffer: &[u8], buff_size: usize) -> Option<T> {
+    match T::read(buffer) {
+        Ok(t) => Some(t),
+        Err(_) => {
+            let e = IoError::new(ErrorKind::InvalidData, format!("should read {} bytes", buff_size));
+            set_last_error(Box::new(e), IO_ERROR);
+            return None
+        }
+    }
+}
+
+fn write_to_buffer<T: ToBytes>(to_write: &T, buffer: &mut [u8], buff_size: usize) -> bool {
+    match to_write.write(buffer){
+        Ok(_) => true,
+        Err(_) => {
+            let e = IoError::new(ErrorKind::InvalidData, format!("should write {} bytes", buff_size));
+            set_last_error(Box::new(e), IO_ERROR);
+            false
+        }
+    }
+}
+
+fn read_from_file<T: FromBytes>(file_path: *const u8, file_path_len: usize, struct_type: &str) -> Option<T>{
+    // Read file path
+    let file_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(file_path, file_path_len)
     }));
 
-    // Load vk from file
-    let mut vk_fs = match File::open(vk_path) {
-        Ok(vk_file) => vk_file,
-        Err(_) => return Err(IoError::new(ErrorKind::NotFound, "unable to load vk file"))
+    // Load struct from file
+    let mut fs = match File::open(file_path) {
+        Ok(file) => file,
+        Err(_) => {
+            let e = IoError::new(ErrorKind::NotFound, format!("unable to load {} file", struct_type));
+            set_last_error(Box::new(e), IO_ERROR);
+            return None
+        }
     };
 
-    match VerifyingKey::<PairingCurve>::read(&mut vk_fs) {
-        Ok(vk) => Ok(vk),
-        Err(_) => Err(IoError::new(ErrorKind::InvalidData, "unable to deserialize vk from file"))
+    match T::read(&mut fs) {
+        Ok(t) => Some(t),
+        Err(_) => {
+            let e = IoError::new(ErrorKind::InvalidData, format!("unable to deserialize {} from file", struct_type));
+            set_last_error(Box::new(e), IO_ERROR);
+            None
+        }
     }
 }
 
@@ -107,19 +144,11 @@ pub extern "C" fn zendoo_serialize_field(
     result:        *mut [c_uchar; FR_SIZE]
 ) -> bool
 {
-    if field_element.is_null() {
-        set_last_error(Box::new(NullPointerError(format!("Null field element"))), NULL_PTR_ERROR);
-        return false
-    }
-    let fe = unsafe { &*field_element };
-    match fe.write(&mut (unsafe { &mut *result })[..]) {
-        Err(_) => {
-            let err = IoError::new(ErrorKind::InvalidData, format!("result should be {} bytes", FR_SIZE));
-            set_last_error(Box::new(err), IO_ERROR);
-            false
-        }
-        Ok(_) => true
-    }
+    let fe = match read_raw_pointer(field_element, "field_element") {
+        Some(fe) => fe,
+        None => return false,
+    };
+    write_to_buffer(fe, &mut (unsafe { &mut *result })[..], FR_SIZE)
 }
 
 #[no_mangle]
@@ -128,13 +157,9 @@ pub extern "C" fn zendoo_deserialize_field(
 ) -> *mut Fr
 {
     //Read field
-    let fe_bytes = unsafe { &*field_bytes };
-    let fe = match Fr::read(&fe_bytes[..]) {
-        Ok(fe) => fe,
-        Err(e) => {
-            set_last_error(Box::new(e), IO_ERROR);
-            return null_mut()
-        },
+    let fe = match read_from_buffer(&(unsafe { &*field_bytes })[..], FR_SIZE) {
+        Some(fe) => fe,
+        None => return null_mut(),
     };
     Box::into_raw(Box::new(fe))
 }
@@ -156,19 +181,11 @@ pub extern "C" fn zendoo_serialize_pk(
     result:        *mut [c_uchar; G1_SIZE]
 ) -> bool
 {
-    if pk.is_null() {
-        set_last_error(Box::new(NullPointerError(format!("Null pk"))), NULL_PTR_ERROR);
-        return false
-    }
-    let pk = unsafe { &*pk };
-    match pk.write(&mut (unsafe { &mut *result })[..]) {
-        Err(_) => {
-            let err = IoError::new(ErrorKind::InvalidData, format!("result should be {} bytes", G1_SIZE));
-            set_last_error(Box::new(err), IO_ERROR);
-            false
-        }
-        Ok(_) => true
-    }
+    let pk = match read_raw_pointer(pk, "pk") {
+        Some(pk) => pk,
+        None => return false
+    };
+    write_to_buffer(pk, &mut (unsafe { &mut *result })[..], G1_SIZE)
 }
 
 #[no_mangle]
@@ -177,13 +194,9 @@ pub extern "C" fn zendoo_deserialize_pk(
 ) -> *mut G1Affine
 {
     //Read pk
-    let pk_bytes = unsafe{&* pk_bytes};
-    let pk = match G1Affine::read(&pk_bytes[..]) {
-        Ok(fe) => fe,
-        Err(e) => {
-            set_last_error(Box::new(e), IO_ERROR);
-            return null_mut()
-        },
+    let pk = match read_from_buffer(&(unsafe { &*pk_bytes })[..], G1_SIZE) {
+        Some(pk) => pk,
+        None => return null_mut(),
     };
 
     Box::into_raw(Box::new(pk))
@@ -207,19 +220,11 @@ pub extern "C" fn serialize_ginger_zk_proof(
     zk_proof_bytes: *mut [c_uchar; GROTH_PROOF_SIZE]
 ) -> bool {
 
-    if zk_proof.is_null() {
-        set_last_error(Box::new(NullPointerError(format!("Null zk proof"))), NULL_PTR_ERROR);
-        return false
-    }
-    let zk_proof = unsafe {&* zk_proof};
-    match zk_proof.write(&mut (unsafe { &mut *zk_proof_bytes })[..]) {
-        Err(_) => {
-            let err = IoError::new(ErrorKind::InvalidData, format!("result should be {} bytes", GROTH_PROOF_SIZE));
-            set_last_error(Box::new(err), IO_ERROR);
-            false
-        }
-        Ok(_) => true
-    }
+    let zk_proof = match read_raw_pointer(zk_proof, "zk_proof"){
+        Some(zkp) => zkp,
+        None => return false
+    };
+    write_to_buffer(zk_proof, &mut (unsafe { &mut *zk_proof_bytes })[..], GROTH_PROOF_SIZE)
 }
 
 #[no_mangle]
@@ -228,12 +233,9 @@ pub extern "C" fn deserialize_ginger_zk_proof(
 ) -> *mut GingerProof
 {
     //Deserialize the proof
-    let zkp = match GingerProof::read(&(unsafe { &*zk_proof_bytes })[..]) {
-        Ok(zkp) => zkp,
-        Err(e) => {
-            set_last_error(Box::new(e), IO_ERROR);
-            return null_mut()
-        },
+    let zkp = match read_from_buffer(&(unsafe { &*zk_proof_bytes })[..], GROTH_PROOF_SIZE) {
+        Some(zkp) => zkp,
+        None => return null_mut(),
     };
 
     Box::into_raw(Box::new(zkp))
@@ -250,31 +252,28 @@ pub extern "C" fn verify_ginger_zk_proof
 ) -> bool
 {
     //Read public inputs
-    let public_inputs = match read_double_raw_pointer(public_inputs, public_inputs_len) {
+    let public_inputs = match read_double_raw_pointer(public_inputs, public_inputs_len, "public input") {
         Some(public_inputs) => public_inputs,
         None => return false,
     };
 
     // Deserialize the proof
-    let zkp = unsafe {&* zkp};
+    let zkp = match read_raw_pointer(zkp, "zk_proof"){
+        Some(zkp) => zkp,
+        None => return false
+    };
 
     //Load Vk
-    let vk = match read_vk(vk_path, vk_path_len){
-        Ok(vk) => vk,
-        Err(e) => {
-            set_last_error(Box::new(e), IO_ERROR);
-            return false;
-        }
+    let vk = match read_from_file(vk_path, vk_path_len, "vk"){
+        Some(vk) => vk,
+        None => return false
     };
 
     let pvk = prepare_verifying_key(&vk);
 
     // Verify the proof
     match verify_proof(&pvk, &zkp, &public_inputs) {
-        // No error, and proof verification successful
-        Ok(true) => true,
-        // Any other case
-        Ok(false) => false,
+        Ok(result) => result,
         Err(e) => {
             set_last_error(Box::new(e), CRYPTO_ERROR);
             false
@@ -298,7 +297,7 @@ pub extern "C" fn zendoo_compute_poseidon_hash(
 ) -> *mut Fr
 {
     //Read message
-    let message = match read_double_raw_pointer(input, input_len) {
+    let message = match read_double_raw_pointer(input, input_len, "field element") {
         Some(message) => message,
         None => return null_mut()
     };
@@ -325,7 +324,7 @@ pub extern "C" fn zendoo_compute_keys_hash_commitment(
 {
 
     //Read pks
-    let pks_x = match read_double_raw_pointer(pks, pks_len) {
+    let pks_x = match read_double_raw_pointer(pks, pks_len, "pk") {
         Some(pks) => pks.iter().map(|&pk| pk.x).collect::<Vec<_>>(),
         None => return null_mut()
     };
@@ -351,7 +350,7 @@ pub extern "C" fn ginger_mt_new(
 ) -> *mut GingerMerkleTree
 {
     //Read leaves
-    let leaves = match read_double_raw_pointer(leaves, leaves_len) {
+    let leaves = match read_double_raw_pointer(leaves, leaves_len, "field element") {
         Some(leaves) => leaves,
         None => return null_mut()
     };
@@ -373,12 +372,11 @@ pub extern "C" fn ginger_mt_get_root(
     tree:   *const GingerMerkleTree,
 ) -> *mut Fr
 {
-    if tree.is_null() {
-        let err = NullPointerError(format!("Null tree"));
-        set_last_error(Box::new(err), NULL_PTR_ERROR);
-        return null_mut()
-    }
-    let root = unsafe { &*tree }.root();
+    let tree = match read_raw_pointer(tree, "tree"){
+        Some(tree) => tree,
+        None => return null_mut()
+    };
+    let root = tree.root();
     Box::into_raw(Box::new(root))
 }
 
@@ -390,20 +388,16 @@ pub extern "C" fn ginger_mt_get_merkle_path(
 ) -> *mut GingerMerkleTreePath
 {
     //Read tree
-    if tree.is_null() {
-        let err = NullPointerError(format!("Null tree"));
-        set_last_error(Box::new(err), NULL_PTR_ERROR);
-        return null_mut()
-    }
-    let tree = unsafe { &*tree };
+    let tree = match read_raw_pointer(tree, "tree"){
+        Some(tree) => tree,
+        None => return null_mut()
+    };
 
     //Read leaf
-    if leaf.is_null(){
-        let err = NullPointerError(format!("Null leaf"));
-        set_last_error(Box::new(err), NULL_PTR_ERROR);
-        return null_mut()
-    }
-    let leaf = unsafe{ &*leaf };
+    let leaf = match read_raw_pointer(leaf, "leaf"){
+        Some(leaf) => leaf,
+        None => return null_mut()
+    };
 
     //Compute Merkle Path
     let mp = match tree.generate_proof(leaf_index, leaf) {
@@ -426,28 +420,22 @@ pub extern "C" fn ginger_mt_verify_merkle_path(
 {
 
     //Read path
-    if path.is_null() {
-        let err = NullPointerError(format!("Null path"));
-        set_last_error(Box::new(err), NULL_PTR_ERROR);
-        return false
-    }
-    let path = unsafe { &*path };
+    let path = match read_raw_pointer(path, "path"){
+        Some(path) => path,
+        None => return false
+    };
 
     //Read leaf
-    if leaf.is_null(){
-        let err = NullPointerError(format!("Null leaf"));
-        set_last_error(Box::new(err), NULL_PTR_ERROR);
-        return false
-    }
-    let leaf = unsafe{ &*leaf };
+    let leaf = match read_raw_pointer(leaf, "leaf"){
+        Some(leaf) => leaf,
+        None => return false
+    };
 
     //Read root
-    if merkle_root.is_null(){
-        let err = NullPointerError(format!("Null merkle root"));
-        set_last_error(Box::new(err), NULL_PTR_ERROR);
-        return false
-    }
-    let root = unsafe{ &*merkle_root };
+    let root = match read_raw_pointer(merkle_root, "root"){
+        Some(root) => root,
+        None => return false
+    };
 
     // Verify leaf belonging
     match path.verify(root, leaf) {
@@ -474,9 +462,15 @@ pub extern "C" fn ginger_mt_path_free(path: *mut GingerMerkleTreePath) {
 
 //***************Test functions*******************
 
+fn check_equal<T: Eq>(val_1: *const T, val_2: *const T) -> bool{
+    let val_1 = unsafe{ &* val_1 };
+    let val_2 = unsafe{ &* val_2 };
+    val_1 == val_2
+}
+
 #[no_mangle]
 pub extern "C" fn zendoo_get_random_field() -> *mut Fr {
-    let mut rng = OsRng::default();
+    let mut rng = OsRng;
     let random_f = Fr::rand(&mut rng);
     Box::into_raw(Box::new(random_f))
 }
@@ -485,16 +479,11 @@ pub extern "C" fn zendoo_get_random_field() -> *mut Fr {
 pub extern "C" fn zendoo_field_assert_eq(
     field_1: *const Fr,
     field_2: *const Fr,
-) -> bool
-{
-    let field_1 = unsafe {&* field_1};
-    let field_2 = unsafe {&* field_2};
-    field_1 == field_2
-}
+) -> bool { check_equal(field_1, field_2 )}
 
 #[no_mangle]
 pub extern "C" fn zendoo_get_random_pk() -> *mut G1Affine {
-    let mut rng = OsRng::default();
+    let mut rng = OsRng;
     let random_g = G1Projective::rand(&mut rng);
     Box::into_raw(Box::new(random_g.into_affine()))
 }
@@ -503,9 +492,4 @@ pub extern "C" fn zendoo_get_random_pk() -> *mut G1Affine {
 pub extern "C" fn zendoo_pk_assert_eq(
     pk_1: *const G1Affine,
     pk_2: *const G1Affine,
-) -> bool
-{
-    let pk_1 = unsafe {&* pk_1};
-    let pk_2 = unsafe {&* pk_2};
-    pk_1 == pk_2
-}
+) -> bool { check_equal(pk_1, pk_2) }

@@ -41,7 +41,7 @@ extern "C" {
     //Get an opaque pointer to a pk built from its byte serialization
     pk_t* zendoo_deserialize_pk(const unsigned char* pk_bytes);
 
-    //Free memory from allocated field_t
+    //Free memory from allocated pk
     void zendoo_pk_free(pk_t* pk);
 
 //SNARK related functions

@@ -19,13 +19,13 @@ void field_test() {
     //Serialize and deserialize and check equality
     unsigned char field_bytes[96];
     if (!zendoo_serialize_field(field, field_bytes)){
-        print_error("error:");
+        print_error("error");
         return;
     }
 
     auto field_deserialized = zendoo_deserialize_field(field_bytes);
     if (field_deserialized == NULL) {
-        print_error("error: ");
+        print_error("error");
         return;
     }
 
@@ -53,13 +53,13 @@ void pk_test() {
     //Serialize and deserialize and check equality
     unsigned char pk_bytes[pk_len];
     if (!zendoo_serialize_pk(pk, pk_bytes)){
-        print_error("error:");
+        print_error("error");
         return;
     }
 
     auto pk_deserialized = zendoo_deserialize_pk(pk_bytes);
     if (pk_deserialized == NULL) {
-        print_error("error: ");
+        print_error("error");
         return;
     }
 
@@ -98,18 +98,18 @@ void hash_test() {
 
     auto lhs_field = zendoo_deserialize_field(lhs);
     if (lhs_field == NULL) {
-        print_error("error: ");
+        print_error("error");
         return;
     }
     auto rhs_field = zendoo_deserialize_field(rhs);
     if (rhs_field == NULL) {
-        print_error("error: ");
+        print_error("error");
         return;
     }
 
     auto expected_hash = zendoo_deserialize_field(hash);
     if (expected_hash == NULL) {
-        print_error("error: ");
+        print_error("error");
         return;
     }
 
@@ -117,7 +117,7 @@ void hash_test() {
 
     auto actual_hash = zendoo_compute_poseidon_hash(hash_input, 2);
     if (actual_hash == NULL) {
-        print_error("error: ");
+        print_error("error");
         return;
     }
 
@@ -146,7 +146,7 @@ void merkle_test() {
     //Create Merkle Tree and get the root
     auto tree = ginger_mt_new(leaves, leaves_len);
     if(tree == NULL){
-        print_error("error: ");
+        print_error("error");
         return;
     }
     auto root = ginger_mt_get_root(tree);
@@ -157,13 +157,13 @@ void merkle_test() {
         //Create Merkle Path for the i-th leaf
         auto path = ginger_mt_get_merkle_path(leaves[i], i, tree);
         if(path == NULL){
-            print_error("error: ");
+            print_error("error");
             return;
         }
 
         //Verify Merkle Path for the i-th leaf
         if(!ginger_mt_verify_merkle_path(leaves[i], root, path)){
-            print_error("error: ");
+            print_error("error");
             return;
         }
 
@@ -201,7 +201,7 @@ void proof_test() {
     //Deserialize proof
     auto proof = deserialize_ginger_zk_proof((unsigned char *)proof_bytes);
     if(proof == NULL){
-        print_error("error: ");
+        print_error("error");
         return;
     }
 
@@ -227,7 +227,7 @@ void proof_test() {
     //Verify zkproof
     auto path = (uint8_t*)"../test_files/vk";
     if(!verify_ginger_zk_proof(path, 16, proof, public_inputs, inputs_len)){
-        print_error("error: ");
+        print_error("error");
         return;
     }
 
