@@ -234,6 +234,9 @@ pub extern "C" fn verify_ginger_zk_proof
 
     let pvk = prepare_verifying_key(&vk);
 
+    //After computing pvk, vk is not needed anymore
+    drop(vk);
+
     // Verify the proof
     match verify_proof(&pvk, &zkp, &public_inputs) {
         Ok(result) => result,

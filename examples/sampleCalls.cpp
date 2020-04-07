@@ -17,7 +17,7 @@ void field_test() {
     auto field = zendoo_get_random_field();
 
     //Serialize and deserialize and check equality
-    unsigned char field_bytes[96];
+    unsigned char field_bytes[field_len];
     if (!zendoo_serialize_field(field, field_bytes)){
         print_error("error");
         return;
@@ -135,7 +135,6 @@ void hash_test() {
 }
 
 void merkle_test() {
-
     //Generate random leaves
     int leaves_len = 16;
     const field_t* leaves[leaves_len];
@@ -149,6 +148,7 @@ void merkle_test() {
         print_error("error");
         return;
     }
+
     auto root = ginger_mt_get_root(tree);
 
     //Verify Merkle Path is ok for each leaf
@@ -186,7 +186,6 @@ void merkle_test() {
 }
 
 void proof_test() {
-
     //Deserialize zero knowledge proof
 
     //Read proof from file
@@ -194,7 +193,7 @@ void proof_test() {
     is.seekg (0, is.end);
     int length = is.tellg();
     is.seekg (0, is.beg);
-    char * proof_bytes = new char [length];
+    char* proof_bytes = new char [length];
     is.read(proof_bytes,length);
     is.close();
 
@@ -205,6 +204,8 @@ void proof_test() {
         return;
     }
 
+    delete[] proof_bytes;
+
     //Deserialize public inputs
 
     //Read public inputs
@@ -212,7 +213,7 @@ void proof_test() {
     is1.seekg (0, is1.end);
     int length1 = is1.tellg();
     is1.seekg (0, is1.beg);
-    char * input_bytes = new char [length];
+    char* input_bytes = new char [length];
     is1.read(input_bytes,length1);
     is1.close();
 
@@ -224,9 +225,10 @@ void proof_test() {
         public_inputs[i] = zendoo_deserialize_field(&((unsigned char*)input_bytes)[field_size * i]);
     }
 
+    delete[] input_bytes;
+
     //Verify zkproof
-    auto path = (uint8_t*)"../test_files/vk";
-    if(!verify_ginger_zk_proof(path, 16, proof, public_inputs, inputs_len)){
+    if(!verify_ginger_zk_proof((uint8_t*)"../test_files/vk", 16, proof, public_inputs, inputs_len)){
         print_error("error");
         return;
     }
