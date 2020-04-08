@@ -233,13 +233,28 @@ void proof_test() {
         return;
     }
 
-    //Free proof
-    ginger_zk_proof_free(proof);
+    //Free public inputs
+    for (int i = 0; i < inputs_len; i++){
+        zendoo_field_free((field_t*)public_inputs[i]);
+    }
+
+    //Negative test: change public inputs and assert proof failure
+    for(int i = 0; i < inputs_len; i ++){
+        public_inputs[i] = zendoo_get_random_field();
+    }
+
+    if(verify_ginger_zk_proof((uint8_t*)"../test_files/vk", 16, proof, public_inputs, inputs_len)){
+        std::cout << "Proof verification should fail" << std::endl;
+        return;
+    }
 
     //Free public inputs
     for (int i = 0; i < inputs_len; i++){
         zendoo_field_free((field_t*)public_inputs[i]);
     }
+
+    //Free proof
+    ginger_zk_proof_free(proof);
 
     std::cout<< "Zk proof test...ok" << std::endl;
 }
