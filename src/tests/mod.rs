@@ -15,7 +15,12 @@ use primitives::
 use proof_systems::groth16::Proof;
 use rand::rngs::OsRng;
 
-use crate::{zendoo_deserialize_field, zendoo_deserialize_pk, deserialize_ginger_zk_proof, verify_ginger_zk_proof, zendoo_compute_keys_hash_commitment, ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path, GingerMerkleTree, ginger_zk_proof_free, zendoo_field_free, zendoo_pk_free, ginger_mt_free, ginger_mt_path_free};
+use crate::{zendoo_deserialize_field, zendoo_deserialize_pk, deserialize_ginger_zk_proof,
+            verify_ginger_zk_proof, zendoo_compute_keys_hash_commitment, ginger_mt_new,
+            ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path,
+            GingerMerkleTree, ginger_zk_proof_free, zendoo_field_free, zendoo_pk_free,
+            ginger_mt_free, ginger_mt_path_free
+};
 
 use std::fs::File;
 

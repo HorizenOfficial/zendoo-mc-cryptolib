@@ -29,15 +29,6 @@ extern "C" {
 
     typedef struct pk pk_t;
 
-    //Get the byte size of pk
-    size_t zendoo_get_pk_size_in_bytes(void);
-
-    //Serialize a pk into pk_bytes given an opaque pointer to it
-    bool zendoo_serialize_pk(
-        const pk_t*    pk,
-        unsigned char* pk_bytes
-    );
-
     //Get an opaque pointer to a pk built from its byte serialization
     pk_t* zendoo_deserialize_pk(const unsigned char* pk_bytes);
 
@@ -125,8 +116,6 @@ extern "C" {
         const field_t* field_1,
         const field_t* field_2
     );
-
-    pk_t* zendoo_get_random_pk(void);
 
     bool zendoo_pk_assert_eq(
         const pk_t* pk_1,

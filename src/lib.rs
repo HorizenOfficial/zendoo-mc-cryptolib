@@ -1,8 +1,12 @@
-use algebra::{fields::mnt4753::Fr, curves::{
-    mnt4753::MNT4 as PairingCurve,
-    mnt6753::{G1Affine, G1Projective},
-    ProjectiveCurve}, bytes::{FromBytes, ToBytes},
-    UniformRand};
+use algebra::{
+    fields::mnt4753::Fr,
+    curves::{
+        mnt4753::MNT4 as PairingCurve,
+        mnt6753::G1Affine
+    },
+    bytes::{FromBytes, ToBytes},
+    UniformRand
+};
 
 use primitives::{
     crh::{
@@ -164,15 +168,6 @@ pub extern "C" fn zendoo_field_free(field: *mut Fr)
 }
 
 //***********Pk functions****************
-#[no_mangle]
-pub extern "C" fn zendoo_get_pk_size_in_bytes() -> c_uint { G1_SIZE as u32 }
-
-#[no_mangle]
-pub extern "C" fn zendoo_serialize_pk(
-    pk:            *const G1Affine,
-    result:        *mut [c_uchar; G1_SIZE]
-) -> bool
-{ serialize_to_buffer(pk, &mut (unsafe { &mut *result })[..], G1_SIZE, "pk") }
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_pk(
@@ -446,13 +441,6 @@ pub extern "C" fn zendoo_field_assert_eq(
     field_1: *const Fr,
     field_2: *const Fr,
 ) -> bool { check_equal(field_1, field_2 )}
-
-#[no_mangle]
-pub extern "C" fn zendoo_get_random_pk() -> *mut G1Affine {
-    let mut rng = OsRng;
-    let random_g = G1Projective::rand(&mut rng);
-    Box::into_raw(Box::new(random_g.into_affine()))
-}
 
 #[no_mangle]
 pub extern "C" fn zendoo_pk_assert_eq(

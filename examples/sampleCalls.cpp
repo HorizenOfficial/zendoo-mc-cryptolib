@@ -41,21 +41,18 @@ void field_test() {
 }
 
 void pk_test() {
-    //Size is the expected one
-    int pk_len = zendoo_get_pk_size_in_bytes();
-    if(pk_len != 193) {
-        std::cout << "Unexpected size" << std::endl;
-        return;
-    }
 
-    auto pk = zendoo_get_random_pk();
-
-    //Serialize and deserialize and check equality
-    unsigned char pk_bytes[pk_len];
-    if (!zendoo_serialize_pk(pk, pk_bytes)){
-        print_error("error");
-        return;
-    }
+    //Check correct pk deserialization
+    unsigned char pk_bytes[193] = {
+        74, 157, 68, 149, 157, 108, 203, 45, 83, 153, 115, 12, 34, 48, 43, 61, 94, 145, 101, 119, 126, 110, 124, 242,
+        146, 110, 105, 255, 6, 84, 112, 14, 151, 71, 244, 69, 4, 105, 90, 177, 134, 207, 197, 255, 138, 60, 101, 73,
+        234, 224, 240, 217, 197, 37, 107, 119, 31, 50, 14, 52, 62, 240, 202, 178, 193, 11, 210, 185, 68, 64, 232, 105,
+        153, 170, 17, 97, 33, 49, 140, 35, 123, 226, 8, 45, 179, 59, 244, 50, 225, 214, 98, 245, 6, 139, 1, 0, 185,
+        167, 86, 108, 161, 68, 81, 255, 11, 135, 66, 229, 173, 0, 121, 21, 180, 177, 100, 125, 62, 30, 78, 15, 233, 45,
+        166, 115, 129, 18, 10, 250, 148, 0, 169, 45, 186, 194, 127, 113, 86, 46, 213, 103, 137, 210, 56, 176, 78, 224,
+        163, 186, 100, 77, 237, 226, 90, 61, 129, 191, 243, 44, 218, 189, 9, 83, 44, 79, 246, 156, 121, 111, 250, 217,
+        183, 94, 76, 163, 117, 205, 84, 240, 138, 20, 163, 248, 87, 139, 65, 220, 176, 152, 223, 143, 1, 0, 0
+    };
 
     auto pk_deserialized = zendoo_deserialize_pk(pk_bytes);
     if (pk_deserialized == NULL) {
@@ -63,12 +60,33 @@ void pk_test() {
         return;
     }
 
-    if (!zendoo_pk_assert_eq(pk, pk_deserialized)) {
-        std::cout << "Unexpected deserialized pk" << std::endl;
+    //Check pk hash commitment consistency
+    auto hash_commitment = zendoo_compute_keys_hash_commitment((const pk_t**)&pk_deserialized, 1);
+    if(hash_commitment == NULL){
+        print_error("error");
         return;
-    };
+    }
 
-    zendoo_pk_free(pk);
+    auto pk_x = zendoo_deserialize_field(&((unsigned char*)pk_bytes)[0]);
+    if (pk_x == NULL) {
+        print_error("error");
+        return;
+    }
+
+    auto hash_pk_x = zendoo_compute_poseidon_hash((const field_t**)&pk_x, 1);
+    if (hash_pk_x == NULL){
+        print_error("error");
+        return;
+    }
+
+    if(!zendoo_field_assert_eq(hash_commitment, hash_pk_x)) {
+        std::cout << "Expected hash_commitment and hash_pk_x to be equal" << std::endl;
+        return;
+    }
+
+    zendoo_field_free(hash_commitment);
+    zendoo_field_free(pk_x);
+    zendoo_field_free(hash_pk_x);
     zendoo_pk_free(pk_deserialized);
 
     std::cout<< "Pk test...ok" << std::endl;
