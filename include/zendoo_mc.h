@@ -6,8 +6,13 @@
 
 extern "C" {
 
-//Field related functions
+#ifdef WIN32
+    typedef uint16_t codeunit;
+#else
+    typedef uint8_t codeunit;
+#endif
 
+//Field related functions
     typedef struct field field_t;
 
     //Get the byte size of a generic field_element
@@ -34,6 +39,15 @@ extern "C" {
 
     typedef struct sc_proof sc_proof_t;
 
+    typedef struct sc_vk sc_vk_t;
+
+    sc_vk_t* zendoo_deserialize_sc_vk_from_file(
+        const codeunit* vk_path,
+        size_t vk_path_len
+    );
+
+    void zendoo_sc_vk_free(sc_vk_t* sc_vk);
+
     //Get the byte size of a sc zk proof
     size_t zendoo_get_sc_proof_size(void);
 
@@ -45,8 +59,7 @@ extern "C" {
         uint64_t quality,
         const field_t* constant,
         const sc_proof_t* sc_proof,
-        const uint8_t* vk_path,
-        size_t vk_path_len
+        const sc_vk_t* sc_vk
     );
 
     //Serialize a sc zk proof into sc_proof_bytes given an opaque pointer to it

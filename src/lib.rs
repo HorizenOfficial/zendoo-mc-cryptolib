@@ -4,11 +4,21 @@ use libc::{
     c_uint, c_uchar
 };
 use std::{
-    path::Path, slice, ffi::OsStr, os::unix::ffi::OsStrExt, ptr::null_mut,
+    path::Path, slice, ptr::null_mut,
     io::{
         Error as IoError, ErrorKind,
     },
 };
+
+#[cfg(not(target_os = "windows"))]
+use std::ffi::OsStr;
+#[cfg(not(target_os = "windows"))]
+use std::os::unix::ffi::OsStrExt;
+
+#[cfg(target_os = "windows")]
+use std::ffi::OsString;
+#[cfg(target_os = "windows")]
+use std::os::windows::ffi::OsStringExt;
 
 pub mod error;
 use error::*;
@@ -78,12 +88,7 @@ fn serialize_from_raw_pointer<T: ToBytes>(to_write: *const T, buffer: &mut [u8],
     }
 }
 
-fn deserialize_from_file<T: FromBytes>(file_path: *const u8, file_path_len: usize, struct_type: &str) -> Option<T>{
-    // Read file path
-    let file_path = Path::new(OsStr::from_bytes(unsafe {
-        slice::from_raw_parts(file_path, file_path_len)
-    }));
-
+fn deserialize_from_file<T: FromBytes>(file_path: &Path, struct_type: &str) -> Option<T>{
     match read_from_file(file_path) {
         Ok(t) => Some(t),
         Err(e) => {
@@ -156,6 +161,49 @@ pub extern "C" fn zendoo_sc_proof_free(sc_proof: *mut SCProof)
     drop(unsafe { Box::from_raw(sc_proof) });
 }
 
+#[cfg(not(target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
+    vk_path: *const u8,
+    vk_path_len: usize,
+) -> *mut SCVk
+{
+    // Read file path
+    let vk_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(vk_path, vk_path_len)
+    }));
+
+    match deserialize_from_file(vk_path, "vk"){
+        Some(vk) => Box::into_raw(Box::new(vk)),
+        None => null_mut(),
+    }
+}
+
+#[cfg(target_os = "windows")]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
+    vk_path: *const u16,
+    vk_path_len: usize,
+) -> *mut SCVk
+{
+    // Read file path
+    let vk_path = Path::new(OsString::from_wide(unsafe {
+        slice::from_raw_parts(vk_path, vk_path_len)
+    }));
+
+    match deserialize_from_file(vk_path, "vk"){
+        Some(vk) => vk,
+        None => null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut SCVk)
+{
+    if sc_vk.is_null()  { return }
+    drop(unsafe { Box::from_raw(sc_vk) });
+}
+
 #[no_mangle]
 pub extern "C" fn zendoo_verify_sc_proof(
     end_epoch_mc_b_hash:      *const [c_uchar; 32],
@@ -165,8 +213,7 @@ pub extern "C" fn zendoo_verify_sc_proof(
     quality:                  u64,
     constant:                 *const FieldElement,
     sc_proof:                 *const SCProof,
-    vk_path:                  *const u8,
-    vk_path_len:              usize,
+    vk:                       *const SCVk,
 ) -> bool
 {
     //Read end_epoch_mc_b_hash
@@ -197,7 +244,7 @@ pub extern "C" fn zendoo_verify_sc_proof(
     };
 
     //Read vk from file
-    let vk = match deserialize_from_file(vk_path, vk_path_len, "sc verification key"){
+    let vk = match read_raw_pointer(vk, "sc verification key"){
         Some(vk) => vk,
         None => return false,
     };

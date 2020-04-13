@@ -13,11 +13,23 @@ use crate::{
     zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof,
     ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path,
     GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free,
-    BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq
+    BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq,
+    zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free,
 };
 
 use std::fs::File;
 
+
+#[cfg(target_os = "windows")]
+use std::ffi::OsString;
+#[cfg(target_os = "windows")]
+use std::os::windows::ffi::OsStringExt;
+
+#[cfg(not(target_os = "windows"))]
+fn path_as_ptr(path: &str) -> *const u8 { path.as_ptr() }
+
+#[cfg(target_os = "windows")]
+fn path_as_ptr(path: &str) -> *const u16 { OsString::from(path).encode_wide().collect().as_ptr() }
 
 #[test]
 fn verify_zkproof_test() {
@@ -60,6 +72,12 @@ fn verify_zkproof_test() {
         bt_list.push(BackwardTransfer{ pk_dest: [0u8; 32], amount: 0 });
     }
 
+    //Get vk
+    let vk = zendoo_deserialize_sc_vk_from_file(
+        path_as_ptr("./test_files/sample_vk"),
+        22,
+    );
+
     assert!(zendoo_verify_sc_proof(
         &end_epoch_mc_b_hash,
         &prev_end_epoch_mc_b_hash,
@@ -68,8 +86,7 @@ fn verify_zkproof_test() {
         quality,
         constant,
         zkp_ptr,
-        "./test_files/sample_vk".as_ptr(),
-        22,
+        vk
     ));
 
     //Negative test: change one of the inputs and assert verification failure
@@ -82,12 +99,12 @@ fn verify_zkproof_test() {
         quality - 1,
         constant,
         zkp_ptr,
-        "./test_files/sample_vk".as_ptr(),
-        22,
+        vk
     ));
 
     //Free memory
     zendoo_sc_proof_free(zkp_ptr);
+    zendoo_sc_vk_free(vk);
     zendoo_field_free(constant);
 }
 

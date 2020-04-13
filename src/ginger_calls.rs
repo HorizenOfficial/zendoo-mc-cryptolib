@@ -103,7 +103,7 @@ pub fn verify_sc_proof(
     quality:                  u64,
     constant:                 &FieldElement,
     sc_proof:                 &SCProof,
-    vk:                       SCVk,
+    vk:                       &SCVk,
 ) -> Result<bool, Error>
 {
     //Read inputs as field elements
@@ -123,8 +123,7 @@ pub fn verify_sc_proof(
     drop(bt_tree);
 
     //Load vk from file
-    let pvk = prepare_verifying_key(&vk);
-    drop(vk);
+    let pvk = prepare_verifying_key(vk);
 
     //Prepare public inputs
     let wcert_sysdata_hash = compute_poseidon_hash(
