@@ -6,6 +6,12 @@
 
 extern "C" {
 
+#ifdef WIN32
+    typedef uint16_t codeunit;
+#else
+    typedef uint8_t codeunit;
+#endif
+
 /* Note: Functions panic if input pointers are NULL.*/
 
 //Field related functions
@@ -49,6 +55,15 @@ extern "C" {
 
     typedef struct sc_proof sc_proof_t;
 
+    typedef struct sc_vk sc_vk_t;
+
+    sc_vk_t* zendoo_deserialize_sc_vk_from_file(
+        const codeunit* vk_path,
+        size_t vk_path_len
+    );
+
+    void zendoo_sc_vk_free(sc_vk_t* sc_vk);
+
     /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
     size_t zendoo_get_sc_proof_size(void);
 
@@ -67,8 +82,7 @@ extern "C" {
         const field_t* constant,
         const field_t* proofdata,
         const sc_proof_t* sc_proof,
-        const uint8_t* vk_path,
-        size_t vk_path_len
+        const sc_vk_t* sc_vk
     );
 
     /*

@@ -9,11 +9,11 @@ use proof_systems::groth16::Proof;
 use rand::rngs::OsRng;
 
 use crate::{
-    ginger_mt_free, ginger_mt_get_merkle_path, ginger_mt_get_root, ginger_mt_new,
-    ginger_mt_path_free, ginger_mt_verify_merkle_path, zendoo_compute_poseidon_hash,
-    zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_field_assert_eq,
-    zendoo_field_free, zendoo_sc_proof_free, zendoo_serialize_field, zendoo_serialize_sc_proof,
-    zendoo_verify_sc_proof, BackwardTransfer, GingerMerkleTree,
+    zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field,
+    ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path,
+    GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free,
+    BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq,
+    zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof,
 };
 
 use std::{fmt::Debug, fs::File, ptr::null};
@@ -23,6 +23,17 @@ fn assert_slice_equals<T: Eq + Debug>(s1: &[T], s2: &[T]) {
         assert_eq!(i1, i2);
     }
 }
+
+#[cfg(target_os = "windows")]
+use std::ffi::OsString;
+#[cfg(target_os = "windows")]
+use std::os::windows::ffi::OsStringExt;
+
+#[cfg(not(target_os = "windows"))]
+fn path_as_ptr(path: &str) -> *const u8 { path.as_ptr() }
+
+#[cfg(target_os = "windows")]
+fn path_as_ptr(path: &str) -> *const u16 { OsString::from(path).encode_wide().collect().as_ptr() }
 
 #[test]
 fn verify_zkproof_test() {
@@ -77,6 +88,12 @@ fn verify_zkproof_test() {
         });
     }
 
+    //Get vk
+    let vk = zendoo_deserialize_sc_vk_from_file(
+        path_as_ptr("./test_files/sample_vk"),
+        22,
+    );
+
     assert!(zendoo_verify_sc_proof(
         &end_epoch_mc_b_hash,
         &prev_end_epoch_mc_b_hash,
@@ -86,8 +103,7 @@ fn verify_zkproof_test() {
         constant,
         null(),
         zkp_ptr,
-        "./test_files/sample_vk".as_ptr(),
-        22,
+        vk
     ));
 
     //Negative test: change one of the inputs and assert verification failure
@@ -101,12 +117,12 @@ fn verify_zkproof_test() {
         constant,
         null(),
         zkp_ptr,
-        "./test_files/sample_vk".as_ptr(),
-        22,
+        vk
     ));
 
     //Free memory
     zendoo_sc_proof_free(zkp_ptr);
+    zendoo_sc_vk_free(vk);
     zendoo_field_free(constant);
 }
 
