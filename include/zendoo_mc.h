@@ -25,52 +25,46 @@ extern "C" {
     //Free memory from allocated field_t
     void zendoo_field_free(field_t* field);
 
-//Pk related functions
+//SC SNARK related functions
 
-    typedef struct pk pk_t;
+    typedef struct backward_transfer{
+      unsigned char pk_dest[32];
+      uint64_t amount;
+    } backward_transfer_t;
 
-    //Get an opaque pointer to a pk built from its byte serialization
-    pk_t* zendoo_deserialize_pk(const unsigned char* pk_bytes);
+    typedef struct sc_proof sc_proof_t;
 
-    //Free memory from allocated pk
-    void zendoo_pk_free(pk_t* pk);
+    //Get the byte size of a sc zk proof
+    size_t zendoo_get_sc_proof_size(void);
 
-//SNARK related functions
-
-    typedef struct ginger_zk_proof ginger_zk_proof_t;
-
-    //Get the byte size of a generic zk proof
-    size_t get_ginger_zk_proof_size(void);
-
-    //Serialize a zk proof into zk_proof_bytes given an opaque pointer to it
-    bool serialize_ginger_zk_proof(
-        const ginger_zk_proof_t* zk_proof,
-        unsigned char*           zk_proof_bytes
-    );
-
-    //Get an opaque pointer to a zk_proof built from its byte serialization
-    ginger_zk_proof_t* deserialize_ginger_zk_proof(const unsigned char* ginger_zk_proof_bytes);
-
-    bool verify_ginger_zk_proof(
+    bool zendoo_verify_sc_proof(
+        const unsigned char* end_epoch_mc_b_hash,
+        const unsigned char* prev_end_epoch_mc_b_hash,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
+        uint64_t quality,
+        const field_t* constant,
+        const sc_proof_t* sc_proof,
         const uint8_t* vk_path,
-        size_t vk_path_len,
-        const ginger_zk_proof_t* zkp,
-        const field_t** public_inputs,
-        size_t public_inputs_len
+        size_t vk_path_len
     );
 
-    void ginger_zk_proof_free(ginger_zk_proof_t* zkp);
+    //Serialize a sc zk proof into sc_proof_bytes given an opaque pointer to it
+    bool zendoo_serialize_sc_proof(
+        const sc_proof_t* sc_proof,
+        unsigned char* sc_proof_bytes
+    );
+
+    //Get an opaque pointer to a sc_proof built from its byte serialization
+    sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes);
+
+    void zendoo_sc_proof_free(sc_proof_t* sc_proof);
 
 //Poseidon hash related functions
 
     field_t* zendoo_compute_poseidon_hash(
         const field_t** input,
         size_t input_len
-    );
-
-    field_t* zendoo_compute_keys_hash_commitment(
-        const pk_t** pks,
-        size_t pk_num
     );
 
 //Poseidon-based Merkle Tree related functions
@@ -115,11 +109,6 @@ extern "C" {
     bool zendoo_field_assert_eq(
         const field_t* field_1,
         const field_t* field_2
-    );
-
-    bool zendoo_pk_assert_eq(
-        const pk_t* pk_1,
-        const pk_t* pk_2
     );
 }
 

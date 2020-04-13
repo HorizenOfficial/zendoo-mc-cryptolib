@@ -1,163 +1,94 @@
 use algebra::{curves::{
     mnt4753::MNT4 as PairingCurve,
-    mnt6753::{G1Projective, G1Affine},
 }, fields::{
     mnt4753::Fr,
 }, to_bytes, bytes::{
     ToBytes, FromBytes,
-}, UniformRand, ProjectiveCurve};
-
-use primitives::
-    crh::{
-        FieldBasedHash, MNT4PoseidonHash as FrHash,
-    };
+}, UniformRand};
 
 use proof_systems::groth16::Proof;
 use rand::rngs::OsRng;
 
-use crate::{zendoo_deserialize_field, zendoo_deserialize_pk, deserialize_ginger_zk_proof,
-            verify_ginger_zk_proof, zendoo_compute_keys_hash_commitment, ginger_mt_new,
-            ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path,
-            GingerMerkleTree, ginger_zk_proof_free, zendoo_field_free, zendoo_pk_free,
-            ginger_mt_free, ginger_mt_path_free
+use crate::{
+    zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof,
+    ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path,
+    GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free,
+    BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq
 };
 
 use std::fs::File;
 
-const VK_PATH: &str = "./test_files/vk";
-const PI_LEN: usize = 4;
 
 #[test]
 fn verify_zkproof_test() {
 
-    let mut file = File::open("./test_files/good_proof").unwrap();
-    let good_proof = Proof::<PairingCurve>::read(&mut file).unwrap();
-
-    let mut file = File::open("./test_files/good_public_inputs").unwrap();
-    let mut good_public_inputs = vec![];
-    for _ in 0..PI_LEN {good_public_inputs.push(Fr::read(&mut file).unwrap())}
-
-    let mut file = File::open("./test_files/bad_proof").unwrap();
-    let bad_proof = Proof::<PairingCurve>::read(&mut file).unwrap();
-
-    let mut file = File::open("./test_files/bad_public_inputs").unwrap();
-    let mut bad_public_inputs = vec![];
-    for _ in 0..PI_LEN {bad_public_inputs.push(Fr::read(&mut file).unwrap())}
+    let mut file = File::open("./test_files/sample_proof").unwrap();
+    let proof = Proof::<PairingCurve>::read(&mut file).unwrap();
 
     //Create inputs for Rust FFI function
     //Positive case
     let mut zkp = [0u8; 771];
-    good_proof.write(&mut zkp[..]).unwrap();
-    let zkp_ptr = deserialize_ginger_zk_proof(&zkp);
+    proof.write(&mut zkp[..]).unwrap();
+    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp);
 
-    let inputs = to_bytes!(good_public_inputs).unwrap();
-    let mut inputs_ptr = vec![];
-    for i in 0..PI_LEN {
-        let mut input = [0u8; 96];
-        inputs[(i * 96)..((i + 1) * 96)].to_vec().write(&mut input[..]).unwrap();
-        inputs_ptr.push(zendoo_deserialize_field(&input) as *const Fr)
+    //Inputs
+    let end_epoch_mc_b_hash: [u8; 32] = [
+        48, 202, 96, 61, 206, 20, 30, 152, 124, 86, 199, 13, 154, 135, 39, 58, 53, 150, 69, 169, 123, 71, 0, 29, 62, 97,
+        198, 19, 5, 184, 196, 31
+    ];
+
+    let prev_end_epoch_mc_b_hash: [u8; 32] = [
+        241, 72, 150, 254, 135, 196, 102, 189, 247, 180, 78, 56, 187, 156, 23, 190, 23, 27, 165, 52, 6, 74, 221, 100,
+        220, 174, 251, 72, 134, 19, 158, 238
+    ];
+
+    let constant_bytes: [u8; 96] = [
+        218, 197, 230, 227, 177, 215, 180, 32, 249, 205, 103, 89, 92, 233, 4, 105, 201, 216, 112, 32, 168, 129, 18, 94,
+        199, 130, 168, 130, 150, 128, 178, 170, 98, 98, 118, 187, 73, 126, 4, 218, 2, 240, 197, 4, 236, 226, 238, 149,
+        151, 108, 163, 148, 180, 175, 38, 59, 87, 38, 42, 213, 100, 214, 12, 117, 186, 161, 114, 100, 120, 85, 6, 211,
+        34, 173, 106, 43, 111, 104, 185, 243, 108, 0, 126, 16, 190, 8, 113, 39, 195, 175, 189, 138, 132, 104, 0, 0
+    ];
+
+    let constant = zendoo_deserialize_field(&constant_bytes);
+
+    let quality = 2;
+
+    //Create dummy bt
+    let bt_num = 10;
+    let mut bt_list = vec![];
+    for _ in 0..bt_num {
+        bt_list.push(BackwardTransfer{ pk_dest: [0u8; 32], amount: 0 });
     }
 
-    assert!(verify_ginger_zk_proof(
-        VK_PATH.as_ptr(),
-        VK_PATH.len(),
+    assert!(zendoo_verify_sc_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        bt_num,
+        quality,
+        constant,
         zkp_ptr,
-        inputs_ptr.as_ptr(),
-        PI_LEN,
+        "./test_files/sample_vk".as_ptr(),
+        22,
+    ));
+
+    //Negative test: change one of the inputs and assert verification failure
+
+    assert!(!zendoo_verify_sc_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        bt_num,
+        quality - 1,
+        constant,
+        zkp_ptr,
+        "./test_files/sample_vk".as_ptr(),
+        22,
     ));
 
     //Free memory
-    ginger_zk_proof_free(zkp_ptr);
-    for i in 0..PI_LEN {
-        zendoo_field_free(inputs_ptr[i] as *mut Fr);
-    }
-
-    //Negative case
-    let mut zkp = [0u8; 771];
-    bad_proof.write(&mut zkp[..]).unwrap();
-    let zkp_ptr = deserialize_ginger_zk_proof(&zkp);
-
-    let inputs = to_bytes!(bad_public_inputs).unwrap();
-    let mut inputs_ptr = vec![];
-    for i in 0..PI_LEN {
-        let mut input = [0u8; 96];
-        inputs[(i * 96)..((i + 1) * 96)].to_vec().write(&mut input[..]).unwrap();
-        inputs_ptr.push(zendoo_deserialize_field(&input) as *const Fr)
-    }
-
-    assert!(!verify_ginger_zk_proof(
-        VK_PATH.as_ptr(),
-        VK_PATH.len(),
-        zkp_ptr,
-        inputs_ptr.as_ptr(),
-        PI_LEN,
-    ));
-
-    //Free memory
-    ginger_zk_proof_free(zkp_ptr);
-    for i in 0..PI_LEN {
-        zendoo_field_free(inputs_ptr[i] as *mut Fr);
-    }
-}
-
-
-#[test]
-fn compute_hash_commitment_test() {
-    let mut rng = OsRng::default();
-
-    //Generate random affine points
-    let mut pks = vec![];
-    for _ in 0..16 {pks.push(G1Projective::rand(&mut rng).into_affine());}
-
-    //Evaluate hash over their x coordinates
-    let pks_x = pks.iter().map(|pk| pk.x).collect::<Vec<_>>();
-    let native_h_cm = FrHash::evaluate(pks_x.as_slice()).unwrap();
-    let mut pks_b = to_bytes!(pks).unwrap();
-    assert_eq!(pks_b.len(), 193 * 16);
-
-    let mut pks_ptr = vec![];
-    for i in 0..16 {
-        let mut pk = [0u8; 193];
-        pks_b[(i * 193)..((i + 1) * 193)].to_vec().write(&mut pk[..]).unwrap();
-        pks_ptr.push(zendoo_deserialize_pk(&pk) as *const G1Affine)
-    }
-
-    //Verify correct hash computation from Rust FFI and consistency with the native Rust function
-    let zendoo_h_cm = zendoo_compute_keys_hash_commitment(
-        pks_ptr.as_ptr(),
-        16,
-    );
-    assert_eq!(native_h_cm, unsafe{*zendoo_h_cm});
-
-    //Free memory
-    zendoo_field_free(zendoo_h_cm);
-    for i in 0..16 {
-        zendoo_pk_free(pks_ptr[i] as *mut G1Affine);
-    }
-
-    //Change one of the points
-    pks_b = pks_b[..193 * 15].to_vec();
-    pks_b.extend_from_slice(to_bytes!(G1Projective::rand(&mut rng).into_affine()).unwrap().as_slice());
-
-    let mut pks_ptr = vec![];
-    for i in 0..16 {
-        let mut pk = [0u8; 193];
-        pks_b[(i * 193)..((i + 1) * 193)].to_vec().write(&mut pk[..]).unwrap();
-        pks_ptr.push(zendoo_deserialize_pk(&pk) as *const G1Affine)
-    }
-
-    //Verify correct hash computation and result not consistent anymore with the native Rust function
-    let zendoo_h_cm = zendoo_compute_keys_hash_commitment(
-        pks_ptr.as_ptr(),
-        16,
-    );
-    assert_ne!(native_h_cm, unsafe{*zendoo_h_cm});
-
-    //Free memory
-    zendoo_field_free(zendoo_h_cm);
-    for i in 0..16 {
-        zendoo_pk_free(pks_ptr[i] as *mut G1Affine);
-    }
+    zendoo_sc_proof_free(zkp_ptr);
+    zendoo_field_free(constant);
 }
 
 #[test]
@@ -222,4 +153,42 @@ fn merkle_tree_test() {
     for i in 0..16 {
         zendoo_field_free(fes_ptr[i] as *mut Fr);
     }
+}
+
+#[test]
+fn poseidon_hash_test(){
+    let lhs: [u8; 96] = [
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 0, 0
+    ];
+
+    let rhs: [u8; 96] = [
+        199, 130, 235, 52, 44, 219, 5, 195, 71, 154, 54, 121, 3, 11, 111, 160, 86, 212, 189, 66, 235, 236, 240, 242,
+        126, 248, 116, 0, 48, 95, 133, 85, 73, 150, 110, 169, 16, 88, 136, 34, 106, 7, 38, 176, 46, 89, 163, 49, 162,
+        222, 182, 42, 200, 240, 149, 226, 173, 203, 148, 194, 207, 59, 44, 185, 67, 134, 107, 221, 188, 208, 122, 212,
+        200, 42, 227, 3, 23, 59, 31, 37, 91, 64, 69, 196, 74, 195, 24, 5, 165, 25, 101, 215, 45, 92, 1, 0
+    ];
+
+    let hash: [u8; 96] = [
+        53, 2, 235, 12, 255, 18, 125, 167, 223, 32, 245, 103, 38, 74, 43, 73, 254, 189, 174, 137, 20, 90, 195, 107, 202,
+        24, 151, 136, 85, 23, 9, 93, 207, 33, 229, 200, 178, 225, 221, 127, 18, 250, 108, 56, 86, 94, 171, 1, 76, 21,
+        237, 254, 26, 235, 196, 14, 18, 129, 101, 158, 136, 103, 147, 147, 239, 140, 163, 94, 245, 147, 110, 28, 93,
+        231, 66, 7, 111, 11, 202, 99, 146, 211, 117, 143, 224, 99, 183, 108, 157, 200, 119, 169, 180, 148, 0, 0,
+    ];
+
+    let lhs_field = zendoo_deserialize_field(&lhs);
+    let rhs_field = zendoo_deserialize_field(&rhs);
+    let expected_hash = zendoo_deserialize_field(&hash);
+
+    let hash_input = &[lhs_field as *const Fr, rhs_field as *const Fr];
+    let actual_hash = zendoo_compute_poseidon_hash(hash_input.as_ptr(), 2);
+
+    assert!(zendoo_field_assert_eq(expected_hash, actual_hash));
+
+    zendoo_field_free(lhs_field);
+    zendoo_field_free(rhs_field);
+    zendoo_field_free(expected_hash);
+    zendoo_field_free(actual_hash);
 }

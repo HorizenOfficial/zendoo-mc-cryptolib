@@ -5,14 +5,20 @@
 #include <fstream>
 #include <cstring>
 #include <string>
+#include <cassert>
+
+void error_or(const char* msg){
+    if (zendoo_get_last_error().category != 0)
+        print_error("error: ");
+    else
+        std::cout << msg << std::endl;
+}
 
 void field_test() {
+    std::cout << "Field test" << std::endl;
     //Size is the expected one
     int field_len = zendoo_get_field_size_in_bytes();
-    if(field_len != 96) {
-        std::cout << "Unexpected size" << std::endl;
-        return;
-    }
+    assert(("Unexpected size", field_len == 96));
 
     auto field = zendoo_get_random_field();
 
@@ -20,79 +26,28 @@ void field_test() {
     unsigned char field_bytes[field_len];
     if (!zendoo_serialize_field(field, field_bytes)){
         print_error("error");
-        return;
+        abort();
     }
 
     auto field_deserialized = zendoo_deserialize_field(field_bytes);
     if (field_deserialized == NULL) {
         print_error("error");
-        return;
+        abort();
     }
 
-    if (!zendoo_field_assert_eq(field, field_deserialized)) {
-        std::cout << "Unexpected deserialized field" << std::endl;
-        return;
-    };
+    assert(("Unexpected deserialized field", zendoo_field_assert_eq(field, field_deserialized)));
 
     zendoo_field_free(field);
     zendoo_field_free(field_deserialized);
 
-    std::cout<< "Field test...ok" << std::endl;
+    std::cout<< "...ok" << std::endl;
 }
 
-void pk_test() {
-
-    //Check correct pk deserialization
-    unsigned char pk_bytes[193] = {
-        74, 157, 68, 149, 157, 108, 203, 45, 83, 153, 115, 12, 34, 48, 43, 61, 94, 145, 101, 119, 126, 110, 124, 242,
-        146, 110, 105, 255, 6, 84, 112, 14, 151, 71, 244, 69, 4, 105, 90, 177, 134, 207, 197, 255, 138, 60, 101, 73,
-        234, 224, 240, 217, 197, 37, 107, 119, 31, 50, 14, 52, 62, 240, 202, 178, 193, 11, 210, 185, 68, 64, 232, 105,
-        153, 170, 17, 97, 33, 49, 140, 35, 123, 226, 8, 45, 179, 59, 244, 50, 225, 214, 98, 245, 6, 139, 1, 0, 185,
-        167, 86, 108, 161, 68, 81, 255, 11, 135, 66, 229, 173, 0, 121, 21, 180, 177, 100, 125, 62, 30, 78, 15, 233, 45,
-        166, 115, 129, 18, 10, 250, 148, 0, 169, 45, 186, 194, 127, 113, 86, 46, 213, 103, 137, 210, 56, 176, 78, 224,
-        163, 186, 100, 77, 237, 226, 90, 61, 129, 191, 243, 44, 218, 189, 9, 83, 44, 79, 246, 156, 121, 111, 250, 217,
-        183, 94, 76, 163, 117, 205, 84, 240, 138, 20, 163, 248, 87, 139, 65, 220, 176, 152, 223, 143, 1, 0, 0
-    };
-
-    auto pk_deserialized = zendoo_deserialize_pk(pk_bytes);
-    if (pk_deserialized == NULL) {
-        print_error("error");
-        return;
-    }
-
-    //Check pk hash commitment consistency
-    auto hash_commitment = zendoo_compute_keys_hash_commitment((const pk_t**)&pk_deserialized, 1);
-    if(hash_commitment == NULL){
-        print_error("error");
-        return;
-    }
-
-    auto pk_x = zendoo_deserialize_field(&((unsigned char*)pk_bytes)[0]);
-    if (pk_x == NULL) {
-        print_error("error");
-        return;
-    }
-
-    auto hash_pk_x = zendoo_compute_poseidon_hash((const field_t**)&pk_x, 1);
-    if (hash_pk_x == NULL){
-        print_error("error");
-        return;
-    }
-
-    if(!zendoo_field_assert_eq(hash_commitment, hash_pk_x)) {
-        std::cout << "Expected hash_commitment and hash_pk_x to be equal" << std::endl;
-        return;
-    }
-
-    zendoo_field_free(hash_commitment);
-    zendoo_field_free(pk_x);
-    zendoo_field_free(hash_pk_x);
-    zendoo_pk_free(pk_deserialized);
-
-    std::cout<< "Pk test...ok" << std::endl;
-}
 
 void hash_test() {
+
+    std::cout << "Hash test" << std::endl;
+
     unsigned char lhs[96] = {
         138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
         95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
@@ -117,18 +72,18 @@ void hash_test() {
     auto lhs_field = zendoo_deserialize_field(lhs);
     if (lhs_field == NULL) {
         print_error("error");
-        return;
+        abort();
     }
     auto rhs_field = zendoo_deserialize_field(rhs);
     if (rhs_field == NULL) {
         print_error("error");
-        return;
+        abort();
     }
 
     auto expected_hash = zendoo_deserialize_field(hash);
     if (expected_hash == NULL) {
         print_error("error");
-        return;
+        abort();
     }
 
     const field_t* hash_input[] = {lhs_field, rhs_field};
@@ -136,23 +91,23 @@ void hash_test() {
     auto actual_hash = zendoo_compute_poseidon_hash(hash_input, 2);
     if (actual_hash == NULL) {
         print_error("error");
-        return;
+        abort();
     }
 
-    if (!zendoo_field_assert_eq(expected_hash, actual_hash)) {
-        std::cout << "Expected hashes to be equal" << std::endl;
-        return;
-    }
+    assert(("Expected hashes to be equal", zendoo_field_assert_eq(expected_hash, actual_hash)));
 
     zendoo_field_free(lhs_field);
     zendoo_field_free(rhs_field);
     zendoo_field_free(expected_hash);
     zendoo_field_free(actual_hash);
 
-    std::cout<< "Hash test...ok" << std::endl;
+    std::cout<< "...ok" << std::endl;
 }
 
 void merkle_test() {
+
+    std::cout << "Merkle test" << std::endl;
+
     //Generate random leaves
     int leaves_len = 16;
     const field_t* leaves[leaves_len];
@@ -164,7 +119,7 @@ void merkle_test() {
     auto tree = ginger_mt_new(leaves, leaves_len);
     if(tree == NULL){
         print_error("error");
-        return;
+        abort();
     }
 
     auto root = ginger_mt_get_root(tree);
@@ -176,13 +131,13 @@ void merkle_test() {
         auto path = ginger_mt_get_merkle_path(leaves[i], i, tree);
         if(path == NULL){
             print_error("error");
-            return;
+            abort();
         }
 
         //Verify Merkle Path for the i-th leaf
         if(!ginger_mt_verify_merkle_path(leaves[i], root, path)){
-            print_error("error");
-            return;
+            error_or("Merkle path not verified");
+            abort();
         }
 
         //Free Merkle Path
@@ -200,14 +155,16 @@ void merkle_test() {
         zendoo_field_free((field_t*)leaves[i]);
     }
 
-    std::cout<< "Merkle test...ok" << std::endl;
+    std::cout<< "...ok" << std::endl;
 }
 
 void proof_test() {
-    //Deserialize zero knowledge proof
 
+    std::cout << "Zk proof test" << std::endl;
+
+    //Deserialize zero knowledge proof
     //Read proof from file
-    std::ifstream is ("../test_files/good_proof", std::ifstream::binary);
+    std::ifstream is ("../test_files/sample_proof", std::ifstream::binary);
     is.seekg (0, is.end);
     int length = is.tellg();
     is.seekg (0, is.beg);
@@ -216,70 +173,85 @@ void proof_test() {
     is.close();
 
     //Deserialize proof
-    auto proof = deserialize_ginger_zk_proof((unsigned char *)proof_bytes);
+    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes);
     if(proof == NULL){
         print_error("error");
-        return;
+        abort();
     }
 
     delete[] proof_bytes;
 
-    //Deserialize public inputs
+    //Inputs
+    unsigned char end_epoch_mc_b_hash[32] = {
+        48, 202, 96, 61, 206, 20, 30, 152, 124, 86, 199, 13, 154, 135, 39, 58, 53, 150, 69, 169, 123, 71, 0, 29, 62, 97,
+        198, 19, 5, 184, 196, 31
+    };
 
-    //Read public inputs
-    std::ifstream is1 ("../test_files/good_public_inputs", std::ifstream::binary);
-    is1.seekg (0, is1.end);
-    int length1 = is1.tellg();
-    is1.seekg (0, is1.beg);
-    char* input_bytes = new char [length];
-    is1.read(input_bytes,length1);
-    is1.close();
+    unsigned char prev_end_epoch_mc_b_hash[32] = {
+        241, 72, 150, 254, 135, 196, 102, 189, 247, 180, 78, 56, 187, 156, 23, 190, 23, 27, 165, 52, 6, 74, 221, 100,
+        220, 174, 251, 72, 134, 19, 158, 238
+    };
 
-    //Deserialize each field element of the public inputs
-    int inputs_len = 4;
-    int field_size = zendoo_get_field_size_in_bytes();
-    const field_t* public_inputs[inputs_len];
-    for(int i = 0; i < inputs_len; i ++){
-        public_inputs[i] = zendoo_deserialize_field(&((unsigned char*)input_bytes)[field_size * i]);
+    unsigned char constant_bytes[96] = {
+        218, 197, 230, 227, 177, 215, 180, 32, 249, 205, 103, 89, 92, 233, 4, 105, 201, 216, 112, 32, 168, 129, 18, 94,
+        199, 130, 168, 130, 150, 128, 178, 170, 98, 98, 118, 187, 73, 126, 4, 218, 2, 240, 197, 4, 236, 226, 238, 149,
+        151, 108, 163, 148, 180, 175, 38, 59, 87, 38, 42, 213, 100, 214, 12, 117, 186, 161, 114, 100, 120, 85, 6, 211,
+        34, 173, 106, 43, 111, 104, 185, 243, 108, 0, 126, 16, 190, 8, 113, 39, 195, 175, 189, 138, 132, 104, 0, 0
+    };
+
+    auto constant = zendoo_deserialize_field(constant_bytes);
+    if (constant == NULL) {
+        print_error("error");
+        abort();
     }
 
-    delete[] input_bytes;
+    uint64_t quality = 2;
+
+    //Create dummy bt
+    size_t bt_list_len = 10;
+    const backward_transfer_t bt_list[bt_list_len] = { {0}, 0 };
 
     //Verify zkproof
-    if(!verify_ginger_zk_proof((uint8_t*)"../test_files/vk", 16, proof, public_inputs, inputs_len)){
-        print_error("error");
-        return;
+    if(!zendoo_verify_sc_proof(
+        end_epoch_mc_b_hash,
+        prev_end_epoch_mc_b_hash,
+        bt_list,
+        bt_list_len,
+        quality,
+        constant,
+        proof,
+        (uint8_t*)"../test_files/sample_vk",
+        23
+    )){
+        error_or("Proof not verified");
+        abort();
     }
 
-    //Free public inputs
-    for (int i = 0; i < inputs_len; i++){
-        zendoo_field_free((field_t*)public_inputs[i]);
-    }
-
-    //Negative test: change public inputs and assert proof failure
-    for(int i = 0; i < inputs_len; i ++){
-        public_inputs[i] = zendoo_get_random_field();
-    }
-
-    if(verify_ginger_zk_proof((uint8_t*)"../test_files/vk", 16, proof, public_inputs, inputs_len)){
-        std::cout << "Proof verification should fail" << std::endl;
-        return;
-    }
-
-    //Free public inputs
-    for (int i = 0; i < inputs_len; i++){
-        zendoo_field_free((field_t*)public_inputs[i]);
-    }
+    //Negative test: change quality (for instance) and assert proof failure
+    assert((
+        "Proof verification should fail",
+        !zendoo_verify_sc_proof(
+             end_epoch_mc_b_hash,
+             prev_end_epoch_mc_b_hash,
+             bt_list,
+             bt_list_len,
+             quality - 1,
+             constant,
+             proof,
+             (uint8_t*)"../test_files/sample_vk",
+             23
+        )
+    ));
 
     //Free proof
-    ginger_zk_proof_free(proof);
+    zendoo_sc_proof_free(proof);
+    zendoo_field_free(constant);
 
-    std::cout<< "Zk proof test...ok" << std::endl;
+    std::cout<< "...ok" << std::endl;
 }
 
 int main() {
     field_test();
-    pk_test();
     hash_test();
     merkle_test();
     proof_test();
