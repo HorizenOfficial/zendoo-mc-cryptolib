@@ -1,5 +1,4 @@
 use algebra::{FromBytes, ToBytes, UniformRand};
-use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
 use std::{
     ffi::OsStr,
@@ -214,7 +213,7 @@ pub extern "C" fn zendoo_verify_sc_proof(
         constant,
         proofdata,
         sc_proof,
-        vk,
+        &vk,
     ) {
         Ok(result) => result,
         Err(e) => {

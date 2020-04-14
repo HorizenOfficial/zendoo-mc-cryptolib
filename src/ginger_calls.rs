@@ -91,7 +91,7 @@ pub fn verify_sc_proof(
     constant: Option<&FieldElement>,
     proofdata: Option<&FieldElement>,
     sc_proof: &SCProof,
-    vk: SCVk,
+    vk: &SCVk,
 ) -> Result<bool, Error> {
     //Read inputs as field elements
     let end_epoch_mc_b_hash = read_field_element_from_buffer_with_padding(end_epoch_mc_b_hash)?;
@@ -112,7 +112,6 @@ pub fn verify_sc_proof(
 
     //Load vk from file
     let pvk = prepare_verifying_key(&vk);
-    drop(vk);
 
     //Prepare public inputs
     let mut public_inputs = Vec::new();
