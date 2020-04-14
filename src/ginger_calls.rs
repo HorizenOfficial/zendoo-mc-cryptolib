@@ -1,45 +1,35 @@
 use algebra::{
-    fields::{
-        mnt4753::Fr, PrimeField
-    },
-    curves::{
-        mnt4753::MNT4 as PairingCurve,
-        mnt6753::G1Affine,
-    },
-    FromBytes, ToBytes,
-    BigInteger768,
+    curves::{mnt4753::MNT4 as PairingCurve, mnt6753::G1Affine},
+    fields::{mnt4753::Fr, PrimeField},
+    BigInteger768, FromBytes, ToBytes,
 };
 
-use primitives::{
-    crh::{
-        FieldBasedHash, MNT4PoseidonHash as FieldHash,
-    },
-    merkle_tree::field_based_mht::{
-        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath
-    },
-};
 use crate::BackwardTransfer;
-use proof_systems::groth16::{Proof, verifier::verify_proof, prepare_verifying_key, VerifyingKey};
-
-use std::{
-    fs::File, io::Result as IoResult, path::Path,
+use primitives::{
+    crh::{FieldBasedHash, MNT4PoseidonHash as FieldHash},
+    merkle_tree::field_based_mht::{
+        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath,
+    },
 };
+use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
+
+use std::{fs::File, io::Result as IoResult, path::Path};
 
 pub type FieldElement = Fr;
 pub type G1Point = G1Affine;
 
 pub const FIELD_SIZE: usize = 96; //Field size in bytes
-pub const SCALAR_FIELD_SIZE: usize = FIELD_SIZE;// 96
+pub const SCALAR_FIELD_SIZE: usize = FIELD_SIZE; // 96
 pub const G1_SIZE: usize = 193;
 pub const G2_SIZE: usize = 385;
 
-pub const GROTH_PROOF_SIZE: usize = 2 * G1_SIZE + G2_SIZE;  // 771
+pub const GROTH_PROOF_SIZE: usize = 2 * G1_SIZE + G2_SIZE; // 771
 pub type Error = Box<dyn std::error::Error>;
 
 //*******************************Generic I/O functions**********************************************
 // Note: Should decide if panicking or handling IO errors
 
-pub fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8]) ->  IoResult<T> {
+pub fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8]) -> IoResult<T> {
     T::read(buffer)
 }
 
@@ -47,27 +37,28 @@ pub fn serialize_to_buffer<T: ToBytes>(to_write: &T, buffer: &mut [u8]) -> IoRes
     to_write.write(buffer)
 }
 
-pub fn read_from_file<T: FromBytes>(file_path: &Path) -> IoResult<T>{
+pub fn read_from_file<T: FromBytes>(file_path: &Path) -> IoResult<T> {
     let mut fs = File::open(file_path)?;
     let t = T::read(&mut fs)?;
     Ok(t)
 }
 
-pub fn write_to_file<T: ToBytes>(to_write: &T, file_path: &str) -> IoResult<()>{
+pub fn write_to_file<T: ToBytes>(to_write: &T, file_path: &str) -> IoResult<()> {
     let mut fs = File::create(file_path)?;
     to_write.write(&mut fs)?;
     Ok(())
 }
 
 //Will return error if buffer.len > FIELD_SIZE. If buffer.len < FIELD_SIZE, padding 0s will be added
-pub fn read_field_element_from_buffer_with_padding(buffer: &[u8]) -> IoResult<FieldElement>
-{
+pub fn read_field_element_from_buffer_with_padding(buffer: &[u8]) -> IoResult<FieldElement> {
     let buff_len = buffer.len();
 
     //Pad to reach field element size
     let mut new_buffer = vec![];
     new_buffer.extend_from_slice(buffer);
-    for _ in buff_len..FIELD_SIZE { new_buffer.push(0u8) } //Add padding zeros to reach field size
+    for _ in buff_len..FIELD_SIZE {
+        new_buffer.push(0u8)
+    } //Add padding zeros to reach field size
 
     FieldElement::read(&new_buffer[..])
 }
@@ -87,8 +78,7 @@ pub type SCProof = Proof<PairingCurve>;
 pub type SCVk = VerifyingKey<PairingCurve>;
 
 impl BackwardTransfer {
-    pub fn to_field_element(&self) -> IoResult<FieldElement>
-    {
+    pub fn to_field_element(&self) -> IoResult<FieldElement> {
         let mut buffer = vec![];
         self.pk_dest.write(&mut buffer)?;
         self.amount.write(&mut buffer)?;
@@ -97,21 +87,21 @@ impl BackwardTransfer {
 }
 
 pub fn verify_sc_proof(
-    end_epoch_mc_b_hash:      &[u8; 32],
+    end_epoch_mc_b_hash: &[u8; 32],
     prev_end_epoch_mc_b_hash: &[u8; 32],
-    bt_list:                  &[BackwardTransfer],
-    quality:                  u64,
-    constant:                 &FieldElement,
-    sc_proof:                 &SCProof,
-    vk:                       SCVk,
-) -> Result<bool, Error>
-{
+    bt_list: &[BackwardTransfer],
+    quality: u64,
+    constant: &FieldElement,
+    sc_proof: &SCProof,
+    vk: SCVk,
+) -> Result<bool, Error> {
     //Read inputs as field elements
     let end_epoch_mc_b_hash = read_field_element_from_buffer_with_padding(end_epoch_mc_b_hash)?;
-    let prev_end_epoch_mc_b_hash = read_field_element_from_buffer_with_padding(prev_end_epoch_mc_b_hash)?;
+    let prev_end_epoch_mc_b_hash =
+        read_field_element_from_buffer_with_padding(prev_end_epoch_mc_b_hash)?;
     let quality = read_field_element_from_u64(quality);
     let mut bt_as_fes = vec![];
-    for bt in bt_list.iter(){
+    for bt in bt_list.iter() {
         let bt_as_fe = bt.to_field_element()?;
         bt_as_fes.push(bt_as_fe);
     }
@@ -127,9 +117,12 @@ pub fn verify_sc_proof(
     drop(vk);
 
     //Prepare public inputs
-    let wcert_sysdata_hash = compute_poseidon_hash(
-        &[quality, bt_root, prev_end_epoch_mc_b_hash, end_epoch_mc_b_hash]
-    )?;
+    let wcert_sysdata_hash = compute_poseidon_hash(&[
+        quality,
+        bt_root,
+        prev_end_epoch_mc_b_hash,
+        end_epoch_mc_b_hash,
+    ])?;
     let public_inputs = &[*constant, wcert_sysdata_hash];
 
     //Verify proof
@@ -160,17 +153,15 @@ pub fn get_ginger_merkle_root(tree: &GingerMerkleTree) -> FieldElement {
 pub fn get_ginger_merkle_path(
     leaf: &FieldElement,
     leaf_index: usize,
-    tree: &GingerMerkleTree
-) -> Result<GingerMerkleTreePath, Error>
-{
+    tree: &GingerMerkleTree,
+) -> Result<GingerMerkleTreePath, Error> {
     tree.generate_proof(leaf_index, leaf)
 }
 
 pub fn verify_ginger_merkle_path(
     path: &GingerMerkleTreePath,
     merkle_root: &FieldElement,
-    leaf: &FieldElement
-) -> Result<bool, Error>
-{
+    leaf: &FieldElement,
+) -> Result<bool, Error> {
     path.verify(merkle_root, leaf)
 }
