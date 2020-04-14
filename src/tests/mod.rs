@@ -19,17 +19,19 @@ use crate::{
 
 use std::fs::File;
 
-
 #[cfg(target_os = "windows")]
 use std::ffi::OsString;
 #[cfg(target_os = "windows")]
-use std::os::windows::ffi::OsStringExt;
+use std::os::windows::ffi::OsStrExt;
 
 #[cfg(not(target_os = "windows"))]
 fn path_as_ptr(path: &str) -> *const u8 { path.as_ptr() }
 
 #[cfg(target_os = "windows")]
-fn path_as_ptr(path: &str) -> *const u16 { OsString::from(path).encode_wide().collect().as_ptr() }
+fn path_as_ptr(path: &str) -> *const u16 {
+    let tmp: Vec<u16> = OsString::from(path).encode_wide().collect();
+    tmp.as_ptr()
+}
 
 #[test]
 fn verify_zkproof_test() {

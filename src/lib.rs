@@ -187,12 +187,13 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
 ) -> *mut SCVk
 {
     // Read file path
-    let vk_path = Path::new(OsString::from_wide(unsafe {
+    let path_str = OsString::from_wide(unsafe {
         slice::from_raw_parts(vk_path, vk_path_len)
-    }));
+    });
+    let vk_path = Path::new(&path_str);
 
     match deserialize_from_file(vk_path, "vk"){
-        Some(vk) => vk,
+        Some(vk) => Box::into_raw(Box::new(vk)),
         None => null_mut(),
     }
 }

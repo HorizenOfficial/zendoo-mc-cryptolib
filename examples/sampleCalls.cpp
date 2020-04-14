@@ -256,8 +256,8 @@ void proof_test() {
 }
 
 int main() {
-   /* field_test();
+    field_test();
     hash_test();
-    merkle_test();*/
+    merkle_test();
     proof_test();
 }

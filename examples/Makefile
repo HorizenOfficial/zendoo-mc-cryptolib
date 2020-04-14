@@ -1,11 +1,14 @@
-G++_BIN ?= $(shell which g++)
-CARGO_BIN ?= $(shell which cargo)
+ifeq ($(OS),Windows_NT)
+    LIBZENDOO = ../target/debug/zendoo_mc.lib
+else
+    LIBZENDOO = ../target/debug/libzendoo_mc.a
+endif
 
 all: clean build
 	./bin_SampleCalls
 clean:
-	#$(CARGO_BIN) clean
+	cargo clean
 	rm -f ./bin_SampleCalls
 build:
-	$(CARGO_BIN) build #--release
-	$(G++_BIN) -o ./bin_SampleCalls ./sampleCalls.cpp -I../include  -L. -l:../target/debug/libzendoo_mc.a -lpthread -ldl
+	cargo build
+	g++ -o ./bin_SampleCalls ./sampleCalls.cpp -I../include  -L. -l:$(LIBZENDOO) -lpthread -ldl
