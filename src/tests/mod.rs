@@ -39,7 +39,7 @@ fn verify_zkproof_test() {
     let mut zkp_serialized = [0u8; 771];
 
     //Test proof serialization/deserialization
-    assert!(zendoo_serialize_sc_proof(zkp_ptr, &mut zkp_serialized));
+    zendoo_serialize_sc_proof(zkp_ptr, &mut zkp_serialized);
     assert_slice_equals(&zkp, &zkp_serialized);
     drop(zkp_serialized);
 
@@ -200,7 +200,7 @@ fn poseidon_hash_test() {
 
     //Test field serialization/deserialization
     let mut lhs_serialized = [0u8; 96];
-    assert!(zendoo_serialize_field(lhs_field, &mut lhs_serialized));
+    zendoo_serialize_field(lhs_field, &mut lhs_serialized);
     assert_slice_equals(&lhs, &lhs_serialized);
     drop(lhs_serialized);
 

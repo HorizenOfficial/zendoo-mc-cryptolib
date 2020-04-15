@@ -19,7 +19,7 @@ extern "C" {
      * returned by `zendoo_get_field_size_in_bytes`. Returns `true` if serialization was
      * successful, `false` otherwise.
      */
-    bool zendoo_serialize_field(
+    void zendoo_serialize_field(
         const field_t*  field,
         unsigned char*  field_bytes
     );
@@ -75,7 +75,7 @@ extern "C" {
      * returned by `zendoo_get_sc_proof_size`. Returns `true` if serialization was
      * successful, `false` otherwise.
      */
-    bool zendoo_serialize_sc_proof(
+    void zendoo_serialize_sc_proof(
         const sc_proof_t* sc_proof,
         unsigned char* sc_proof_bytes
     );

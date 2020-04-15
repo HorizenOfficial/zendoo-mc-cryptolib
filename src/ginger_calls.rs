@@ -35,7 +35,7 @@ pub fn serialize_to_buffer<T: ToBytes>(to_write: &T, buffer: &mut [u8]) -> IoRes
 }
 
 pub fn read_from_file<T: FromBytes>(file_path: &Path) -> IoResult<T> {
-    let mut fs = File::open(file_path)?;
+    let mut fs = File::open(file_path).expect("Should be able to open file");
     let t = T::read(&mut fs)?;
     Ok(t)
 }
