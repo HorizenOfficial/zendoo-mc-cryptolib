@@ -299,10 +299,8 @@ pub extern "C" fn zendoo_compute_poseidon_hash(
     let hash = match compute_poseidon_hash(message.as_slice()) {
         Ok(hash) => hash,
         Err(e) => {
-            return {
-                set_last_error(e, CRYPTO_ERROR);
-                null_mut()
-            }
+            set_last_error(e, CRYPTO_ERROR);
+            return null_mut()
         }
     };
 
