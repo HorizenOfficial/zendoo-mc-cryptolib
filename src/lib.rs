@@ -210,6 +210,8 @@ pub extern "C" fn zendoo_verify_sc_proof(
     bt_list_len: usize,
     quality: u64,
     constant: *const FieldElement,
+    proofdata: *const *const FieldElement,
+    proofdata_len: usize,
     sc_proof: *const SCProof,
     vk_path: *const u8,
     vk_path_len: usize,
@@ -232,9 +234,21 @@ pub extern "C" fn zendoo_verify_sc_proof(
     let bt_list = unsafe { slice::from_raw_parts(bt_list, bt_list_len) };
 
     //Read constant
-    let constant = match read_raw_pointer(constant, "constant") {
-        Some(constant) => constant,
-        None => return false,
+    let constant = match read_raw_pointer(constant, "constant"){
+        Some(constant) => Some(constant),
+        None => {
+            zendoo_clear_error(); //If ptr is null error will be set, but constant is allowed to be NULL
+            None
+        },
+    };
+
+    //Read proofdata
+    let proofdata = match read_double_raw_pointer(proofdata, proofdata_len, "proofdata"){
+        Some(proofdata) => Some(proofdata),
+        None => {
+            zendoo_clear_error(); //If ptr is null error will be set, but proofdata is allowed to be NULL
+            None
+        },
     };
 
     //Read SCProof
@@ -256,6 +270,7 @@ pub extern "C" fn zendoo_verify_sc_proof(
         bt_list,
         quality,
         constant,
+        proofdata,
         sc_proof,
         vk,
     ) {

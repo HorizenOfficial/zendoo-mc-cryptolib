@@ -219,6 +219,8 @@ void proof_test() {
         bt_list_len,
         quality,
         constant,
+        NULL,
+        0,
         proof,
         (uint8_t*)"../test_files/sample_vk",
         23
@@ -231,15 +233,17 @@ void proof_test() {
     assert((
         "Proof verification should fail",
         !zendoo_verify_sc_proof(
-             end_epoch_mc_b_hash,
-             prev_end_epoch_mc_b_hash,
-             bt_list,
-             bt_list_len,
-             quality - 1,
-             constant,
-             proof,
-             (uint8_t*)"../test_files/sample_vk",
-             23
+         end_epoch_mc_b_hash,
+         prev_end_epoch_mc_b_hash,
+         bt_list,
+         bt_list_len,
+         quality - 1,
+         constant,
+         NULL,
+         0,
+         proof,
+         (uint8_t*)"../test_files/sample_vk",
+         23
         )
     ));
 

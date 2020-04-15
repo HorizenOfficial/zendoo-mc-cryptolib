@@ -37,6 +37,7 @@ extern "C" {
     //Get the byte size of a sc zk proof
     size_t zendoo_get_sc_proof_size(void);
 
+    //"constant" and "proofdata" can be NULL
     bool zendoo_verify_sc_proof(
         const unsigned char* end_epoch_mc_b_hash,
         const unsigned char* prev_end_epoch_mc_b_hash,
@@ -44,6 +45,8 @@ extern "C" {
         size_t bt_list_len,
         uint64_t quality,
         const field_t* constant,
+        const field_t** proofdata,
+        size_t proofdata_len,
         const sc_proof_t* sc_proof,
         const uint8_t* vk_path,
         size_t vk_path_len

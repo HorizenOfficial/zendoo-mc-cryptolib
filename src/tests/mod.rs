@@ -16,7 +16,7 @@ use crate::{
     zendoo_verify_sc_proof, BackwardTransfer, GingerMerkleTree,
 };
 
-use std::{fmt::Debug, fs::File};
+use std::{fmt::Debug, fs::File, ptr::null};
 
 fn assert_slice_equals<T: Eq + Debug>(s1: &[T], s2: &[T]) {
     for (i1, i2) in s1.iter().zip(s2.iter()) {
@@ -83,7 +83,9 @@ fn verify_zkproof_test() {
         bt_list.as_ptr(),
         bt_num,
         quality,
-        constant,
+        null(),
+        null(),
+        0,
         zkp_ptr,
         "./test_files/sample_vk".as_ptr(),
         22,
@@ -97,7 +99,9 @@ fn verify_zkproof_test() {
         bt_list.as_ptr(),
         bt_num,
         quality - 1,
-        constant,
+        null(),
+        null(),
+        0,
         zkp_ptr,
         "./test_files/sample_vk".as_ptr(),
         22,

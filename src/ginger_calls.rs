@@ -91,7 +91,8 @@ pub fn verify_sc_proof(
     prev_end_epoch_mc_b_hash: &[u8; 32],
     bt_list: &[BackwardTransfer],
     quality: u64,
-    constant: &FieldElement,
+    constant: Option<&FieldElement>,
+    proofdata: Option<Vec<FieldElement>>,
     sc_proof: &SCProof,
     vk: SCVk,
 ) -> Result<bool, Error> {
@@ -117,16 +118,24 @@ pub fn verify_sc_proof(
     drop(vk);
 
     //Prepare public inputs
+    let mut public_inputs = Vec::new();
+
     let wcert_sysdata_hash = compute_poseidon_hash(&[
         quality,
         bt_root,
         prev_end_epoch_mc_b_hash,
         end_epoch_mc_b_hash,
     ])?;
-    let public_inputs = &[*constant, wcert_sysdata_hash];
 
+    if constant.is_some(){
+        public_inputs.push(*(constant.unwrap()));
+    }
+    if proofdata.is_some(){
+        public_inputs.extend(proofdata.unwrap().iter());
+    }
+    public_inputs.push(wcert_sysdata_hash);
     //Verify proof
-    let is_verified = verify_proof(&pvk, &sc_proof, public_inputs)?;
+    let is_verified = verify_proof(&pvk, &sc_proof, public_inputs.as_slice())?;
     Ok(is_verified)
 }
 
