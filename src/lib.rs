@@ -177,8 +177,7 @@ pub extern "C" fn zendoo_verify_sc_proof(
     constant: *const FieldElement,
     proofdata: *const FieldElement,
     sc_proof: *const SCProof,
-    vk_path: *const u8,
-    vk_path_len: usize,
+    vk:       *const SCVk,
 ) -> bool {
 
     //Read end_epoch_mc_b_hash
