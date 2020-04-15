@@ -1,4 +1,5 @@
 use algebra::{FromBytes, ToBytes, UniformRand};
+use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
 use std::{
     ffi::OsStr,
