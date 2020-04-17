@@ -210,7 +210,7 @@ void proof_test() {
 
     //Read vk
     sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
-        (codeunit*)"../test_files/sample_vk",
+        (path_char_t*)"../test_files/sample_vk",
         23
     );
 
