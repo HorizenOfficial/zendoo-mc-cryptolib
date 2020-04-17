@@ -4,11 +4,9 @@
 
 #define GENERAL_ERROR 0
 
-#define NULL_PTR_ERROR 1
+#define IO_ERROR 1
 
-#define IO_ERROR 2
-
-#define CRYPTO_ERROR 3
+#define CRYPTO_ERROR 2
 
 extern "C" {
     typedef struct {

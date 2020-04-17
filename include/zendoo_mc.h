@@ -6,6 +6,8 @@
 
 extern "C" {
 
+/* Note: Functions panic if input pointers are NULL.*/
+
 //Field related functions
 
     typedef struct field field_t;
@@ -16,10 +18,10 @@ extern "C" {
     /*
      * Serialize a field into `field_bytes` given an opaque pointer `field` to it.
      * It's caller's responsibility to ensure that `field_bytes` size is equal to the one
-     * returned by `zendoo_get_field_size_in_bytes`. Returns `true` if serialization was
-     * successful, `false` otherwise.
+     * returned by `zendoo_get_field_size_in_bytes`. Panic if serialization was
+     * unsuccessful.
      */
-    bool zendoo_serialize_field(
+    void zendoo_serialize_field(
         const field_t*  field,
         unsigned char*  field_bytes
     );
@@ -53,7 +55,7 @@ extern "C" {
     /*  Verify a sc_proof given an opaque pointer `sc_proof` to it, the
      *  verification key path `vk_path` and all the data needed to construct
      *  proof's public inputs. Returns `true` if proof verification was
-     *  successful, false otherwise or if some error occured. NOTE: `constant`
+     *  successful, false otherwise, panic if some error occured. NOTE: `constant`
      *  and `proofdata` can be NULL.
      */
     bool zendoo_verify_sc_proof(
@@ -72,10 +74,9 @@ extern "C" {
     /*
      * Serialize a sc_proof into `sc_proof_bytes` given an opaque pointer `sc_proof` to it.
      * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
-     * returned by `zendoo_get_sc_proof_size`. Returns `true` if serialization was
-     * successful, `false` otherwise.
+     * returned by `zendoo_get_sc_proof_size`. Panic if serialization was unsuccessful
      */
-    bool zendoo_serialize_sc_proof(
+    void zendoo_serialize_sc_proof(
         const sc_proof_t* sc_proof,
         unsigned char* sc_proof_bytes
     );
@@ -83,7 +84,7 @@ extern "C" {
     /*
      * Deserialize a sc_proof from `sc_proof_bytes` and return an opaque pointer to it.
      * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
-     * returned by `zendoo_get_sc_proof_size`. Return NULL if deserialization fails.
+     * returned by `zendoo_get_sc_proof_size`. Panic if deserialization fails.
      */
     sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes);
 

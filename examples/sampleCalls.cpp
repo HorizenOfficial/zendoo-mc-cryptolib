@@ -24,10 +24,7 @@ void field_test() {
 
     //Serialize and deserialize and check equality
     unsigned char field_bytes[field_len];
-    if (!zendoo_serialize_field(field, field_bytes)){
-        print_error("error");
-        abort();
-    }
+    zendoo_serialize_field(field, field_bytes);
 
     auto field_deserialized = zendoo_deserialize_field(field_bytes);
     if (field_deserialized == NULL) {
