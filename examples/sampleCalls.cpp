@@ -220,7 +220,6 @@ void proof_test() {
         quality,
         constant,
         NULL,
-        0,
         proof,
         (uint8_t*)"../test_files/sample_vk",
         23
@@ -240,7 +239,6 @@ void proof_test() {
          quality - 1,
          constant,
          NULL,
-         0,
          proof,
          (uint8_t*)"../test_files/sample_vk",
          23

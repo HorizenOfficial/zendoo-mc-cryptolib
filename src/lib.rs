@@ -32,6 +32,10 @@ fn read_raw_pointer<'a, T>(input: *const T) -> Option<&'a T> {
     })
 }
 
+fn read_nullable_raw_pointer<'a, T>(input: *const T) -> Option<&'a T> {
+    unsafe { input.as_ref() }
+}
+
 fn read_double_raw_pointer<T: Copy>(
     input: *const *const T,
     input_len: usize,
@@ -202,8 +206,7 @@ pub extern "C" fn zendoo_verify_sc_proof(
     bt_list_len: usize,
     quality: u64,
     constant: *const FieldElement,
-    proofdata: *const *const FieldElement,
-    proofdata_len: usize,
+    proofdata: *const FieldElement,
     sc_proof: *const SCProof,
     vk_path: *const u8,
     vk_path_len: usize,
@@ -226,22 +229,10 @@ pub extern "C" fn zendoo_verify_sc_proof(
     let bt_list = unsafe { slice::from_raw_parts(bt_list, bt_list_len) };
 
     //Read constant
-    let constant = match read_raw_pointer(constant){
-        Some(constant) => Some(constant),
-        None => {
-            zendoo_clear_error(); //If ptr is null error will be set, but constant is allowed to be NULL
-            None
-        },
-    };
+    let constant = read_nullable_raw_pointer(constant);
 
     //Read proofdata
-    let proofdata = match read_double_raw_pointer(proofdata, proofdata_len){
-        Some(proofdata) => Some(proofdata),
-        None => {
-            zendoo_clear_error(); //If ptr is null error will be set, but proofdata is allowed to be NULL
-            None
-        },
-    };
+    let proofdata = read_nullable_raw_pointer(proofdata);
 
     //Read SCProof
     let sc_proof = match read_raw_pointer(sc_proof) {

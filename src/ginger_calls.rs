@@ -89,7 +89,7 @@ pub fn verify_sc_proof(
     bt_list: &[BackwardTransfer],
     quality: u64,
     constant: Option<&FieldElement>,
-    proofdata: Option<Vec<FieldElement>>,
+    proofdata: Option<&FieldElement>,
     sc_proof: &SCProof,
     vk: SCVk,
 ) -> Result<bool, Error> {
@@ -128,7 +128,7 @@ pub fn verify_sc_proof(
         public_inputs.push(*(constant.unwrap()));
     }
     if proofdata.is_some(){
-        public_inputs.extend(proofdata.unwrap().iter());
+        public_inputs.push(*(proofdata.unwrap()));
     }
     public_inputs.push(wcert_sysdata_hash);
     //Verify proof
