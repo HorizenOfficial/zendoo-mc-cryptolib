@@ -7,9 +7,9 @@
 extern "C" {
 
 #ifdef WIN32
-    typedef uint16_t codeunit;
+    typedef uint16_t path_char_t;
 #else
-    typedef uint8_t codeunit;
+    typedef uint8_t path_char_t;
 #endif
 
 /* Note: Functions panic if input pointers are NULL.*/
@@ -57,11 +57,13 @@ extern "C" {
 
     typedef struct sc_vk sc_vk_t;
 
+    //Deserialize a SC_VK from file given the path, and returns an opaque pointer to it
     sc_vk_t* zendoo_deserialize_sc_vk_from_file(
-        const codeunit* vk_path,
+        const path_char_t* vk_path,
         size_t vk_path_len
     );
 
+    //Free memory from SC_VK struct, given an opaque pointer to it
     void zendoo_sc_vk_free(sc_vk_t* sc_vk);
 
     /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
