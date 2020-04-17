@@ -1,5 +1,5 @@
 use algebra::{
-    curves::{mnt4753::MNT4 as PairingCurve, mnt6753::G1Affine},
+    curves::mnt4753::MNT4 as PairingCurve,
     fields::{mnt4753::Fr, PrimeField},
     BigInteger768, FromBytes, ToBytes,
 };
@@ -14,17 +14,14 @@ use primitives::{
 use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
 
 use std::{fs::File, io::Result as IoResult, path::Path};
+pub type Error = Box<dyn std::error::Error>;
 
 pub type FieldElement = Fr;
-pub type G1Point = G1Affine;
 
 pub const FIELD_SIZE: usize = 96; //Field size in bytes
 pub const SCALAR_FIELD_SIZE: usize = FIELD_SIZE; // 96
-pub const G1_SIZE: usize = 193;
-pub const G2_SIZE: usize = 385;
 
-pub const GROTH_PROOF_SIZE: usize = 2 * G1_SIZE + G2_SIZE; // 771
-pub type Error = Box<dyn std::error::Error>;
+pub const GROTH_PROOF_SIZE: usize = 771;
 
 //*******************************Generic I/O functions**********************************************
 // Note: Should decide if panicking or handling IO errors
