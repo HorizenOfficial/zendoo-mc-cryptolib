@@ -1,142 +1,98 @@
-use algebra::{
-    fields::mnt4753::Fr,
-    curves::{
-        mnt4753::MNT4 as PairingCurve,
-        mnt6753::G1Affine
-    },
-    bytes::{FromBytes, ToBytes},
-    UniformRand
-};
-
-use primitives::{
-    crh::{
-        FieldBasedHash, MNT4PoseidonHash as FrHash,
-    },
-    merkle_tree::field_based_mht::{
-        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath
-    },
-};
-
-use proof_systems::groth16::{Proof, verifier::verify_proof, prepare_verifying_key};
-
+use algebra::{FromBytes, ToBytes, UniformRand};
+use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
-use libc::{
-    c_uint, c_uchar
-};
 use std::{
-    path::Path, slice, ffi::OsStr, os::unix::ffi::OsStrExt, fs::File, ptr::null_mut,
-    io::{
-        Error as IoError, ErrorKind,
-    },
+    io::{Error as IoError, ErrorKind},
+    path::Path,
+    ptr::null_mut,
+    any::type_name,
+    slice,
 };
 
 pub mod error;
 use error::*;
 
+pub mod ginger_calls;
+use ginger_calls::*;
+
 #[cfg(test)]
 pub mod tests;
 
-// ************CONSTANTS******************
+#[cfg(not(target_os = "windows"))]
+use std::ffi::OsStr;
+#[cfg(not(target_os = "windows"))]
+use std::os::unix::ffi::OsStrExt;
 
-const FR_SIZE: usize = 96;
-const G1_SIZE: usize = 193;
-const G2_SIZE: usize = 385;
-
-const GROTH_PROOF_SIZE: usize = 2 * G1_SIZE + G2_SIZE;  // 771
-
-// ************TYPES**********************
-
-pub struct ZendooMcFieldBasedMerkleTreeParams;
-
-impl FieldBasedMerkleTreeConfig for ZendooMcFieldBasedMerkleTreeParams {
-    const HEIGHT: usize = 5;
-    type H = FrHash;
-}
-
-type GingerMerkleTree = FieldBasedMerkleHashTree<ZendooMcFieldBasedMerkleTreeParams>;
-type GingerMerkleTreePath = FieldBasedMerkleTreePath<ZendooMcFieldBasedMerkleTreeParams>;
-
-type GingerProof = Proof<PairingCurve>;
+#[cfg(target_os = "windows")]
+use std::ffi::OsString;
+#[cfg(target_os = "windows")]
+use std::os::windows::ffi::OsStringExt;
 
 // ***********UTILITY FUNCTIONS*************
 
-fn read_raw_pointer<T>(input: *const T, elem_type: &str) -> Option<&T> {
-    if input.is_null(){
-        set_last_error(Box::new(NullPointerError(format!("Null {}", elem_type))), NULL_PTR_ERROR);
-        return None
-    }
-    Some(unsafe{ &* input })
+fn read_raw_pointer<'a, T>(input: *const T) -> &'a T {
+    assert!(!input.is_null());
+    unsafe { &*input }
 }
 
-fn read_double_raw_pointer<T: Copy>(input: *const *const T, input_len: usize, elem_type: &str) -> Option<Vec<T>> {
+fn read_nullable_raw_pointer<'a, T>(input: *const T) -> Option<&'a T> {
+    unsafe { input.as_ref() }
+}
+
+fn read_double_raw_pointer<T: Copy>(
+    input: *const *const T,
+    input_len: usize,
+) -> Vec<T> {
 
     //Read *const T from *const *const T
-    if input.is_null() {
-        set_last_error(Box::new(NullPointerError(format!("Ptr to {}s is null", elem_type))), NULL_PTR_ERROR);
-        return None
-    }
+    assert!(!input.is_null());
     let input_raw = unsafe { slice::from_raw_parts(input, input_len) };
 
     //Read T from *const T
     let mut input = vec![];
-    for (i, &ptr) in input_raw.iter().enumerate() {
-        if ptr.is_null() {
-            set_last_error(Box::new(NullPointerError(format!("{} {} is null", elem_type, i))), NULL_PTR_ERROR);
-            return None
-        }
-        input.push(unsafe{ *ptr });
+    for &ptr in input_raw.iter() {
+        assert!(!ptr.is_null());
+        input.push(unsafe { *ptr });
     }
-
-    Some(input)
+    input
 }
 
-fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8], buff_size: usize) -> *mut T {
-    match T::read(buffer) {
+fn deserialize_to_raw_pointer<T: FromBytes>(buffer: &[u8]) -> *mut T {
+    match deserialize_from_buffer(buffer) {
         Ok(t) => Box::into_raw(Box::new(t)),
         Err(_) => {
-            let e = IoError::new(ErrorKind::InvalidData, format!("should read {} bytes", buff_size));
+            let e = IoError::new(
+                ErrorKind::InvalidData,
+                format!("unable to read {} from buffer", type_name::<T>()),
+            );
             set_last_error(Box::new(e), IO_ERROR);
-            return null_mut()
+            return null_mut();
         }
     }
 }
 
-fn serialize_to_buffer<T: ToBytes>(to_write: *const T, buffer: &mut [u8], buff_size: usize, elem_type: &str) -> bool {
-    let to_write = match read_raw_pointer(to_write, elem_type) {
-        Some(to_write) => to_write,
-        None => return false,
-    };
-
-    match to_write.write(buffer){
-        Ok(_) => true,
-        Err(_) => {
-            let e = IoError::new(ErrorKind::InvalidData, format!("should write {} bytes", buff_size));
-            set_last_error(Box::new(e), IO_ERROR);
-            false
-        }
-    }
+fn serialize_from_raw_pointer<T: ToBytes>(
+    to_write: *const T,
+    buffer: &mut [u8],
+) {
+    serialize_to_buffer(read_raw_pointer(to_write), buffer)
+        .expect(format!("unable to write {} to buffer", type_name::<T>()).as_str())
 }
 
-fn read_from_file<T: FromBytes>(file_path: *const u8, file_path_len: usize, struct_type: &str) -> Option<T>{
-    // Read file path
-    let file_path = Path::new(OsStr::from_bytes(unsafe {
-        slice::from_raw_parts(file_path, file_path_len)
-    }));
-
-    // Load struct from file
-    let mut fs = match File::open(file_path) {
-        Ok(file) => file,
-        Err(_) => {
-            let e = IoError::new(ErrorKind::NotFound, format!("unable to load {} file", struct_type));
-            set_last_error(Box::new(e), IO_ERROR);
-            return None
-        }
-    };
-
-    match T::read(&mut fs) {
+fn deserialize_from_file<T: FromBytes>(
+    file_path: &Path,
+) -> Option<T> {
+    match read_from_file(file_path) {
         Ok(t) => Some(t),
-        Err(_) => {
-            let e = IoError::new(ErrorKind::InvalidData, format!("unable to deserialize {} from file", struct_type));
+        Err(e) => {
+            let e = IoError::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "unable to deserialize {} from file: {}",
+                    type_name::<T>(),
+                    e.to_string()
+                ),
+            );
             set_last_error(Box::new(e), IO_ERROR);
             None
         }
@@ -145,158 +101,190 @@ fn read_from_file<T: FromBytes>(file_path: *const u8, file_path_len: usize, stru
 
 //***********Field functions****************
 #[no_mangle]
-pub extern "C" fn zendoo_get_field_size_in_bytes() -> c_uint { FR_SIZE as u32 }
+pub extern "C" fn zendoo_get_field_size_in_bytes() -> c_uint {
+    FIELD_SIZE as u32
+}
 
 #[no_mangle]
 pub extern "C" fn zendoo_serialize_field(
-    field_element: *const Fr,
-    result:        *mut [c_uchar; FR_SIZE]
-) -> bool
-{ serialize_to_buffer(field_element, &mut (unsafe { &mut *result })[..], FR_SIZE, "field element") }
+    field_element: *const FieldElement,
+    result: *mut [c_uchar; FIELD_SIZE],
+){
+    serialize_from_raw_pointer(
+        field_element,
+        &mut (unsafe { &mut *result })[..],
+    )
+}
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_field(
-    field_bytes:    *const [c_uchar; FR_SIZE]
-) -> *mut Fr
-{ deserialize_from_buffer(&(unsafe { &*field_bytes })[..], FR_SIZE) }
+    field_bytes: *const [c_uchar; FIELD_SIZE],
+) -> *mut FieldElement {
+    deserialize_to_raw_pointer(&(unsafe { &*field_bytes })[..])
+}
 
 #[no_mangle]
-pub extern "C" fn zendoo_field_free(field: *mut Fr)
-{
-    if field.is_null()  { return }
+pub extern "C" fn zendoo_field_free(field: *mut FieldElement) {
+    if field.is_null() {
+        return;
+    }
     drop(unsafe { Box::from_raw(field) });
 }
 
-//***********Pk functions****************
-
-#[no_mangle]
-pub extern "C" fn zendoo_deserialize_pk(
-    pk_bytes:    *const [c_uchar; G1_SIZE]
-) -> *mut G1Affine
-{ deserialize_from_buffer(&(unsafe { &*pk_bytes })[..], G1_SIZE) }
-
-#[no_mangle]
-pub extern "C" fn zendoo_pk_free(pk: *mut G1Affine)
-{
-    if pk.is_null()  { return }
-    drop(unsafe { Box::from_raw(pk) });
+//********************Sidechain SNARK functions********************
+#[repr(C)]
+pub struct BackwardTransfer {
+    pub pk_dest: [c_uchar; 32],
+    pub amount: u64,
 }
 
-//********************SNARK functions********************
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_proof_size() -> c_uint {
+    GROTH_PROOF_SIZE as u32
+}
 
 #[no_mangle]
-pub extern "C" fn get_ginger_zk_proof_size() -> c_uint { GROTH_PROOF_SIZE as u32 }
+pub extern "C" fn zendoo_serialize_sc_proof(
+    sc_proof: *const SCProof,
+    sc_proof_bytes: *mut [c_uchar; GROTH_PROOF_SIZE],
+){
+    serialize_from_raw_pointer(
+        sc_proof,
+        &mut (unsafe { &mut *sc_proof_bytes })[..],
+    )
+}
 
 #[no_mangle]
-pub extern "C" fn serialize_ginger_zk_proof(
-    zk_proof:       *const GingerProof,
-    zk_proof_bytes: *mut [c_uchar; GROTH_PROOF_SIZE]
-) -> bool { serialize_to_buffer(zk_proof, &mut (unsafe { &mut *zk_proof_bytes })[..], GROTH_PROOF_SIZE, "zk proof") }
+pub extern "C" fn zendoo_deserialize_sc_proof(
+    sc_proof_bytes: *const [c_uchar; GROTH_PROOF_SIZE],
+) -> *mut SCProof {
+    deserialize_to_raw_pointer(&(unsafe { &*sc_proof_bytes })[..])
+}
 
 #[no_mangle]
-pub extern "C" fn deserialize_ginger_zk_proof(
-    zk_proof_bytes: *const [c_uchar; GROTH_PROOF_SIZE]
-) -> *mut GingerProof
-{ deserialize_from_buffer(&(unsafe { &*zk_proof_bytes })[..], GROTH_PROOF_SIZE) }
+pub extern "C" fn zendoo_sc_proof_free(sc_proof: *mut SCProof) {
+    if sc_proof.is_null() {
+        return;
+    }
+    drop(unsafe { Box::from_raw(sc_proof) });
+}
 
+#[cfg(not(target_os = "windows"))]
 #[no_mangle]
-pub extern "C" fn verify_ginger_zk_proof
-(
-    vk_path:            *const u8,
-    vk_path_len:        usize,
-    zkp:                *const GingerProof,
-    public_inputs:      *const *const Fr,
-    public_inputs_len:  usize,
-) -> bool
+pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
+    vk_path: *const u8,
+    vk_path_len: usize,
+) -> *mut SCVk
 {
-    //Read public inputs
-    let public_inputs = match read_double_raw_pointer(public_inputs, public_inputs_len, "public input") {
-        Some(public_inputs) => public_inputs,
-        None => return false,
-    };
+    // Read file path
+    let vk_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(vk_path, vk_path_len)
+    }));
 
-    // Deserialize the proof
-    let zkp = match read_raw_pointer(zkp, "zk_proof"){
-        Some(zkp) => zkp,
-        None => return false
-    };
+    match deserialize_from_file(vk_path){
+        Some(vk) => Box::into_raw(Box::new(vk)),
+        None => null_mut(),
+    }
+}
 
-    //Load Vk
-    let vk = match read_from_file(vk_path, vk_path_len, "vk"){
-        Some(vk) => vk,
-        None => return false
-    };
+#[cfg(target_os = "windows")]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
+    vk_path: *const u16,
+    vk_path_len: usize,
+) -> *mut SCVk
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(vk_path, vk_path_len)
+    });
+    let vk_path = Path::new(&path_str);
 
-    let pvk = prepare_verifying_key(&vk);
-
-    //After computing pvk, vk is not needed anymore
-    drop(vk);
-
-    // Verify the proof
-    match verify_proof(&pvk, &zkp, &public_inputs) {
-        Ok(result) => result,
-        Err(e) => {
-            set_last_error(Box::new(e), CRYPTO_ERROR);
-            false
-        }
+    match deserialize_from_file(vk_path){
+        Some(vk) => Box::into_raw(Box::new(vk)),
+        None => null_mut(),
     }
 }
 
 #[no_mangle]
-pub extern "C" fn ginger_zk_proof_free(zkp: *mut GingerProof)
+pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut SCVk)
 {
-    if zkp.is_null()  { return }
-    drop(unsafe { Box::from_raw(zkp) });
+    if sc_vk.is_null()  { return }
+    drop(unsafe { Box::from_raw(sc_vk) });
+}
+
+
+#[no_mangle]
+pub extern "C" fn zendoo_verify_sc_proof(
+    end_epoch_mc_b_hash: *const [c_uchar; 32],
+    prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
+    bt_list: *const BackwardTransfer,
+    bt_list_len: usize,
+    quality: u64,
+    constant: *const FieldElement,
+    proofdata: *const FieldElement,
+    sc_proof: *const SCProof,
+    vk:       *const SCVk,
+) -> bool {
+
+    //Read end_epoch_mc_b_hash
+    let end_epoch_mc_b_hash = read_raw_pointer(end_epoch_mc_b_hash);
+
+    //Read prev_end_epoch_mc_b_hash
+    let prev_end_epoch_mc_b_hash = read_raw_pointer(prev_end_epoch_mc_b_hash);
+
+    //Read bt_list
+    let bt_list = unsafe { slice::from_raw_parts(bt_list, bt_list_len) };
+
+    //Read constant
+    let constant = read_nullable_raw_pointer(constant);
+
+    //Read proofdata
+    let proofdata = read_nullable_raw_pointer(proofdata);
+
+    //Read SCProof
+    let sc_proof = read_raw_pointer(sc_proof);
+
+    //Read vk from file
+    let vk = read_raw_pointer(vk);
+
+    //Verify proof
+    match ginger_calls::verify_sc_proof(
+        end_epoch_mc_b_hash,
+        prev_end_epoch_mc_b_hash,
+        bt_list,
+        quality,
+        constant,
+        proofdata,
+        sc_proof,
+        &vk,
+    ) {
+        Ok(result) => result,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            false
+        }
+    }
 }
 
 //********************Poseidon hash functions********************
 
 #[no_mangle]
 pub extern "C" fn zendoo_compute_poseidon_hash(
-    input:        *const *const Fr,
-    input_len:    usize,
-) -> *mut Fr
-{
+    input: *const *const FieldElement,
+    input_len: usize,
+) -> *mut FieldElement {
+
     //Read message
-    let message = match read_double_raw_pointer(input, input_len, "field element") {
-        Some(message) => message,
-        None => return null_mut()
-    };
+    let message = read_double_raw_pointer(input, input_len);
 
     //Compute hash
-    let hash = match FrHash::evaluate(message.as_slice()) {
-        Ok(hash) => hash,
-        Err(e) => return {
-            set_last_error(e, CRYPTO_ERROR);
-            null_mut()
-        },
-    };
-
-    //Return pointer to hash
-    Box::into_raw(Box::new(hash))
-
-}
-
-#[no_mangle]
-pub extern "C" fn zendoo_compute_keys_hash_commitment(
-    pks:        *const *const G1Affine,
-    pks_len:    usize,
-) -> *mut Fr
-{
-
-    //Read pks
-    let pks_x = match read_double_raw_pointer(pks, pks_len, "pk") {
-        Some(pks) => pks.iter().map(|&pk| pk.x).collect::<Vec<_>>(),
-        None => return null_mut()
-    };
-
-    //Compute hash
-    let hash = match FrHash::evaluate(pks_x.as_slice()) {
+    let hash = match compute_poseidon_hash(message.as_slice()) {
         Ok(hash) => hash,
         Err(e) => {
             set_last_error(e, CRYPTO_ERROR);
             return null_mut()
-        },
+        }
     };
 
     //Return pointer to hash
@@ -306,67 +294,48 @@ pub extern "C" fn zendoo_compute_keys_hash_commitment(
 // ********************Merkle Tree functions********************
 #[no_mangle]
 pub extern "C" fn ginger_mt_new(
-    leaves:        *const *const Fr,
-    leaves_len:    usize,
-) -> *mut GingerMerkleTree
-{
+    leaves: *const *const FieldElement,
+    leaves_len: usize,
+) -> *mut GingerMerkleTree {
+
     //Read leaves
-    let leaves = match read_double_raw_pointer(leaves, leaves_len, "field element") {
-        Some(leaves) => leaves,
-        None => return null_mut()
-    };
+    let leaves = read_double_raw_pointer(leaves, leaves_len);
 
     //Generate tree and compute Merkle Root
-    let gmt = match GingerMerkleTree::new(&leaves) {
+    let gmt = match new_ginger_merkle_tree(leaves.as_slice()) {
         Ok(tree) => tree,
         Err(e) => {
             set_last_error(e, CRYPTO_ERROR);
-            return null_mut()
-        },
+            return null_mut();
+        }
     };
 
     Box::into_raw(Box::new(gmt))
 }
 
 #[no_mangle]
-pub extern "C" fn ginger_mt_get_root(
-    tree:   *const GingerMerkleTree,
-) -> *mut Fr
-{
-    let tree = match read_raw_pointer(tree, "tree"){
-        Some(tree) => tree,
-        None => return null_mut()
-    };
-    let root = tree.root();
-    Box::into_raw(Box::new(root))
+pub extern "C" fn ginger_mt_get_root(tree: *const GingerMerkleTree) -> *mut FieldElement {
+    Box::into_raw(Box::new(get_ginger_merkle_root(read_raw_pointer(tree))))
 }
 
 #[no_mangle]
 pub extern "C" fn ginger_mt_get_merkle_path(
-    leaf:       *const Fr,
+    leaf: *const FieldElement,
     leaf_index: usize,
-    tree:       *const GingerMerkleTree,
-) -> *mut GingerMerkleTreePath
-{
+    tree: *const GingerMerkleTree,
+) -> *mut GingerMerkleTreePath {
     //Read tree
-    let tree = match read_raw_pointer(tree, "tree"){
-        Some(tree) => tree,
-        None => return null_mut()
-    };
-
+    let tree = read_raw_pointer(tree);
     //Read leaf
-    let leaf = match read_raw_pointer(leaf, "leaf"){
-        Some(leaf) => leaf,
-        None => return null_mut()
-    };
+    let leaf = read_raw_pointer(leaf);
 
     //Compute Merkle Path
-    let mp = match tree.generate_proof(leaf_index, leaf) {
+    let mp = match get_ginger_merkle_path(leaf, leaf_index, tree) {
         Ok(path) => path,
         Err(e) => {
             set_last_error(e, CRYPTO_ERROR);
-            return null_mut()
-        },
+            return null_mut();
+        }
     };
 
     Box::into_raw(Box::new(mp))
@@ -374,34 +343,23 @@ pub extern "C" fn ginger_mt_get_merkle_path(
 
 #[no_mangle]
 pub extern "C" fn ginger_mt_verify_merkle_path(
-    leaf:        *const Fr,
-    merkle_root: *const Fr,
-    path:        *const GingerMerkleTreePath,
-) -> bool
-{
+    leaf: *const FieldElement,
+    merkle_root: *const FieldElement,
+    path: *const GingerMerkleTreePath,
+) -> bool {
 
     //Read path
-    let path = match read_raw_pointer(path, "path"){
-        Some(path) => path,
-        None => return false
-    };
+    let path = read_raw_pointer(path);
 
     //Read leaf
-    let leaf = match read_raw_pointer(leaf, "leaf"){
-        Some(leaf) => leaf,
-        None => return false
-    };
+    let leaf = read_raw_pointer(leaf);
 
     //Read root
-    let root = match read_raw_pointer(merkle_root, "root"){
-        Some(root) => root,
-        None => return false
-    };
+    let root = read_raw_pointer(merkle_root);
 
     // Verify leaf belonging
-    match path.verify(root, leaf) {
-        Ok(true) => true,
-        Ok(false) => false,
+    match verify_ginger_merkle_path(path, root, leaf) {
+        Ok(result) => result,
         Err(e) => {
             set_last_error(e, CRYPTO_ERROR);
             false
@@ -411,39 +369,39 @@ pub extern "C" fn ginger_mt_verify_merkle_path(
 
 #[no_mangle]
 pub extern "C" fn ginger_mt_free(tree: *mut GingerMerkleTree) {
-    if tree.is_null() { return }
+    if tree.is_null() {
+        return;
+    }
     drop(unsafe { Box::from_raw(tree) });
 }
 
 #[no_mangle]
 pub extern "C" fn ginger_mt_path_free(path: *mut GingerMerkleTreePath) {
-    if path.is_null()  { return }
+    if path.is_null() {
+        return;
+    }
     drop(unsafe { Box::from_raw(path) });
 }
 
 //***************Test functions*******************
 
-fn check_equal<T: Eq>(val_1: *const T, val_2: *const T) -> bool{
-    let val_1 = unsafe{ &* val_1 };
-    let val_2 = unsafe{ &* val_2 };
+fn check_equal<T: Eq>(val_1: *const T, val_2: *const T) -> bool {
+    let val_1 = unsafe { &*val_1 };
+    let val_2 = unsafe { &*val_2 };
     val_1 == val_2
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_get_random_field() -> *mut Fr {
+pub extern "C" fn zendoo_get_random_field() -> *mut FieldElement {
     let mut rng = OsRng;
-    let random_f = Fr::rand(&mut rng);
+    let random_f = FieldElement::rand(&mut rng);
     Box::into_raw(Box::new(random_f))
 }
 
 #[no_mangle]
 pub extern "C" fn zendoo_field_assert_eq(
-    field_1: *const Fr,
-    field_2: *const Fr,
-) -> bool { check_equal(field_1, field_2 )}
-
-#[no_mangle]
-pub extern "C" fn zendoo_pk_assert_eq(
-    pk_1: *const G1Affine,
-    pk_2: *const G1Affine,
-) -> bool { check_equal(pk_1, pk_2) }
+    field_1: *const FieldElement,
+    field_2: *const FieldElement,
+) -> bool {
+    check_equal(field_1, field_2)
+}
