@@ -208,6 +208,12 @@ void proof_test() {
     size_t bt_list_len = 10;
     const backward_transfer_t bt_list[bt_list_len] = { {0}, 0 };
 
+    //Read vk
+    sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
+        (path_char_t*)"../test_files/sample_vk",
+        23
+    );
+
     //Verify zkproof
     if(!zendoo_verify_sc_proof(
         end_epoch_mc_b_hash,
@@ -218,8 +224,7 @@ void proof_test() {
         constant,
         NULL,
         proof,
-        (uint8_t*)"../test_files/sample_vk",
-        23
+        vk
     )){
         error_or("Proof not verified");
         abort();
@@ -237,13 +242,13 @@ void proof_test() {
          constant,
          NULL,
          proof,
-         (uint8_t*)"../test_files/sample_vk",
-         23
+         vk
         )
     ));
 
     //Free proof
     zendoo_sc_proof_free(proof);
+    zendoo_sc_vk_free(vk);
     zendoo_field_free(constant);
 
     std::cout<< "...ok" << std::endl;
