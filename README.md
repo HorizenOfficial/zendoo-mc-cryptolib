@@ -5,10 +5,11 @@
 
 In particular it exposes interfaces to:
 
-* handle the needed finite field elements
-* manage and verify Zendoo Sidechain proofs
+* handle the finite field that is the alphabet of the zk Proving System
 * call the Poseidon hash function
 * use a Poseidon-based Merkle Tree (calculate root, verify merkle path, ...)
+* verify a SNARK proof, the cryptographic proof included in Zendoo "backward transfer" certificates
+
 
 **Please note: the code is in development. No guarantees are provided about its security and functionality**
 
@@ -52,7 +53,3 @@ The code is licensed under the following license:
 Unless you explicitly state otherwise, any contribution submitted for inclusion in ginger-lib by you shall be licensed as above, without any additional terms or conditions.
 
 [![License MIT](https://img.shields.io/badge/license-MIT-blue.svg)](http://opensource.org/licenses/MIT)
-
-## Acknowledgements
-
-zendoo-mc-cryptolib was developed by [Horizen \(formerly ZenCash\)](https://horizen.global), as part of their effort to implement the [Zendoo](https://eprint.iacr.org/2020/123.pdf "Zendoo") sidechain system.  
