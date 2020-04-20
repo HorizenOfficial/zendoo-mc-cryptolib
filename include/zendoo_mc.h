@@ -57,20 +57,26 @@ extern "C" {
 
     typedef struct sc_vk sc_vk_t;
 
-    //Deserialize a SC_VK from file given the path, and returns an opaque pointer to it
+    /* Deserialize a sc_proof from a file at path `vk_path` and return an opaque pointer to it.
+     * Return NULL if the file doesn't exist, or if deserialization from it fails.
+     */
     sc_vk_t* zendoo_deserialize_sc_vk_from_file(
         const path_char_t* vk_path,
         size_t vk_path_len
     );
 
-    //Free memory from SC_VK struct, given an opaque pointer to it
+    /*
+     * Free the memory from the sc_vk pointed by `sc_vk`. It's caller responsibility
+     * to set `sc_vk` to NULL afterwards. If `sc_vk` was already null, the function does
+     * nothing.
+     */
     void zendoo_sc_vk_free(sc_vk_t* sc_vk);
 
     /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
     size_t zendoo_get_sc_proof_size(void);
 
-    /*  Verify a sc_proof given an opaque pointer `sc_proof` to it, the
-     *  verification key path `vk_path` and all the data needed to construct
+    /*  Verify a sc_proof given an opaque pointer `sc_proof` to it, an opaque pointer
+     *  to the verification key `sc_vk` and all the data needed to construct
      *  proof's public inputs. Returns `true` if proof verification was
      *  successful, false otherwise, panic if some error occured. NOTE: `constant`
      *  and `proofdata` can be NULL.

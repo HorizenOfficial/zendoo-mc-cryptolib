@@ -246,10 +246,7 @@ pub extern "C" fn zendoo_verify_sc_proof(
     let sc_proof = read_raw_pointer(sc_proof);
 
     //Read vk from file
-    let vk = match read_raw_pointer(vk) {
-        Some(vk) => vk,
-        None => return false,
-    };
+    let vk = read_raw_pointer(vk);
 
     //Verify proof
     match ginger_calls::verify_sc_proof(
