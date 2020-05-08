@@ -134,7 +134,7 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) {
 //********************Sidechain SNARK functions********************
 #[repr(C)]
 pub struct BackwardTransfer {
-    pub pk_dest: [c_uchar; 32],
+    pub pk_dest: [c_uchar; 20],
     pub amount: u64,
 }
 

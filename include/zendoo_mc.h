@@ -49,7 +49,7 @@ extern "C" {
 //SC SNARK related functions
 
     typedef struct backward_transfer{
-      unsigned char pk_dest[32];
+      unsigned char pk_dest[20];
       uint64_t amount;
     } backward_transfer_t;
 

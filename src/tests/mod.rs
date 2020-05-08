@@ -87,7 +87,7 @@ fn verify_zkproof_test() {
     let mut bt_list = vec![];
     for _ in 0..bt_num {
         bt_list.push(BackwardTransfer {
-            pk_dest: [0u8; 32],
+            pk_dest: [0u8; 20],
             amount: 0,
         });
     }
