@@ -130,8 +130,12 @@ pub fn verify_sc_proof(
         public_inputs.push(*(proofdata.unwrap()));
     }
     public_inputs.push(wcert_sysdata_hash);
+
+    let aggregated_inputs = compute_poseidon_hash(public_inputs.as_slice())?;
+    drop(public_inputs);
+
     //Verify proof
-    let is_verified = verify_proof(&pvk, &sc_proof, public_inputs.as_slice())?;
+    let is_verified = verify_proof(&pvk, &sc_proof, &[aggregated_inputs])?;
     Ok(is_verified)
 }
 
