@@ -7,6 +7,17 @@
 #include <string>
 #include <cassert>
 
+void print_error(const char *msg) {
+    Error err = zendoo_get_last_error();
+
+    fprintf(stderr,
+            "%s: %s [%d - %s]\n",
+            msg,
+            err.msg,
+            err.category,
+            zendoo_get_category_name(err.category));
+}
+
 void error_or(const char* msg){
     if (zendoo_get_last_error().category != 0)
         print_error("error: ");
@@ -164,6 +175,10 @@ void proof_test() {
     std::ifstream is ("../test_files/sample_proof", std::ifstream::binary);
     is.seekg (0, is.end);
     int length = is.tellg();
+
+    //Check correct length
+    assert(("Unexpected size", length == zendoo_get_sc_proof_size_in_bytes()));
+
     is.seekg (0, is.beg);
     char* proof_bytes = new char [length];
     is.read(proof_bytes,length);
@@ -208,11 +223,36 @@ void proof_test() {
     size_t bt_list_len = 10;
     const backward_transfer_t bt_list[bt_list_len] = { {0}, 0 };
 
-    //Read vk
-    sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
+    //Read vk from file
+    std::ifstream is1 ("../test_files/sample_vk", std::ifstream::binary);
+    is1.seekg (0, is1.end);
+    length = is1.tellg();
+
+    //Check correct length
+    assert(("Unexpected size", length == zendoo_get_sc_vk_size_in_bytes()));
+
+    is1.seekg (0, is1.beg);
+    char* vk_bytes = new char [length];
+    is1.read(vk_bytes,length);
+    is1.close();
+
+    //Deserialize vk
+    auto vk_from_buffer = zendoo_deserialize_sc_vk((unsigned char*)vk_bytes);
+    if(vk_from_buffer == NULL){
+        print_error("error");
+        abort();
+    }
+
+    delete[] vk_bytes;
+
+    //Deserialize vk directly from file
+    sc_vk_t* vk_from_file = zendoo_deserialize_sc_vk_from_file(
         (path_char_t*)"../test_files/sample_vk",
         23
     );
+
+    //Check equality
+    assert(("Unexpected inequality", zendoo_sc_vk_assert_eq(vk_from_buffer, vk_from_file)));
 
     //Verify zkproof
     if(!zendoo_verify_sc_proof(
@@ -224,7 +264,7 @@ void proof_test() {
         constant,
         NULL,
         proof,
-        vk
+        vk_from_buffer
     )){
         error_or("Proof not verified");
         abort();
@@ -242,13 +282,14 @@ void proof_test() {
          constant,
          NULL,
          proof,
-         vk
+         vk_from_buffer
         )
     ));
 
     //Free proof
     zendoo_sc_proof_free(proof);
-    zendoo_sc_vk_free(vk);
+    zendoo_sc_vk_free(vk_from_buffer);
+    zendoo_sc_vk_free(vk_from_file);
     zendoo_field_free(constant);
 
     std::cout<< "...ok" << std::endl;
