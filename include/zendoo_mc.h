@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+static const size_t SC_PROOF_SIZE = 771;
+static const size_t SC_VK_SIZE = 1544;
+static const size_t SC_FIELD_SIZE = 96;
+
 extern "C" {
 
 #ifdef WIN32
