@@ -14,8 +14,17 @@ algebra = {version = "0.1.0", git = "https://github.com/ZencashOfficial/ginger-l
 primitives = {version = "0.1.0", features = ["merkle_tree"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
 proof-systems = {version = "0.1.0", features = ["groth16"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
 
+r1cs-crypto = {version = "0.1.0", git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development", optional = true}
+r1cs-core = {version = "0.1.0", git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development", optional = true}
+r1cs-std = {version = "0.1.0", git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development", optional = true}
+
 rand = { version = "0.7" }
 libc = "0.2"
+
+[features]
+mc-test-circuit = ["r1cs-crypto", "r1cs-core", "r1cs-std"]
+
+
 
 [profile.release]
 lto = true

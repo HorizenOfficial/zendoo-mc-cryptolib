@@ -15,6 +15,11 @@ use error::*;
 pub mod ginger_calls;
 use ginger_calls::*;
 
+#[cfg(feature = "mc-test-circuit")]
+pub mod mc_test_circuit;
+#[cfg(feature = "mc-test-circuit")]
+pub use self::mc_test_circuit::*;
+
 #[cfg(test)]
 pub mod tests;
 
@@ -225,6 +230,48 @@ pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut SCVk)
     drop(unsafe { Box::from_raw(sc_vk) });
 }
 
+#[cfg(feature = "mc-test-circuit")]
+#[no_mangle]
+pub extern "C" fn create_mc_test_proof(
+    end_epoch_mc_b_hash: *const [c_uchar; 32],
+    prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
+    mr_bt:  *const FieldElement,
+    quality: u64,
+    constant: *const FieldElement,
+    proofdata: *const FieldElement,
+) -> bool
+{
+    //Read end_epoch_mc_b_hash
+    let end_epoch_mc_b_hash = read_raw_pointer(end_epoch_mc_b_hash);
+
+    //Read prev_end_epoch_mc_b_hash
+    let prev_end_epoch_mc_b_hash = read_raw_pointer(prev_end_epoch_mc_b_hash);
+
+    //Read bt_list
+    let bt_root = read_raw_pointer(mr_bt);
+
+    //Read constant
+    let constant = read_nullable_raw_pointer(constant);
+
+    //Read proofdata
+    let proofdata = read_nullable_raw_pointer(proofdata);
+
+    //Generate proof and vk
+    match ginger_calls::create_test_mc_proof(
+        end_epoch_mc_b_hash,
+        prev_end_epoch_mc_b_hash,
+        bt_root,
+        quality,
+        constant,
+        proofdata,
+    ) {
+        Ok(()) => true,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            false
+        }
+    }
+}
 
 #[no_mangle]
 pub extern "C" fn zendoo_verify_sc_proof(

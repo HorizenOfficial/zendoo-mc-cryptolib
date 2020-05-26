@@ -86,6 +86,60 @@ impl BackwardTransfer {
     }
 }
 
+#[cfg(feature = "mc-test-circuit")]
+pub fn create_test_mc_proof(
+    end_epoch_mc_b_hash: &[u8; 32],
+    prev_end_epoch_mc_b_hash: &[u8; 32],
+    bt_root: &FieldElement,
+    quality: u64,
+    constant: Option<&FieldElement>,
+    proofdata: Option<&FieldElement>,
+) -> Result<(), Error> {
+
+    use crate::MCTestCircuit;
+    use algebra::fields::Field;
+
+    //Read inputs as field elements
+    let end_epoch_mc_b_hash = read_field_element_from_buffer_with_padding(end_epoch_mc_b_hash)?;
+    let prev_end_epoch_mc_b_hash =
+        read_field_element_from_buffer_with_padding(prev_end_epoch_mc_b_hash)?;
+    let quality = read_field_element_from_u64(quality);
+
+    //Get constant and proofdata
+    let constant = if constant.is_some(){*(constant.unwrap())} else {FieldElement::zero()};
+    let proofdata = if proofdata.is_some(){*(proofdata.unwrap())} else {FieldElement::zero()};
+
+    //Save vk to file
+    let params = MCTestCircuit::<FieldElement>::generate_parameters()?;
+    write_to_file(&params.vk, "./test_mc_vk")?;
+
+    // Save proof to file
+    let proof = MCTestCircuit::<FieldElement>::create_proof(
+        end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, *bt_root,
+        quality, constant, proofdata, params
+    )?;
+    write_to_file(&proof, "./test_mc_proof")?;
+
+    Ok(())
+}
+
+pub fn get_bt_merkle_root(bt_list: &[BackwardTransfer]) -> Result<FieldElement, Error>
+{
+    let mut bt_as_fes = vec![];
+    for bt in bt_list.iter() {
+        let bt_as_fe = bt.to_field_element()?;
+        bt_as_fes.push(bt_as_fe);
+    }
+
+    //Get Merkle Root of Backward Transfer list
+    let bt_tree = new_ginger_merkle_tree(bt_as_fes.as_slice())?;
+    let bt_root = get_ginger_merkle_root(&bt_tree);
+    drop(bt_as_fes);
+    drop(bt_tree);
+
+    Ok(bt_root)
+}
+
 pub fn verify_sc_proof(
     end_epoch_mc_b_hash: &[u8; 32],
     prev_end_epoch_mc_b_hash: &[u8; 32],
@@ -101,17 +155,7 @@ pub fn verify_sc_proof(
     let prev_end_epoch_mc_b_hash =
         read_field_element_from_buffer_with_padding(prev_end_epoch_mc_b_hash)?;
     let quality = read_field_element_from_u64(quality);
-    let mut bt_as_fes = vec![];
-    for bt in bt_list.iter() {
-        let bt_as_fe = bt.to_field_element()?;
-        bt_as_fes.push(bt_as_fe);
-    }
-
-    //Get Merkle Root of Backward Transfer list
-    let bt_tree = new_ginger_merkle_tree(bt_as_fes.as_slice())?;
-    let bt_root = get_ginger_merkle_root(&bt_tree);
-    drop(bt_as_fes);
-    drop(bt_tree);
+    let bt_root = get_bt_merkle_root(bt_list)?;
 
     //Load vk from file
     let pvk = prepare_verifying_key(&vk);

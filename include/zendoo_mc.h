@@ -207,6 +207,15 @@ extern "C" {
 
 //Test functions
 
+    bool create_mc_test_proof(
+        const unsigned char* end_epoch_mc_b_hash,
+        const unsigned char* prev_end_epoch_mc_b_hash,
+        const field_t* mr_bt,
+        uint64_t quality,
+        const field_t* constant,
+        const field_t* proofdata
+    );
+
     /* Get an opaque pointer to a random field element */
     field_t* zendoo_get_random_field(void);
 
