@@ -121,13 +121,16 @@ impl<F: PrimeField> ConstraintSynthesizer<MNT4Fr> for MCTestCircuit<F> {
             || self.proofdata.ok_or(SynthesisError::AssignmentMissing)
         )?;
 
+        //Enforce wcert_sysdata_hash
+        let wcert_sysdata_hash_g = MNT4PoseidonHashGadget::check_evaluation_gadget(
+            cs.ns(|| "H(wcert_sysdata_hash_g)"),
+            &[quality_g, mr_bt_g, prev_end_epoch_mc_b_hash_g, end_epoch_mc_b_hash_g]
+        )?;
+
         //Enforce hash of witnesses
         let actual_hash_g = MNT4PoseidonHashGadget::check_evaluation_gadget(
             cs.ns(|| "H(witnesses)"),
-            &[
-                end_epoch_mc_b_hash_g, prev_end_epoch_mc_b_hash_g,
-                mr_bt_g, quality_g, constant_g, proofdata_g
-            ]
+            &[constant_g, proofdata_g, wcert_sysdata_hash_g]
         )?;
 
         //Alloc public input hash

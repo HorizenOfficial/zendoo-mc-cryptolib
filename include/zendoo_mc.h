@@ -57,12 +57,6 @@ extern "C" {
       uint64_t amount;
     } backward_transfer_t;
 
-    /* Given a list of backward_transfer and its size, builds a Merkle Tree out of it and returns the Merkle Root */
-    field_t* zendoo_get_mr_bt(
-        const backward_transfer_t* bt_list,
-        size_t bt_list_len
-    );
-
     typedef struct sc_proof sc_proof_t;
 
     /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
@@ -85,6 +79,14 @@ extern "C" {
      */
     sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes);
 
+    /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
+     * Return NULL if the file doesn't exist, or if deserialization from it fails.
+     */
+    sc_proof_t* zendoo_deserialize_sc_proof_from_file(
+        const path_char_t* proof_path,
+        size_t proof_path_len
+    );
+
     /*
      * Free the memory from the sc_proof pointed by `sc_proof`. It's caller responsibility
      * to set `sc_proof` to NULL afterwards. If `sc_proof` was already NULL, the function does
@@ -97,7 +99,7 @@ extern "C" {
     /* Get the number of bytes needed to serialize/deserialize a sc_vk. */
     size_t zendoo_get_sc_vk_size_in_bytes(void);
 
-    /* Deserialize a sc_proof from a file at path `vk_path` and return an opaque pointer to it.
+    /* Deserialize a sc_vk from a file at path `vk_path` and return an opaque pointer to it.
      * Return NULL if the file doesn't exist, or if deserialization from it fails.
      */
     sc_vk_t* zendoo_deserialize_sc_vk_from_file(
@@ -216,7 +218,8 @@ extern "C" {
     bool zendoo_create_mc_test_proof(
         const unsigned char* end_epoch_mc_b_hash,
         const unsigned char* prev_end_epoch_mc_b_hash,
-        const field_t* mr_bt,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
         uint64_t quality,
         const field_t* constant,
         const field_t* proofdata

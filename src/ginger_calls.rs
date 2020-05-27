@@ -90,7 +90,7 @@ impl BackwardTransfer {
 pub fn create_test_mc_proof(
     end_epoch_mc_b_hash: &[u8; 32],
     prev_end_epoch_mc_b_hash: &[u8; 32],
-    bt_root: &FieldElement,
+    bt_list: &[BackwardTransfer],
     quality: u64,
     constant: Option<&FieldElement>,
     proofdata: Option<&FieldElement>,
@@ -104,6 +104,7 @@ pub fn create_test_mc_proof(
     let prev_end_epoch_mc_b_hash =
         read_field_element_from_buffer_with_padding(prev_end_epoch_mc_b_hash)?;
     let quality = read_field_element_from_u64(quality);
+    let bt_root = get_bt_merkle_root(bt_list)?;
 
     //Get constant and proofdata
     let constant = if constant.is_some(){*(constant.unwrap())} else {FieldElement::zero()};
@@ -115,7 +116,7 @@ pub fn create_test_mc_proof(
 
     // Save proof to file
     let proof = MCTestCircuit::<FieldElement>::create_proof(
-        end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, *bt_root,
+        end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_root,
         quality, constant, proofdata, params
     )?;
     write_to_file(&proof, "./test_mc_proof")?;

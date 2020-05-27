@@ -62,9 +62,12 @@ fn read_double_raw_pointer<T: Copy>(
     input
 }
 
-fn deserialize_to_raw_pointer<T: FromBytes>(buffer: &[u8]) -> *mut T {
+fn deserialize_to_raw_pointer<T: FromBytes + std::fmt::Debug>(buffer: &[u8]) -> *mut T {
     match deserialize_from_buffer(buffer) {
-        Ok(t) => Box::into_raw(Box::new(t)),
+        Ok(t) => {
+            println!("{:?}", t);
+            Box::into_raw(Box::new(t))
+        },
         Err(_) => {
             let e = IoError::new(
                 ErrorKind::InvalidData,
@@ -144,25 +147,6 @@ pub struct BackwardTransfer {
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_get_mr_bt(
-    bt_list: *const BackwardTransfer,
-    bt_list_len: usize,
-) -> *mut FieldElement
-{
-    // Read bt_list
-    let bt_list = unsafe { slice::from_raw_parts(bt_list, bt_list_len) };
-
-    // Compute mr_bt
-    match ginger_calls::get_bt_merkle_root(bt_list) {
-        Ok(root) => Box::into_raw(Box::new(root)),
-        Err(e) => {
-            set_last_error(e, CRYPTO_ERROR);
-            null_mut()
-        }
-    }
-}
-
-#[no_mangle]
 pub extern "C" fn zendoo_get_sc_proof_size_in_bytes() -> c_uint {
     GROTH_PROOF_SIZE as u32
 }
@@ -183,6 +167,43 @@ pub extern "C" fn zendoo_deserialize_sc_proof(
     sc_proof_bytes: *const [c_uchar; GROTH_PROOF_SIZE],
 ) -> *mut SCProof {
     deserialize_to_raw_pointer(&(unsafe { &*sc_proof_bytes })[..])
+}
+
+#[cfg(not(target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
+    proof_path: *const u8,
+    proof_path_len: usize,
+) -> *mut SCProof
+{
+    // Read file path
+    let proof_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    }));
+
+    match deserialize_from_file(proof_path){
+        Some(proof) => Box::into_raw(Box::new(proof)),
+        None => null_mut(),
+    }
+}
+
+#[cfg(target_os = "windows")]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
+    proof_path: *const u16,
+    proof_path_len: usize,
+) -> *mut SCProof
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    });
+    let proof_path = Path::new(&path_str);
+
+    match deserialize_from_file(path_str){
+        Some(proof) => Box::into_raw(Box::new(proof)),
+        None => null_mut(),
+    }
 }
 
 #[no_mangle]
@@ -254,7 +275,8 @@ pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut SCVk)
 pub extern "C" fn zendoo_create_mc_test_proof(
     end_epoch_mc_b_hash: *const [c_uchar; 32],
     prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
-    mr_bt:  *const FieldElement,
+    bt_list: *const BackwardTransfer,
+    bt_list_len: usize,
     quality: u64,
     constant: *const FieldElement,
     proofdata: *const FieldElement,
@@ -267,7 +289,7 @@ pub extern "C" fn zendoo_create_mc_test_proof(
     let prev_end_epoch_mc_b_hash = read_raw_pointer(prev_end_epoch_mc_b_hash);
 
     //Read bt_list
-    let bt_root = read_raw_pointer(mr_bt);
+    let bt_list = unsafe { slice::from_raw_parts(bt_list, bt_list_len) };
 
     //Read constant
     let constant = read_nullable_raw_pointer(constant);
@@ -279,7 +301,7 @@ pub extern "C" fn zendoo_create_mc_test_proof(
     match ginger_calls::create_test_mc_proof(
         end_epoch_mc_b_hash,
         prev_end_epoch_mc_b_hash,
-        bt_root,
+        bt_list,
         quality,
         constant,
         proofdata,
