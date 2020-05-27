@@ -35,7 +35,6 @@ pub struct MCTestCircuit<F: PrimeField>{
     mr_bt:                    Option<MNT4Fr>,
     quality:                  Option<MNT4Fr>,
     constant:                 Option<MNT4Fr>,
-    proofdata:                Option<MNT4Fr>,
     _field:                   PhantomData<F>
 
 }
@@ -47,7 +46,6 @@ impl<F: PrimeField> MCTestCircuit<F> {
         mr_bt:                    MNT4Fr,
         quality:                  MNT4Fr,
         constant:                 MNT4Fr,
-        proofdata:                MNT4Fr,
         params:                   Parameters<MNT4>
     ) -> Result<Proof<MNT4>, SynthesisError> {
         let c = Self{
@@ -56,7 +54,6 @@ impl<F: PrimeField> MCTestCircuit<F> {
             mr_bt:                    Some(mr_bt),
             quality:                  Some(quality),
             constant:                 Some(constant),
-            proofdata:                Some(proofdata),
             _field:                   PhantomData,
         };
         let mut rng = OsRng::default();
@@ -77,7 +74,6 @@ impl<F: PrimeField> MCTestCircuit<F> {
                 mr_bt:                    None,
                 quality:                  None,
                 constant:                 None,
-                proofdata:                None,
                 _field:                   PhantomData,
             };
             generate_random_parameters::<MNT4, _, _>(c, &mut rng)
@@ -116,11 +112,6 @@ impl<F: PrimeField> ConstraintSynthesizer<MNT4Fr> for MCTestCircuit<F> {
             || self.constant.ok_or(SynthesisError::AssignmentMissing)
         )?;
 
-        let proofdata_g = MNT4FrGadget::alloc(
-            cs.ns(|| "alloc proofdata"),
-            || self.proofdata.ok_or(SynthesisError::AssignmentMissing)
-        )?;
-
         //Enforce wcert_sysdata_hash
         let wcert_sysdata_hash_g = MNT4PoseidonHashGadget::check_evaluation_gadget(
             cs.ns(|| "H(wcert_sysdata_hash_g)"),
@@ -130,7 +121,7 @@ impl<F: PrimeField> ConstraintSynthesizer<MNT4Fr> for MCTestCircuit<F> {
         //Enforce hash of witnesses
         let actual_hash_g = MNT4PoseidonHashGadget::check_evaluation_gadget(
             cs.ns(|| "H(witnesses)"),
-            &[constant_g, proofdata_g, wcert_sysdata_hash_g]
+            &[constant_g, wcert_sysdata_hash_g]
         )?;
 
         //Alloc public input hash

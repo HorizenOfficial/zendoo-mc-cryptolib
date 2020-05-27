@@ -31,34 +31,11 @@ int main(int argc, char** argv)
     uint64_t quality = strtoull(argv[arg++], NULL, 0);
     assert(quality >= 0);
 
-    auto constant = std::string(argv[arg++]);
-    auto proofdata = std::string(argv[arg++]);
-
-    // Deserialize constant and proofdata
-    field_t* constant_f = NULL;
-    if(constant.size() != 0){
-        assert(IsHex(constant));
-        auto constant_decoded = ParseHex(constant.c_str());
-        assert(constant_decoded.size() == 96);
-        constant_f = zendoo_deserialize_field((unsigned char*)constant_decoded.data());
-    } else {
-        unsigned char zeros[96] = {0};
-        constant_f = zendoo_deserialize_field(zeros);
-    }
+    assert(IsHex(argv[arg]));
+    auto constant = ParseHex(argv[arg++]);
+    assert(constant.size() == 96);
+    field_t* constant_f = zendoo_deserialize_field(constant.data());
     assert(constant_f != NULL);
-
-    field_t* proofdata_f = NULL;
-    if(proofdata.size() != 0){
-        assert(IsHex(proofdata));
-        auto proofdata_decoded = ParseHex(proofdata.c_str());
-        assert(proofdata_decoded.size() == 96);
-        proofdata_f = zendoo_deserialize_field((unsigned char*)proofdata_decoded.data());
-        assert(proofdata_f != NULL);
-    } else {
-        unsigned char zeros[96] = {0};
-        proofdata_f = zendoo_deserialize_field(zeros);
-    }
-    assert(proofdata_f != NULL);
 
     // Create bt_list
     // Inputs must be (pk_dest, amount) pairs from which construct backward_transfer objects
@@ -90,8 +67,7 @@ int main(int argc, char** argv)
         bt_list.data(),
         bt_list_length,
         quality,
-        constant_f,
-        proofdata_f
+        constant_f
     ));
 
     // If -v was specified we verify the proof just created
@@ -117,7 +93,7 @@ int main(int argc, char** argv)
             bt_list_length,
             quality,
             constant_f,
-            proofdata_f,
+            NULL,
             proof,
             vk
         ));
@@ -126,9 +102,6 @@ int main(int argc, char** argv)
         zendoo_sc_vk_free(vk);
     }
 
-    if(constant_f != NULL)
-        zendoo_field_free(constant_f);
+    zendoo_field_free(constant_f);
 
-    if(proofdata_f != NULL)
-        zendoo_field_free(proofdata_f);
 }

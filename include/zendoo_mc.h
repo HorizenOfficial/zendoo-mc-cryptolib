@@ -221,8 +221,7 @@ extern "C" {
         const backward_transfer_t* bt_list,
         size_t bt_list_len,
         uint64_t quality,
-        const field_t* constant,
-        const field_t* proofdata
+        const field_t* constant
     );
 
     /* Get an opaque pointer to a random field element */

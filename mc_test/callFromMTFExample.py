@@ -8,11 +8,11 @@ import random
 def compile():
     subprocess.check_call(['make'])
 
-def generate_test_proof_and_vk(verify, end_epoch_block_hash, prev_end_epoch_block_hash, quality, constant, proofdata, pks, amounts):
+def generate_test_proof_and_vk(verify, end_epoch_block_hash, prev_end_epoch_block_hash, quality, constant, pks, amounts):
     args = ["./mcTest"]
     if verify:
         args.append("-v")
-    args += [str(end_epoch_block_hash), str(prev_end_epoch_block_hash), str(quality), str(constant), str(proofdata)]
+    args += [str(end_epoch_block_hash), str(prev_end_epoch_block_hash), str(quality), str(constant)]
     for (pk, amount) in zip(pks, amounts):
         args.append(str(pk))
         args.append(str(amount))
@@ -31,9 +31,9 @@ if __name__ == "__main__":
 
     #Generate proof and vk
     generate_test_proof_and_vk(
-        True,
+        False,
         binascii.b2a_hex(os.urandom(32)), binascii.b2a_hex(os.urandom(32)), 0,
-        generate_random_field_element_hex(), generate_random_field_element_hex(), pks, amounts
+        generate_random_field_element_hex(), pks, amounts
     )
 
     #Verify proof and vk have been generated

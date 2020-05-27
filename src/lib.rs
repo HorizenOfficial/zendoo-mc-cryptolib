@@ -62,12 +62,9 @@ fn read_double_raw_pointer<T: Copy>(
     input
 }
 
-fn deserialize_to_raw_pointer<T: FromBytes + std::fmt::Debug>(buffer: &[u8]) -> *mut T {
+fn deserialize_to_raw_pointer<T: FromBytes>(buffer: &[u8]) -> *mut T {
     match deserialize_from_buffer(buffer) {
-        Ok(t) => {
-            println!("{:?}", t);
-            Box::into_raw(Box::new(t))
-        },
+        Ok(t) => Box::into_raw(Box::new(t)),
         Err(_) => {
             let e = IoError::new(
                 ErrorKind::InvalidData,
@@ -279,7 +276,6 @@ pub extern "C" fn zendoo_create_mc_test_proof(
     bt_list_len: usize,
     quality: u64,
     constant: *const FieldElement,
-    proofdata: *const FieldElement,
 ) -> bool
 {
     //Read end_epoch_mc_b_hash
@@ -292,10 +288,7 @@ pub extern "C" fn zendoo_create_mc_test_proof(
     let bt_list = unsafe { slice::from_raw_parts(bt_list, bt_list_len) };
 
     //Read constant
-    let constant = read_nullable_raw_pointer(constant);
-
-    //Read proofdata
-    let proofdata = read_nullable_raw_pointer(proofdata);
+    let constant = read_raw_pointer(constant);
 
     //Generate proof and vk
     match ginger_calls::create_test_mc_proof(
@@ -304,7 +297,6 @@ pub extern "C" fn zendoo_create_mc_test_proof(
         bt_list,
         quality,
         constant,
-        proofdata,
     ) {
         Ok(()) => true,
         Err(e) => {
