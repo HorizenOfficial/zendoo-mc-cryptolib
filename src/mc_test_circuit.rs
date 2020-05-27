@@ -141,7 +141,6 @@ impl<F: PrimeField> ConstraintSynthesizer<MNT4Fr> for MCTestCircuit<F> {
             cs.ns(|| "actual_hash_g == expected_hash_g"),
             &expected_hash_g
         )?;
-
         Ok(())
     }
 }

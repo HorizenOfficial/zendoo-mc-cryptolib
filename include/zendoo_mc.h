@@ -57,6 +57,12 @@ extern "C" {
       uint64_t amount;
     } backward_transfer_t;
 
+    /* Given a list of backward_transfer and its size, builds a Merkle Tree out of it and returns the Merkle Root */
+    field_t* zendoo_get_mr_bt(
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len
+    );
+
     typedef struct sc_proof sc_proof_t;
 
     /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
@@ -207,7 +213,7 @@ extern "C" {
 
 //Test functions
 
-    bool create_mc_test_proof(
+    bool zendoo_create_mc_test_proof(
         const unsigned char* end_epoch_mc_b_hash,
         const unsigned char* prev_end_epoch_mc_b_hash,
         const field_t* mr_bt,

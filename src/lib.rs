@@ -144,6 +144,25 @@ pub struct BackwardTransfer {
 }
 
 #[no_mangle]
+pub extern "C" fn zendoo_get_mr_bt(
+    bt_list: *const BackwardTransfer,
+    bt_list_len: usize,
+) -> *mut FieldElement
+{
+    // Read bt_list
+    let bt_list = unsafe { slice::from_raw_parts(bt_list, bt_list_len) };
+
+    // Compute mr_bt
+    match ginger_calls::get_bt_merkle_root(bt_list) {
+        Ok(root) => Box::into_raw(Box::new(root)),
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            null_mut()
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn zendoo_get_sc_proof_size_in_bytes() -> c_uint {
     GROTH_PROOF_SIZE as u32
 }
@@ -232,7 +251,7 @@ pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut SCVk)
 
 #[cfg(feature = "mc-test-circuit")]
 #[no_mangle]
-pub extern "C" fn create_mc_test_proof(
+pub extern "C" fn zendoo_create_mc_test_proof(
     end_epoch_mc_b_hash: *const [c_uchar; 32],
     prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
     mr_bt:  *const FieldElement,
