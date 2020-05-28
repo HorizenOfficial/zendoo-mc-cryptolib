@@ -16,6 +16,9 @@ use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proo
 use std::{fs::File, io::Result as IoResult, path::Path};
 pub type Error = Box<dyn std::error::Error>;
 
+#[cfg(feature = "mc-test-circuit")]
+use crate::MCTestCircuit;
+
 pub type FieldElement = Fr;
 
 pub const FIELD_SIZE: usize = 96; //Field size in bytes
@@ -87,6 +90,17 @@ impl BackwardTransfer {
 }
 
 #[cfg(feature = "mc-test-circuit")]
+pub fn generate_test_mc_parameters() -> Result<(), Error>
+{
+    //Save vk to file
+    let params = MCTestCircuit::<FieldElement>::generate_parameters()?;
+    write_to_file(&params.clone(), "./test_mc_pk")?;
+    write_to_file(&params.vk, "./test_mc_vk")?;
+    Ok(())
+}
+
+
+#[cfg(feature = "mc-test-circuit")]
 pub fn create_test_mc_proof(
     end_epoch_mc_b_hash: &[u8; 32],
     prev_end_epoch_mc_b_hash: &[u8; 32],
@@ -95,7 +109,7 @@ pub fn create_test_mc_proof(
     constant: &FieldElement,
 ) -> Result<(), Error> {
 
-    use crate::MCTestCircuit;
+    use proof_systems::groth16::Parameters;
 
     //Read inputs as field elements
     let end_epoch_mc_b_hash = read_field_element_from_buffer_with_padding(end_epoch_mc_b_hash)?;
@@ -104,9 +118,9 @@ pub fn create_test_mc_proof(
     let quality = read_field_element_from_u64(quality);
     let bt_root = get_bt_merkle_root(bt_list)?;
 
-    //Save vk to file
-    let params = MCTestCircuit::<FieldElement>::generate_parameters()?;
-    write_to_file(&params.vk, "./test_mc_vk")?;
+    //Read proving key
+    let mut fs = File::open("./test_mc_pk")?;
+    let params = Parameters::<PairingCurve>::read(&mut fs)?;
 
     // Save proof to file
     let proof = MCTestCircuit::<FieldElement>::create_proof(

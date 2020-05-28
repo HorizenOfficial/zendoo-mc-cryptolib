@@ -5,17 +5,18 @@
 #include <string>
 
 /*
- *  Usage: ./mcTest <"-v"> "end_epoch_mc_b_hash" "prev_end_epoch_mc_b_hash" "quality" "<constant>" "<proofdata>"
-                    "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n"
- *  "constant" and "proofdata" can be null but the "" must be specified anyway
+ *  Usage:
+ *       1) ./mcTest "generate"
+ *       2) ./mcTest "create" <"-v"> "end_epoch_mc_b_hash" "prev_end_epoch_mc_b_hash" "quality" "constant"
+ *           "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n"
  */
 
 
-int main(int argc, char** argv)
+void create_verify(int argc, char** argv)
 {
-    int arg = 1;
+    int arg = 2;
     bool verify = false;
-    if (std::string(argv[1]) == "-v"){
+    if (std::string(argv[2]) == "-v"){
         arg++;
         verify = true;
     }
@@ -78,12 +79,14 @@ int main(int argc, char** argv)
             (path_char_t*)"./test_mc_proof",
             15
         );
+        assert(proof != NULL);
 
         // Deserialize vk
         sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
             (path_char_t*)"./test_mc_vk",
             12
         );
+        assert(vk != NULL);
 
         // Verify proof
         assert(zendoo_verify_sc_proof(
@@ -103,5 +106,24 @@ int main(int argc, char** argv)
     }
 
     zendoo_field_free(constant_f);
+}
 
+void generate()
+{
+    assert (zendoo_generate_mc_test_params());
+}
+
+
+int main(int argc, char** argv)
+{
+
+    if(std::string(argv[1]) == "generate") {
+        assert(argc == 2);
+        generate();
+    } else if (std::string(argv[1]) == "create"){
+        assert(argc > 2);
+        create_verify(argc, argv);
+    } else {
+        abort();
+    }
 }

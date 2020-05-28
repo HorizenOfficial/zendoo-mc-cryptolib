@@ -215,6 +215,8 @@ extern "C" {
 
 //Test functions
 
+    bool zendoo_generate_mc_test_params();
+
     bool zendoo_create_mc_test_proof(
         const unsigned char* end_epoch_mc_b_hash,
         const unsigned char* prev_end_epoch_mc_b_hash,

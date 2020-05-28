@@ -269,6 +269,18 @@ pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut SCVk)
 
 #[cfg(feature = "mc-test-circuit")]
 #[no_mangle]
+pub extern "C" fn zendoo_generate_mc_test_params() -> bool {
+    match ginger_calls::generate_test_mc_parameters() {
+        Ok(()) => true,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            false
+        }
+    }
+}
+
+#[cfg(feature = "mc-test-circuit")]
+#[no_mangle]
 pub extern "C" fn zendoo_create_mc_test_proof(
     end_epoch_mc_b_hash: *const [c_uchar; 32],
     prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
