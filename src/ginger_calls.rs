@@ -147,7 +147,7 @@ pub fn verify_sc_proof(
 pub struct FieldBasedMerkleTreeParams;
 
 impl FieldBasedMerkleTreeConfig for FieldBasedMerkleTreeParams {
-    const HEIGHT: usize = 9;
+    const HEIGHT: usize = 13;
     type H = FieldHash;
 }
 
