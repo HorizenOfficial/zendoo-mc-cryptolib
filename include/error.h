@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string>
 
 #define GENERAL_ERROR 0
 
@@ -18,6 +19,7 @@ extern "C" {
        * The general error category.
        */
       uint32_t category;
+
     } Error;
 
 
@@ -41,15 +43,4 @@ extern "C" {
      * calling any function which may set `LAST_ERROR`.
      */
     Error zendoo_get_last_error(void);
-}
-
-void print_error(const char *msg) {
-    Error err = zendoo_get_last_error();
-
-    fprintf(stderr,
-            "%s: %s [%d - %s]\n",
-            msg,
-            err.msg,
-            err.category,
-            zendoo_get_category_name(err.category));
 }
