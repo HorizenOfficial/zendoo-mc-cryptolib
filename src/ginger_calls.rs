@@ -8,7 +8,7 @@ use crate::BackwardTransfer;
 use primitives::{
     crh::{FieldBasedHash, MNT4PoseidonHash as FieldHash},
     merkle_tree::field_based_mht::{
-        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath,
+        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath, MNT4753_PHANTOM_MERKLE_ROOT
     },
 };
 use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
@@ -134,17 +134,16 @@ pub fn create_test_mc_proof(
 
 pub fn get_bt_merkle_root(bt_list: &[BackwardTransfer]) -> Result<FieldElement, Error>
 {
-    let mut bt_as_fes = vec![];
-    for bt in bt_list.iter() {
-        let bt_as_fe = bt.to_field_element()?;
-        bt_as_fes.push(bt_as_fe);
-    }
-
-    //Get Merkle Root of Backward Transfer list
-    let bt_tree = new_ginger_merkle_tree(bt_as_fes.as_slice())?;
-    let bt_root = get_ginger_merkle_root(&bt_tree);
-    drop(bt_as_fes);
-    drop(bt_tree);
+    let bt_root = if bt_list.len() > 0 {
+        let mut bt_as_fes = vec![];
+        for bt in bt_list.iter() {
+            let bt_as_fe = bt.to_field_element()?;
+            bt_as_fes.push(bt_as_fe);
+        }
+        //Get Merkle Root of Backward Transfer list
+        let bt_tree = new_ginger_merkle_tree(bt_as_fes.as_slice())?;
+        get_ginger_merkle_root(&bt_tree)
+    } else { MNT4753_PHANTOM_MERKLE_ROOT };
 
     Ok(bt_root)
 }
@@ -200,7 +199,7 @@ pub fn verify_sc_proof(
 pub struct FieldBasedMerkleTreeParams;
 
 impl FieldBasedMerkleTreeConfig for FieldBasedMerkleTreeParams {
-    const HEIGHT: usize = 9;
+    const HEIGHT: usize = 13;
     type H = FieldHash;
 }
 
