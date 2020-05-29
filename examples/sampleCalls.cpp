@@ -7,6 +7,17 @@
 #include <string>
 #include <cassert>
 
+void print_error(const char *msg) {
+    Error err = zendoo_get_last_error();
+
+    fprintf(stderr,
+            "%s: %s [%d - %s]\n",
+            msg,
+            err.msg,
+            err.category,
+            zendoo_get_category_name(err.category));
+}
+
 void error_or(const char* msg){
     if (zendoo_get_last_error().category != 0)
         print_error("error: ");
@@ -164,6 +175,10 @@ void proof_test() {
     std::ifstream is ("../test_files/sample_proof", std::ifstream::binary);
     is.seekg (0, is.end);
     int length = is.tellg();
+
+    //Check correct length
+    assert(("Unexpected size", length == zendoo_get_sc_proof_size_in_bytes()));
+
     is.seekg (0, is.beg);
     char* proof_bytes = new char [length];
     is.read(proof_bytes,length);
@@ -180,20 +195,20 @@ void proof_test() {
 
     //Inputs
     unsigned char end_epoch_mc_b_hash[32] = {
-        48, 202, 96, 61, 206, 20, 30, 152, 124, 86, 199, 13, 154, 135, 39, 58, 53, 150, 69, 169, 123, 71, 0, 29, 62, 97,
-        198, 19, 5, 184, 196, 31
+        78, 85, 161, 67, 167, 192, 185, 56, 133, 49, 134, 253, 133, 165, 182, 80, 152, 93, 203, 77, 165, 13, 67, 0, 64,
+        200, 185, 46, 93, 135, 238, 70
     };
 
     unsigned char prev_end_epoch_mc_b_hash[32] = {
-        241, 72, 150, 254, 135, 196, 102, 189, 247, 180, 78, 56, 187, 156, 23, 190, 23, 27, 165, 52, 6, 74, 221, 100,
-        220, 174, 251, 72, 134, 19, 158, 238
+        68, 214, 34, 70, 20, 109, 48, 39, 210, 156, 109, 60, 139, 15, 102, 79, 79, 2, 87, 190, 118, 38, 54, 18, 170, 67,
+        212, 205, 183, 115, 182, 198
     };
 
     unsigned char constant_bytes[96] = {
-        218, 197, 230, 227, 177, 215, 180, 32, 249, 205, 103, 89, 92, 233, 4, 105, 201, 216, 112, 32, 168, 129, 18, 94,
-        199, 130, 168, 130, 150, 128, 178, 170, 98, 98, 118, 187, 73, 126, 4, 218, 2, 240, 197, 4, 236, 226, 238, 149,
-        151, 108, 163, 148, 180, 175, 38, 59, 87, 38, 42, 213, 100, 214, 12, 117, 186, 161, 114, 100, 120, 85, 6, 211,
-        34, 173, 106, 43, 111, 104, 185, 243, 108, 0, 126, 16, 190, 8, 113, 39, 195, 175, 189, 138, 132, 104, 0, 0
+        170, 190, 140, 27, 234, 135, 240, 226, 158, 16, 29, 161, 178, 36, 69, 34, 29, 75, 195, 247, 29, 93, 92, 48, 214,
+        102, 70, 134, 68, 165, 170, 201, 119, 162, 19, 254, 229, 115, 80, 248, 106, 182, 164, 40, 21, 154, 15, 177, 158,
+        16, 172, 169, 189, 253, 206, 182, 72, 183, 128, 160, 182, 39, 98, 76, 95, 198, 62, 39, 87, 213, 251, 12, 154,
+        180, 125, 231, 222, 73, 129, 120, 144, 197, 116, 248, 95, 206, 147, 108, 252, 125, 79, 118, 57, 26, 0, 0
     };
 
     auto constant = zendoo_deserialize_field(constant_bytes);
@@ -208,11 +223,36 @@ void proof_test() {
     size_t bt_list_len = 10;
     const backward_transfer_t bt_list[bt_list_len] = { {0}, 0 };
 
-    //Read vk
-    sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
+    //Read vk from file
+    std::ifstream is1 ("../test_files/sample_vk", std::ifstream::binary);
+    is1.seekg (0, is1.end);
+    length = is1.tellg();
+
+    //Check correct length
+    assert(("Unexpected size", length == zendoo_get_sc_vk_size_in_bytes()));
+
+    is1.seekg (0, is1.beg);
+    char* vk_bytes = new char [length];
+    is1.read(vk_bytes,length);
+    is1.close();
+
+    //Deserialize vk
+    auto vk_from_buffer = zendoo_deserialize_sc_vk((unsigned char*)vk_bytes);
+    if(vk_from_buffer == NULL){
+        print_error("error");
+        abort();
+    }
+
+    delete[] vk_bytes;
+
+    //Deserialize vk directly from file
+    sc_vk_t* vk_from_file = zendoo_deserialize_sc_vk_from_file(
         (path_char_t*)"../test_files/sample_vk",
         23
     );
+
+    //Check equality
+    assert(("Unexpected inequality", zendoo_sc_vk_assert_eq(vk_from_buffer, vk_from_file)));
 
     //Verify zkproof
     if(!zendoo_verify_sc_proof(
@@ -224,7 +264,7 @@ void proof_test() {
         constant,
         NULL,
         proof,
-        vk
+        vk_from_buffer
     )){
         error_or("Proof not verified");
         abort();
@@ -242,13 +282,14 @@ void proof_test() {
          constant,
          NULL,
          proof,
-         vk
+         vk_from_buffer
         )
     ));
 
     //Free proof
     zendoo_sc_proof_free(proof);
-    zendoo_sc_vk_free(vk);
+    zendoo_sc_vk_free(vk_from_buffer);
+    zendoo_sc_vk_free(vk_from_file);
     zendoo_field_free(constant);
 
     std::cout<< "...ok" << std::endl;

@@ -134,12 +134,12 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) {
 //********************Sidechain SNARK functions********************
 #[repr(C)]
 pub struct BackwardTransfer {
-    pub pk_dest: [c_uchar; 32],
+    pub pk_dest: [c_uchar; 20],
     pub amount: u64,
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_get_sc_proof_size() -> c_uint {
+pub extern "C" fn zendoo_get_sc_proof_size_in_bytes() -> c_uint {
     GROTH_PROOF_SIZE as u32
 }
 
@@ -167,6 +167,11 @@ pub extern "C" fn zendoo_sc_proof_free(sc_proof: *mut SCProof) {
         return;
     }
     drop(unsafe { Box::from_raw(sc_proof) });
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_vk_size_in_bytes() -> c_uint {
+    VK_SIZE as u32
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -204,6 +209,13 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
         Some(vk) => Box::into_raw(Box::new(vk)),
         None => null_mut(),
     }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_vk(
+    sc_vk_bytes: *const [c_uchar; VK_SIZE],
+) -> *mut SCVk {
+    deserialize_to_raw_pointer(&(unsafe { &*sc_vk_bytes })[..])
 }
 
 #[no_mangle]
@@ -385,7 +397,7 @@ pub extern "C" fn ginger_mt_path_free(path: *mut GingerMerkleTreePath) {
 
 //***************Test functions*******************
 
-fn check_equal<T: Eq>(val_1: *const T, val_2: *const T) -> bool {
+fn check_equal<T: PartialEq>(val_1: *const T, val_2: *const T) -> bool {
     let val_1 = unsafe { &*val_1 };
     let val_2 = unsafe { &*val_2 };
     val_1 == val_2
@@ -404,4 +416,12 @@ pub extern "C" fn zendoo_field_assert_eq(
     field_2: *const FieldElement,
 ) -> bool {
     check_equal(field_1, field_2)
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_sc_vk_assert_eq(
+    sc_vk_1: *const SCVk,
+    sc_vk_2: *const SCVk,
+) -> bool {
+    check_equal(sc_vk_1, sc_vk_2)
 }

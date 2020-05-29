@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+static const size_t SC_PROOF_SIZE = 771;
+static const size_t SC_VK_SIZE = 1544;
+static const size_t SC_FIELD_SIZE = 96;
+
 extern "C" {
 
 #ifdef WIN32
@@ -49,13 +53,43 @@ extern "C" {
 //SC SNARK related functions
 
     typedef struct backward_transfer{
-      unsigned char pk_dest[32];
+      unsigned char pk_dest[20];
       uint64_t amount;
     } backward_transfer_t;
 
     typedef struct sc_proof sc_proof_t;
 
+    /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
+    size_t zendoo_get_sc_proof_size_in_bytes(void);
+
+    /*
+     * Serialize a sc_proof into `sc_proof_bytes` given an opaque pointer `sc_proof` to it.
+     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
+     * returned by `zendoo_get_sc_proof_size_in_bytes`. Panic if serialization was unsuccessful
+     */
+    void zendoo_serialize_sc_proof(
+        const sc_proof_t* sc_proof,
+        unsigned char* sc_proof_bytes
+    );
+
+    /*
+     * Deserialize a sc_proof from `sc_proof_bytes` and return an opaque pointer to it.
+     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
+     * returned by `zendoo_get_sc_proof_size_in_bytes`. Panic if deserialization fails.
+     */
+    sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes);
+
+    /*
+     * Free the memory from the sc_proof pointed by `sc_proof`. It's caller responsibility
+     * to set `sc_proof` to NULL afterwards. If `sc_proof` was already NULL, the function does
+     * nothing.
+     */
+    void zendoo_sc_proof_free(sc_proof_t* sc_proof);
+
     typedef struct sc_vk sc_vk_t;
+
+    /* Get the number of bytes needed to serialize/deserialize a sc_vk. */
+    size_t zendoo_get_sc_vk_size_in_bytes(void);
 
     /* Deserialize a sc_proof from a file at path `vk_path` and return an opaque pointer to it.
      * Return NULL if the file doesn't exist, or if deserialization from it fails.
@@ -66,14 +100,19 @@ extern "C" {
     );
 
     /*
+     * Deserialize a sc_vk from `sc_vk_bytes` and return an opaque pointer to it.
+     * It's caller's responsibility to ensure that `sc_vk_bytes` size is equal to the one
+     * returned by `zendoo_get_sc_vk_size_in_bytes`. Panic if deserialization fails.
+     */
+    sc_vk_t* zendoo_deserialize_sc_vk(const unsigned char* sc_vk_bytes);
+
+    /*
      * Free the memory from the sc_vk pointed by `sc_vk`. It's caller responsibility
      * to set `sc_vk` to NULL afterwards. If `sc_vk` was already null, the function does
      * nothing.
      */
     void zendoo_sc_vk_free(sc_vk_t* sc_vk);
 
-    /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
-    size_t zendoo_get_sc_proof_size(void);
 
     /*  Verify a sc_proof given an opaque pointer `sc_proof` to it, an opaque pointer
      *  to the verification key `sc_vk` and all the data needed to construct
@@ -92,30 +131,6 @@ extern "C" {
         const sc_proof_t* sc_proof,
         const sc_vk_t* sc_vk
     );
-
-    /*
-     * Serialize a sc_proof into `sc_proof_bytes` given an opaque pointer `sc_proof` to it.
-     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
-     * returned by `zendoo_get_sc_proof_size`. Panic if serialization was unsuccessful
-     */
-    void zendoo_serialize_sc_proof(
-        const sc_proof_t* sc_proof,
-        unsigned char* sc_proof_bytes
-    );
-
-    /*
-     * Deserialize a sc_proof from `sc_proof_bytes` and return an opaque pointer to it.
-     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
-     * returned by `zendoo_get_sc_proof_size`. Panic if deserialization fails.
-     */
-    sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes);
-
-    /*
-     * Free the memory from the sc_proof pointed by `sc_proof`. It's caller responsibility
-     * to set `sc_proof` to NULL afterwards. If `sc_proof` was already NULL, the function does
-     * nothing.
-     */
-    void zendoo_sc_proof_free(sc_proof_t* sc_proof);
 
 //Poseidon hash related functions
 
@@ -201,6 +216,14 @@ extern "C" {
     bool zendoo_field_assert_eq(
         const field_t* field_1,
         const field_t* field_2
+    );
+
+    /* Return `true` if the vks pointed by `sc_vk_1` and `sc_vk_2` are
+     * equal, and `false` otherwise.
+     */
+    bool zendoo_sc_vk_assert_eq(
+        const sc_vk_t* sc_vk_1,
+        const sc_vk_t* sc_vk_2
     );
 }
 
