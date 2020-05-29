@@ -23,6 +23,9 @@ pub const SCALAR_FIELD_SIZE: usize = FIELD_SIZE; // 96
 
 pub const GROTH_PROOF_SIZE: usize = 771;
 
+// Assuming 1 public input: (2G1 + 2G2 + 1GT) = 1540 + 4 byte to save size of gamma_abc_g1 vec
+pub const VK_SIZE: usize = 1544;
+
 //*******************************Generic I/O functions**********************************************
 // Note: Should decide if panicking or handling IO errors
 
@@ -144,7 +147,7 @@ pub fn verify_sc_proof(
 pub struct FieldBasedMerkleTreeParams;
 
 impl FieldBasedMerkleTreeConfig for FieldBasedMerkleTreeParams {
-    const HEIGHT: usize = 9;
+    const HEIGHT: usize = 13;
     type H = FieldHash;
 }
 
