@@ -8,7 +8,7 @@ use crate::BackwardTransfer;
 use primitives::{
     crh::{FieldBasedHash, MNT4PoseidonHash as FieldHash},
     merkle_tree::field_based_mht::{
-        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath,
+        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath, MNT4753_PHANTOM_MERKLE_ROOT
     },
 };
 use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
@@ -98,17 +98,18 @@ pub fn verify_sc_proof(
     let prev_end_epoch_mc_b_hash =
         read_field_element_from_buffer_with_padding(prev_end_epoch_mc_b_hash)?;
     let quality = read_field_element_from_u64(quality);
-    let mut bt_as_fes = vec![];
-    for bt in bt_list.iter() {
-        let bt_as_fe = bt.to_field_element()?;
-        bt_as_fes.push(bt_as_fe);
-    }
 
-    //Get Merkle Root of Backward Transfer list
-    let bt_tree = new_ginger_merkle_tree(bt_as_fes.as_slice())?;
-    let bt_root = get_ginger_merkle_root(&bt_tree);
-    drop(bt_as_fes);
-    drop(bt_tree);
+    let bt_root = if bt_list.len() > 0 {
+        let mut bt_as_fes = vec![];
+        for bt in bt_list.iter() {
+            let bt_as_fe = bt.to_field_element()?;
+            bt_as_fes.push(bt_as_fe);
+        }
+
+        //Get Merkle Root of Backward Transfer list
+        let bt_tree = new_ginger_merkle_tree(bt_as_fes.as_slice())?;
+        get_ginger_merkle_root(&bt_tree)
+    } else { MNT4753_PHANTOM_MERKLE_ROOT };
 
     //Load vk from file
     let pvk = prepare_verifying_key(&vk);

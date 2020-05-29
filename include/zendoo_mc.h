@@ -78,8 +78,8 @@ extern "C" {
     /*  Verify a sc_proof given an opaque pointer `sc_proof` to it, an opaque pointer
      *  to the verification key `sc_vk` and all the data needed to construct
      *  proof's public inputs. Returns `true` if proof verification was
-     *  successful, false otherwise, panic if some error occured. NOTE: `constant`
-     *  and `proofdata` can be NULL.
+     *  successful, false otherwise, panic if some error occured. NOTE: `constant`,
+     *  `proofdata` and 'bt_list' can be NULL.
      */
     bool zendoo_verify_sc_proof(
         const unsigned char* end_epoch_mc_b_hash,
