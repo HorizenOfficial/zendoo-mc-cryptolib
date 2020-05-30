@@ -46,12 +46,6 @@ pub fn read_from_file<T: FromBytes>(file_path: &Path) -> IoResult<T> {
     Ok(t)
 }
 
-pub fn write_to_file<T: ToBytes>(to_write: &T, file_path: &str) -> IoResult<()> {
-    let mut fs = File::create(file_path)?;
-    to_write.write(&mut fs)?;
-    Ok(())
-}
-
 //Will return error if buffer.len > FIELD_SIZE. If buffer.len < FIELD_SIZE, padding 0s will be added
 pub fn read_field_element_from_buffer_with_padding(buffer: &[u8]) -> IoResult<FieldElement> {
     let buff_len = buffer.len();
@@ -80,6 +74,7 @@ pub fn compute_poseidon_hash(input: &[FieldElement]) -> Result<FieldElement, Err
 pub type SCProof = Proof<PairingCurve>;
 pub type SCVk = VerifyingKey<PairingCurve>;
 
+
 impl BackwardTransfer {
     pub fn to_field_element(&self) -> IoResult<FieldElement> {
         let mut buffer = vec![];
@@ -90,12 +85,20 @@ impl BackwardTransfer {
 }
 
 #[cfg(feature = "mc-test-circuit")]
-pub fn generate_test_mc_parameters() -> Result<(), Error>
+pub fn generate_test_mc_parameters(params_dir: &Path) -> Result<(), Error>
 {
-    //Save vk to file
+    //Save params to file
+    let pk_path = params_dir.join("test_mc_pk");
+    let vk_path = params_dir.join("test_mc_vk");
+
     let params = MCTestCircuit::<FieldElement>::generate_parameters()?;
-    write_to_file(&params.clone(), "./test_mc_pk")?;
-    write_to_file(&params.vk, "./test_mc_vk")?;
+
+    let mut fs_pk = File::create(pk_path)?;
+    params.clone().write(&mut fs_pk)?;
+
+    let mut fs_vk = File::create(vk_path)?;
+    params.vk.write(&mut fs_vk)?;
+
     Ok(())
 }
 
@@ -107,9 +110,9 @@ pub fn create_test_mc_proof(
     bt_list: &[BackwardTransfer],
     quality: u64,
     constant: &FieldElement,
+    pk_path: &Path,
+    proof_path: &Path,
 ) -> Result<(), Error> {
-
-    use proof_systems::groth16::Parameters;
 
     //Read inputs as field elements
     let end_epoch_mc_b_hash = read_field_element_from_buffer_with_padding(end_epoch_mc_b_hash)?;
@@ -118,16 +121,16 @@ pub fn create_test_mc_proof(
     let quality = read_field_element_from_u64(quality);
     let bt_root = get_bt_merkle_root(bt_list)?;
 
-    //Read proving key
-    let mut fs = File::open("./test_mc_pk")?;
-    let params = Parameters::<PairingCurve>::read(&mut fs)?;
+    let params = read_from_file(pk_path)?;
 
     // Save proof to file
     let proof = MCTestCircuit::<FieldElement>::create_proof(
         end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_root,
         quality, *constant, params
     )?;
-    write_to_file(&proof, "./test_mc_proof")?;
+
+    let mut fs_proof = File::create(proof_path)?;
+    proof.write(&mut fs_proof)?;
 
     Ok(())
 }

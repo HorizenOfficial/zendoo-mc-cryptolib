@@ -79,14 +79,6 @@ extern "C" {
      */
     sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes);
 
-    /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
-     * Return NULL if the file doesn't exist, or if deserialization from it fails.
-     */
-    sc_proof_t* zendoo_deserialize_sc_proof_from_file(
-        const path_char_t* proof_path,
-        size_t proof_path_len
-    );
-
     /*
      * Free the memory from the sc_proof pointed by `sc_proof`. It's caller responsibility
      * to set `sc_proof` to NULL afterwards. If `sc_proof` was already NULL, the function does
@@ -215,15 +207,40 @@ extern "C" {
 
 //Test functions
 
-    bool zendoo_generate_mc_test_params();
+    /* Deserialize a sc_vk from a file at path `vk_path` and return an opaque pointer to it.
+     * Return NULL if the file doesn't exist, or if deserialization from it fails.
+     */
+    sc_vk_t* zendoo_deserialize_sc_vk_from_file(
+        const path_char_t* vk_path,
+        size_t vk_path_len
+    );
 
+    /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
+     * Return NULL if the file doesn't exist, or if deserialization from it fails.
+     */
+    sc_proof_t* zendoo_deserialize_sc_proof_from_file(
+        const path_char_t* proof_path,
+        size_t proof_path_len
+    );
+
+    /* Generates and saves at specified path params_dir the proving key and verification key for MCTestCircuit */
+    bool zendoo_generate_mc_test_params(
+        const path_char_t* params_dir,
+        size_t params_dir_len
+    );
+
+    /* Generates, given the required witnesses and the proving key, a MCTestCircuit proof, and saves it at specified path */
     bool zendoo_create_mc_test_proof(
         const unsigned char* end_epoch_mc_b_hash,
         const unsigned char* prev_end_epoch_mc_b_hash,
         const backward_transfer_t* bt_list,
         size_t bt_list_len,
         uint64_t quality,
-        const field_t* constant
+        const field_t* constant,
+        const path_char_t* pk_path,
+        size_t pk_path_len,
+        const path_char_t* proof_path,
+        size_t proof_path_len
     );
 
     /* Get an opaque pointer to a random field element */
