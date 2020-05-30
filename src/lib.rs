@@ -297,7 +297,11 @@ pub extern "C" fn zendoo_create_mc_test_proof(
     let prev_end_epoch_mc_b_hash = read_raw_pointer(prev_end_epoch_mc_b_hash);
 
     //Read bt_list
-    let bt_list = unsafe { slice::from_raw_parts(bt_list, bt_list_len) };
+    let bt_list = if !bt_list.is_null() {
+        unsafe { slice::from_raw_parts(bt_list, bt_list_len) }
+    } else {
+        &[]
+    };
 
     //Read constant
     let constant = read_raw_pointer(constant);

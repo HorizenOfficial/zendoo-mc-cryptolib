@@ -52,5 +52,3 @@ if __name__ == "__main__":
     #Verify proof and vk are valid and of the expected length
     assert len(open("./test_mc_proof", "rb").read()) == 771
     assert len(open("./test_mc_vk", "rb").read()) == 1544
-
-

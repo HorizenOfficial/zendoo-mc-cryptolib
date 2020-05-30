@@ -42,7 +42,7 @@ void create_verify(int argc, char** argv)
     // Inputs must be (pk_dest, amount) pairs from which construct backward_transfer objects
     assert((argc - arg) % 2 == 0);
     int bt_list_length = (argc - arg)/2;
-    assert(bt_list_length > 0);
+    assert(bt_list_length >= 0);
 
     // Parse backward transfer list
     std::vector<backward_transfer_t> bt_list;
