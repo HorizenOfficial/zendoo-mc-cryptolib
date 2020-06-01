@@ -31,12 +31,10 @@ void create_verify(int argc, char** argv)
     size_t vk_path_len = pk_path_len;
 
     assert(IsHex(argv[arg]));
-    auto end_epoch_mc_b_hash = ParseHex(argv[arg++]);
-    assert(end_epoch_mc_b_hash.size() == 32);
+    auto end_epoch_mc_b_hash = SetHex(argv[arg++], 32);
 
     assert(IsHex(argv[arg]));
-    auto prev_end_epoch_mc_b_hash = ParseHex(argv[arg++]);
-    assert(prev_end_epoch_mc_b_hash.size() == 32);
+    auto prev_end_epoch_mc_b_hash = SetHex(argv[arg++], 32);
 
     uint64_t quality = strtoull(argv[arg++], NULL, 0);
     assert(quality >= 0);
@@ -60,8 +58,8 @@ void create_verify(int argc, char** argv)
         backward_transfer_t bt;
 
         assert(IsHex(argv[arg]));
-        auto pk_dest = ParseHex(argv[arg++]);
-        assert(pk_dest.size() == 20);
+        auto pk_dest = SetHex(argv[arg++], 20);
+        std::copy(pk_dest.begin(), pk_dest.end(), std::begin(bt.pk_dest));
 
         uint64_t amount = strtoull(argv[arg++], NULL, 0);
         assert(amount >= 0);

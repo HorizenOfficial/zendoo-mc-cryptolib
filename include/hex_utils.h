@@ -59,6 +59,41 @@ std::vector<unsigned char> ParseHex(const char* psz)
     return vch;
 }
 
+std::vector<unsigned char> SetHex(const char* psz, size_t len)
+{
+    alignas(uint32_t) uint8_t data[len];
+
+    // skip leading spaces
+    while (isspace(*psz))
+        psz++;
+
+    // skip 0x
+    if (psz[0] == '0' && tolower(psz[1]) == 'x')
+        psz += 2;
+
+    // hex string to uint
+    const char* pbegin = psz;
+    while (::HexDigit(*psz) != -1)
+        psz++;
+    psz--;
+    unsigned char* p1 = (unsigned char*)data;
+    unsigned char* pend = p1 + len;
+    while (psz >= pbegin && p1 < pend) {
+        *p1 = ::HexDigit(*psz--);
+        if (psz >= pbegin) {
+            *p1 |= ((unsigned char)::HexDigit(*psz--) << 4);
+            p1++;
+        }
+    }
+
+    std::vector<unsigned char> vch;
+    vch.reserve(len);
+    for(int i = 0; i < len; i++)
+        vch.push_back(data[i]);
+
+    return vch;
+}
+
 string EncodeHex(const unsigned char* data, size_t len)
 {
     char psz[len * 2 + 1];
