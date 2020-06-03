@@ -413,9 +413,10 @@ pub extern "C" fn zendoo_generate_mc_test_params(
 ) -> bool {
 
     // Read params_dir
-    let params_dir = Path::new(OsString::from_wide(unsafe {
-        slice::from_raw_parts(vk_path, vk_path_len)
-    }));
+    let params_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    });
+    let params_dir = Path::new(&params_str);
 
     match ginger_calls::generate_test_mc_parameters(params_dir) {
         Ok(()) => true,
@@ -478,7 +479,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
     });
     let proof_path = Path::new(&path_str);
 
-    match deserialize_from_file(path_str){
+    match deserialize_from_file(proof_path){
         Some(proof) => Box::into_raw(Box::new(proof)),
         None => null_mut(),
     }
