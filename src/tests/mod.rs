@@ -8,7 +8,7 @@ use algebra::{
 use proof_systems::groth16::Proof;
 use rand::rngs::OsRng;
 
-use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path, GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof, zendoo_deserialize_sc_proof_from_file};
+use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path, GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof};
 
 use std::{fmt::Debug, fs::File, ptr::null};
 
@@ -213,7 +213,10 @@ fn verify_zkproof_no_bwt_test() {
 #[test]
 fn create_verify_mc_test_proof(){
 
-    use crate::{zendoo_generate_mc_test_params, zendoo_get_random_field, zendoo_create_mc_test_proof};
+    use crate::{
+        zendoo_generate_mc_test_params, zendoo_get_random_field, zendoo_create_mc_test_proof,
+        zendoo_deserialize_sc_proof_from_file,
+    };
     use rand::Rng;
 
     let mut rng = OsRng::default();
