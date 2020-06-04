@@ -10,10 +10,9 @@ path = "src/lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-algebra = {version = "0.1.0", git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
-primitives = {version = "0.1.0", features = ["merkle_tree"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
-proof-systems = {version = "0.1.0", features = ["groth16"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
-
+# algebra = {version = "0.1.0", git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
+# primitives = {version = "0.1.0", features = ["merkle_tree"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
+# proof-systems = {version = "0.1.0", features = ["groth16"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
 
 maybe-uninit = "=2.0.0"
 rand = "0.7.3"
@@ -21,6 +20,24 @@ winapi = "=0.3.6"
 lazy_static = "=1.2.0"
 libc = "=0.2.70"
 cfg-if = "= 0.1.2"
+
+[dependencies.algebra]
+git = "https://github.com/ZencashOfficial/ginger-lib.git"
+rev = "69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+version = "0.1.0"
+
+[dependencies.primitives]
+git = "https://github.com/ZencashOfficial/ginger-lib.git"
+rev = "69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+features = ["merkle_tree"]
+version = "0.1.0"
+
+[dependencies.proof-systems]
+git = "https://github.com/ZencashOfficial/ginger-lib.git"
+rev = "69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+features = ["groth16"]
+version = "0.1.0"
+
 
 [profile.release]
 #lto = true
