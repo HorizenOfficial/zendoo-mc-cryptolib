@@ -20,7 +20,7 @@ rand = "0.7.3"
 winapi = "=0.3.6"
 lazy_static = "=1.2.0"
 libc = "=0.2.70"
-
+cfg-if = "= 0.1.2"
 
 [profile.release]
 #lto = true
