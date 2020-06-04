@@ -14,10 +14,15 @@ algebra = {version = "0.1.0", git = "https://github.com/ZencashOfficial/ginger-l
 primitives = {version = "0.1.0", features = ["merkle_tree"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
 proof-systems = {version = "0.1.0", features = ["groth16"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
 
-rand = { version = "0.7" }
-libc = "0.2"
+
+maybe-uninit = "=2.0.0"
+rand = "0.7.3"
+winapi = "=0.3.6"
+lazy_static = "=1.2.0"
+libc = "=0.2.70"
+
 
 [profile.release]
-lto = true
-panic = 'abort'
+#lto = true
+#panic = 'abort'
 codegen-units = 1
