@@ -57,8 +57,8 @@ fn read_double_raw_pointer<T: Copy>(
     input
 }
 
-fn deserialize_to_raw_pointer<T: FromBytes>(buffer: &[u8]) -> *mut T {
-    match deserialize_from_buffer(buffer) {
+fn deserialize_to_raw_pointer<T: FromBytes>(buffer: &[u8], checked: bool) -> *mut T {
+    match deserialize_from_buffer(buffer, checked) {
         Ok(t) => Box::into_raw(Box::new(t)),
         Err(_) => {
             let e = IoError::new(
@@ -81,8 +81,9 @@ fn serialize_from_raw_pointer<T: ToBytes>(
 
 fn deserialize_from_file<T: FromBytes>(
     file_path: &Path,
+    checked: bool,
 ) -> Option<T> {
-    match read_from_file(file_path) {
+    match read_from_file(file_path, checked) {
         Ok(t) => Some(t),
         Err(e) => {
             let e = IoError::new(
@@ -120,7 +121,7 @@ pub extern "C" fn zendoo_serialize_field(
 pub extern "C" fn zendoo_deserialize_field(
     field_bytes: *const [c_uchar; FIELD_SIZE],
 ) -> *mut FieldElement {
-    deserialize_to_raw_pointer(&(unsafe { &*field_bytes })[..])
+    deserialize_to_raw_pointer(&(unsafe { &*field_bytes })[..], true)
 }
 
 #[no_mangle]
@@ -157,8 +158,9 @@ pub extern "C" fn zendoo_serialize_sc_proof(
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_proof(
     sc_proof_bytes: *const [c_uchar; GROTH_PROOF_SIZE],
+    enforce_membership: bool,
 ) -> *mut SCProof {
-    deserialize_to_raw_pointer(&(unsafe { &*sc_proof_bytes })[..])
+    deserialize_to_raw_pointer(&(unsafe { &*sc_proof_bytes })[..], enforce_membership)
 }
 
 #[no_mangle]
@@ -179,6 +181,7 @@ pub extern "C" fn zendoo_get_sc_vk_size_in_bytes() -> c_uint {
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     vk_path: *const u8,
     vk_path_len: usize,
+    enforce_membership: bool,
 ) -> *mut SCVk
 {
     // Read file path
@@ -186,7 +189,7 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
         slice::from_raw_parts(vk_path, vk_path_len)
     }));
 
-    match deserialize_from_file(vk_path){
+    match deserialize_from_file(vk_path, enforce_membership){
         Some(vk) => Box::into_raw(Box::new(vk)),
         None => null_mut(),
     }
@@ -197,6 +200,7 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     vk_path: *const u16,
     vk_path_len: usize,
+    enforce_membership: bool,
 ) -> *mut SCVk
 {
     // Read file path
@@ -205,7 +209,7 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     });
     let vk_path = Path::new(&path_str);
 
-    match deserialize_from_file(vk_path){
+    match deserialize_from_file(vk_path, enforce_membership){
         Some(vk) => Box::into_raw(Box::new(vk)),
         None => null_mut(),
     }
@@ -214,8 +218,9 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk(
     sc_vk_bytes: *const [c_uchar; VK_SIZE],
+    enforce_membership: bool,
 ) -> *mut SCVk {
-    deserialize_to_raw_pointer(&(unsafe { &*sc_vk_bytes })[..])
+    deserialize_to_raw_pointer(&(unsafe { &*sc_vk_bytes })[..], enforce_membership)
 }
 
 #[no_mangle]
@@ -453,6 +458,7 @@ pub extern "C" fn zendoo_generate_mc_test_params(
 pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
     proof_path: *const u8,
     proof_path_len: usize,
+    enforce_membership: bool,
 ) -> *mut SCProof
 {
     // Read file path
@@ -460,7 +466,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
         slice::from_raw_parts(proof_path, proof_path_len)
     }));
 
-    match deserialize_from_file(proof_path){
+    match deserialize_from_file(proof_path, enforce_membership){
         Some(proof) => Box::into_raw(Box::new(proof)),
         None => null_mut(),
     }
@@ -471,6 +477,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
 pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
     proof_path: *const u16,
     proof_path_len: usize,
+    enforce_membership: bool,
 ) -> *mut SCProof
 {
     // Read file path
@@ -479,7 +486,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
     });
     let proof_path = Path::new(&path_str);
 
-    match deserialize_from_file(proof_path){
+    match deserialize_from_file(proof_path, enforce_membership){
         Some(proof) => Box::into_raw(Box::new(proof)),
         None => null_mut(),
     }
