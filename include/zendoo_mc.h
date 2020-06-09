@@ -207,14 +207,6 @@ extern "C" {
 
 //Test functions
 
-    /* Deserialize a sc_vk from a file at path `vk_path` and return an opaque pointer to it.
-     * Return NULL if the file doesn't exist, or if deserialization from it fails.
-     */
-    sc_vk_t* zendoo_deserialize_sc_vk_from_file(
-        const path_char_t* vk_path,
-        size_t vk_path_len
-    );
-
     /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
      * Return NULL if the file doesn't exist, or if deserialization from it fails.
      */
