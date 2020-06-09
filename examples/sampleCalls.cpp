@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string>
 #include <cassert>
+#include <vector>
 
 void print_error(const char *msg) {
     Error err = zendoo_get_last_error();
@@ -295,9 +296,112 @@ void proof_test() {
     std::cout<< "...ok" << std::endl;
 }
 
+void proof_test_no_bwt() {
+
+    std::cout << "Zk proof no bwt test" << std::endl;
+
+    //Deserialize zero knowledge proof
+    //Read proof from file
+    std::ifstream is ("../test_files/sample_proof_no_bwt", std::ifstream::binary);
+    is.seekg (0, is.end);
+    int length = is.tellg();
+
+    //Check correct length
+    assert(("Unexpected size", length == zendoo_get_sc_proof_size_in_bytes()));
+
+    is.seekg (0, is.beg);
+    char* proof_bytes = new char [length];
+    is.read(proof_bytes,length);
+    is.close();
+
+    //Deserialize proof
+    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes);
+    if(proof == NULL){
+        print_error("error");
+        abort();
+    }
+
+    delete[] proof_bytes;
+
+    //Inputs
+    unsigned char end_epoch_mc_b_hash[32] = {
+        28, 207, 62, 204, 135, 33, 168, 143, 231, 177, 64, 181, 184, 237, 93, 185, 196, 115, 241, 65, 176, 205, 254, 83,
+        216, 229, 119, 73, 184, 217, 26, 109
+    };
+
+    unsigned char prev_end_epoch_mc_b_hash[32] = {
+        64, 236, 160, 62, 217, 6, 240, 243, 184, 32, 158, 223, 218, 177, 165, 121, 12, 124, 153, 137, 218, 208, 152, 125,
+        187, 145, 172, 244, 223, 220, 234, 195
+    };
+
+    unsigned char constant_bytes[96] = {
+        249, 199, 228, 179, 227, 163, 140, 243, 174, 240, 187, 245, 152, 245, 74, 136, 36, 142, 231, 196, 162, 148, 139,
+        157, 198, 117, 186, 83, 72, 103, 121, 253, 5, 64, 230, 173, 84, 236, 12, 3, 199, 26, 171, 58, 141, 171, 85, 151,
+        209, 228, 76, 0, 21, 241, 65, 100, 50, 194, 8, 163, 121, 129, 242, 124, 166, 105, 158, 76, 146, 169, 188, 243,
+        188, 82, 176, 244, 255, 122, 125, 90, 154, 45, 12, 223, 62, 156, 140, 20, 35, 83, 55, 111, 47, 10, 1, 0
+    };
+
+    auto constant = zendoo_deserialize_field(constant_bytes);
+    if (constant == NULL) {
+        print_error("error");
+        abort();
+    }
+
+    uint64_t quality = 2;
+
+    //Create empty bt_list
+    std::vector<backward_transfer_t> bt_list;
+
+    //Read vk from file
+    sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
+        (path_char_t*)"../test_files/sample_vk_no_bwt",
+        30
+    );
+
+    //Verify zkproof
+    if(!zendoo_verify_sc_proof(
+        end_epoch_mc_b_hash,
+        prev_end_epoch_mc_b_hash,
+        bt_list.data(),
+        0,
+        quality,
+        constant,
+        NULL,
+        proof,
+        vk
+    )){
+        error_or("Proof not verified");
+        abort();
+    }
+
+    //Negative test: change quality (for instance) and assert proof failure
+    assert((
+        "Proof verification should fail",
+        !zendoo_verify_sc_proof(
+         end_epoch_mc_b_hash,
+         prev_end_epoch_mc_b_hash,
+         bt_list.data(),
+         0,
+         quality - 1,
+         constant,
+         NULL,
+         proof,
+         vk
+        )
+    ));
+
+    //Free proof
+    zendoo_sc_proof_free(proof);
+    zendoo_sc_vk_free(vk);
+    zendoo_field_free(constant);
+
+    std::cout<< "...ok" << std::endl;
+}
+
 int main() {
     field_test();
     hash_test();
     merkle_test();
     proof_test();
+    proof_test_no_bwt();
 }

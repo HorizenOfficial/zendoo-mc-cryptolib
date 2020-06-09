@@ -8,13 +8,7 @@ use algebra::{
 use proof_systems::groth16::Proof;
 use rand::rngs::OsRng;
 
-use crate::{
-    zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field,
-    ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path,
-    GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free,
-    BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq,
-    zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof,
-};
+use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path, GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof};
 
 use std::{fmt::Debug, fs::File, ptr::null};
 
@@ -128,6 +122,188 @@ fn verify_zkproof_test() {
     zendoo_sc_proof_free(zkp_ptr);
     zendoo_sc_vk_free(vk);
     zendoo_field_free(constant);
+}
+
+#[test]
+fn verify_zkproof_no_bwt_test() {
+
+    let mut file = File::open("./test_files/sample_proof_no_bwt").unwrap();
+    let proof = Proof::<PairingCurve>::read(&mut file).unwrap();
+
+    //Create inputs for Rust FFI function
+    //Positive case
+    let mut zkp = [0u8; 771];
+
+    //Get zkp raw pointer
+    proof.write(&mut zkp[..]).unwrap();
+    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp);
+    let mut zkp_serialized = [0u8; 771];
+
+    //Test proof serialization/deserialization
+    zendoo_serialize_sc_proof(zkp_ptr, &mut zkp_serialized);
+    assert_slice_equals(&zkp, &zkp_serialized);
+    drop(zkp_serialized);
+
+    //Inputs
+    let end_epoch_mc_b_hash: [u8; 32] = [
+        28, 207, 62, 204, 135, 33, 168, 143, 231, 177, 64, 181, 184, 237, 93, 185, 196, 115, 241,
+        65, 176, 205, 254, 83, 216, 229, 119, 73, 184, 217, 26, 109
+    ];
+
+    let prev_end_epoch_mc_b_hash: [u8; 32] = [
+        64, 236, 160, 62, 217, 6, 240, 243, 184, 32, 158, 223, 218, 177, 165, 121, 12, 124, 153,
+        137, 218, 208, 152, 125, 187, 145, 172, 244, 223, 220, 234, 195
+    ];
+
+    let constant_bytes: [u8; 96] = [
+        249, 199, 228, 179, 227, 163, 140, 243, 174, 240, 187, 245, 152, 245, 74, 136, 36, 142, 231,
+        196, 162, 148, 139, 157, 198, 117, 186, 83, 72, 103, 121, 253, 5, 64, 230, 173, 84, 236, 12,
+        3, 199, 26, 171, 58, 141, 171, 85, 151, 209, 228, 76, 0, 21, 241, 65, 100, 50, 194, 8, 163,
+        121, 129, 242, 124, 166, 105, 158, 76, 146, 169, 188, 243, 188, 82, 176, 244, 255, 122, 125,
+        90, 154, 45, 12, 223, 62, 156, 140, 20, 35, 83, 55, 111, 47, 10, 1, 0
+    ];
+
+    let constant = zendoo_deserialize_field(&constant_bytes);
+    drop(constant_bytes);
+
+    let quality = 2;
+
+    //Create empty bt list
+    let bt_list = vec![];
+
+    //Get vk
+    let vk = zendoo_deserialize_sc_vk_from_file(
+        path_as_ptr("./test_files/sample_vk_no_bwt"),
+        29,
+    );
+
+    assert!(zendoo_verify_sc_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        0,
+        quality,
+        constant,
+        null(),
+        zkp_ptr,
+        vk
+    ));
+
+    //Negative test: change one of the inputs and assert verification failure
+
+    assert!(!zendoo_verify_sc_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        0,
+        quality - 1,
+        constant,
+        null(),
+        zkp_ptr,
+        vk
+    ));
+
+    //Free memory
+    zendoo_sc_proof_free(zkp_ptr);
+    zendoo_sc_vk_free(vk);
+    zendoo_field_free(constant);
+}
+
+#[cfg(feature = "mc-test-circuit")]
+#[test]
+fn create_verify_mc_test_proof(){
+
+    use crate::{
+        zendoo_generate_mc_test_params, zendoo_get_random_field, zendoo_create_mc_test_proof,
+        zendoo_deserialize_sc_proof_from_file,
+    };
+    use rand::Rng;
+
+    let mut rng = OsRng::default();
+
+    //Generate params
+    assert!(zendoo_generate_mc_test_params(path_as_ptr("./test_files"), 12));
+
+    //Generate random inputs
+    let end_epoch_mc_b_hash: [u8; 32] = [
+        28, 207, 62, 204, 135, 33, 168, 143, 231, 177, 64, 181, 184, 237, 93, 185, 196, 115, 241,
+        65, 176, 205, 254, 83, 216, 229, 119, 73, 184, 217, 26, 109
+    ];
+
+    let prev_end_epoch_mc_b_hash: [u8; 32] = [
+        64, 236, 160, 62, 217, 6, 240, 243, 184, 32, 158, 223, 218, 177, 165, 121, 12, 124, 153,
+        137, 218, 208, 152, 125, 187, 145, 172, 244, 223, 220, 234, 195
+    ];
+
+    let quality: u64 = rng.gen();
+
+    let bt_num: usize = rng.gen_range(0, 11);
+    let mut bt_list = vec![];
+    for _ in 0..bt_num {
+        bt_list.push(BackwardTransfer {
+            pk_dest: [0u8; 20],
+            amount: 0,
+        });
+    }
+
+    let constant = zendoo_get_random_field();
+
+    let pk_path = path_as_ptr("./test_files/test_mc_pk");
+    let proof_path = path_as_ptr("./test_files/test_mc_proof");
+
+    //Create proof
+    assert!(zendoo_create_mc_test_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        bt_num,
+        quality,
+        constant,
+        pk_path,
+        23,
+        proof_path,
+        26
+    ));
+
+    //Verify proof
+
+    //Get vk
+    let vk = zendoo_deserialize_sc_vk_from_file(
+        path_as_ptr("./test_files/test_mc_vk"),
+        23,
+    );
+
+    //Get proof
+    let proof = zendoo_deserialize_sc_proof_from_file(
+        path_as_ptr("./test_files/test_mc_proof"),
+        26
+    );
+
+    assert!(zendoo_verify_sc_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        bt_num,
+        quality,
+        constant,
+        null(),
+        proof,
+        vk
+    ));
+
+    //Negative test: change one of the inputs and assert verification failure
+
+    assert!(!zendoo_verify_sc_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        bt_num,
+        quality - 1,
+        constant,
+        null(),
+        proof,
+        vk
+    ));
 }
 
 #[test]
