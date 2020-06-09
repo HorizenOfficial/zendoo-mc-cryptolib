@@ -8,13 +8,7 @@ use algebra::{
 use proof_systems::groth16::Proof;
 use rand::rngs::OsRng;
 
-use crate::{
-    zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field,
-    ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path,
-    GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free,
-    BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq,
-    zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof,
-};
+use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path, GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof};
 
 use std::{fmt::Debug, fs::File, ptr::null};
 
@@ -213,6 +207,103 @@ fn verify_zkproof_no_bwt_test() {
     zendoo_sc_proof_free(zkp_ptr);
     zendoo_sc_vk_free(vk);
     zendoo_field_free(constant);
+}
+
+#[cfg(feature = "mc-test-circuit")]
+#[test]
+fn create_verify_mc_test_proof(){
+
+    use crate::{
+        zendoo_generate_mc_test_params, zendoo_get_random_field, zendoo_create_mc_test_proof,
+        zendoo_deserialize_sc_proof_from_file,
+    };
+    use rand::Rng;
+
+    let mut rng = OsRng::default();
+
+    //Generate params
+    assert!(zendoo_generate_mc_test_params(path_as_ptr("./test_files"), 12));
+
+    //Generate random inputs
+    let end_epoch_mc_b_hash: [u8; 32] = [
+        28, 207, 62, 204, 135, 33, 168, 143, 231, 177, 64, 181, 184, 237, 93, 185, 196, 115, 241,
+        65, 176, 205, 254, 83, 216, 229, 119, 73, 184, 217, 26, 109
+    ];
+
+    let prev_end_epoch_mc_b_hash: [u8; 32] = [
+        64, 236, 160, 62, 217, 6, 240, 243, 184, 32, 158, 223, 218, 177, 165, 121, 12, 124, 153,
+        137, 218, 208, 152, 125, 187, 145, 172, 244, 223, 220, 234, 195
+    ];
+
+    let quality: u64 = rng.gen();
+
+    let bt_num: usize = rng.gen_range(0, 11);
+    let mut bt_list = vec![];
+    for _ in 0..bt_num {
+        bt_list.push(BackwardTransfer {
+            pk_dest: [0u8; 20],
+            amount: 0,
+        });
+    }
+
+    let constant = zendoo_get_random_field();
+
+    let pk_path = path_as_ptr("./test_files/test_mc_pk");
+    let proof_path = path_as_ptr("./test_files/test_mc_proof");
+
+    //Create proof
+    assert!(zendoo_create_mc_test_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        bt_num,
+        quality,
+        constant,
+        pk_path,
+        23,
+        proof_path,
+        26
+    ));
+
+    //Verify proof
+
+    //Get vk
+    let vk = zendoo_deserialize_sc_vk_from_file(
+        path_as_ptr("./test_files/test_mc_vk"),
+        23,
+    );
+
+    //Get proof
+    let proof = zendoo_deserialize_sc_proof_from_file(
+        path_as_ptr("./test_files/test_mc_proof"),
+        26
+    );
+
+    assert!(zendoo_verify_sc_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        bt_num,
+        quality,
+        constant,
+        null(),
+        proof,
+        vk
+    ));
+
+    //Negative test: change one of the inputs and assert verification failure
+
+    assert!(!zendoo_verify_sc_proof(
+        &end_epoch_mc_b_hash,
+        &prev_end_epoch_mc_b_hash,
+        bt_list.as_ptr(),
+        bt_num,
+        quality - 1,
+        constant,
+        null(),
+        proof,
+        vk
+    ));
 }
 
 #[test]
