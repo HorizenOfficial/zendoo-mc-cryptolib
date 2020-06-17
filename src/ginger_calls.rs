@@ -1,7 +1,8 @@
 use algebra::{
     curves::mnt4753::MNT4 as PairingCurve,
     fields::{mnt4753::Fr, PrimeField},
-    BigInteger768, FromBytes, ToBytes,
+    BigInteger768, FromBytes, FromBytesChecked,
+    ToBytes,
 };
 
 use crate::BackwardTransfer;
@@ -32,21 +33,26 @@ pub const VK_SIZE: usize = 1544;
 //*******************************Generic I/O functions**********************************************
 // Note: Should decide if panicking or handling IO errors
 
-pub fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8], checked: bool) -> IoResult<T> {
-    if checked {
-        T::read(buffer)
-    } else {
-        T::read_unchecked(buffer)
-    }
+pub fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8]) ->  IoResult<T> {
+    T::read(buffer)
+}
+
+pub fn deserialize_from_buffer_checked<T: FromBytesChecked>(buffer: &[u8]) ->  IoResult<T> {
+    T::read_checked(buffer)
 }
 
 pub fn serialize_to_buffer<T: ToBytes>(to_write: &T, buffer: &mut [u8]) -> IoResult<()> {
     to_write.write(buffer)
 }
 
-pub fn read_from_file<T: FromBytes>(file_path: &Path, checked: bool) -> IoResult<T> {
+pub fn read_from_file<T: FromBytes>(file_path: &Path) -> IoResult<T>{
     let mut fs = File::open(file_path)?;
-    if checked { T::read(&mut fs) } else { T::read_unchecked(&mut fs) }
+    T::read(&mut fs)
+}
+
+pub fn read_from_file_checked<T: FromBytesChecked>(file_path: &Path) -> IoResult<T>{
+    let mut fs = File::open(file_path)?;
+    T::read_checked(&mut fs)
 }
 
 //Will return error if buffer.len > FIELD_SIZE. If buffer.len < FIELD_SIZE, padding 0s will be added
@@ -124,7 +130,7 @@ pub fn create_test_mc_proof(
     let quality = read_field_element_from_u64(quality);
     let bt_root = get_bt_merkle_root(bt_list)?;
 
-    let params = read_from_file(pk_path, false)?;
+    let params = read_from_file(pk_path)?;
 
     // Save proof to file
     let proof = MCTestCircuit::<FieldElement>::create_proof(
