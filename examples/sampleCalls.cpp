@@ -108,16 +108,21 @@ void hash_test() {
     // Let's use UpdatablePoseidonHash
     auto uh = ZendooUpdatablePoseidonHash(NULL, 0);
     uh.update(lhs_field);
-    uh.update(rhs_field);
+    auto temp_hash = uh.finalize();
+    assert(("Expected hashes not to be equal", !zendoo_field_assert_eq(temp_hash, actual_hash)));
+    uh.update(rhs_field); //Call to finalize keeps the state
     auto actual_hash_from_updatable = uh.finalize();
-
     assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_from_updatable, actual_hash)));
+    auto actual_hash_from_updatable_2 = uh.finalize(); // finalize() is idempotent
+    assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_from_updatable_2, actual_hash)));
 
     zendoo_field_free(lhs_field);
     zendoo_field_free(rhs_field);
     zendoo_field_free(expected_hash);
     zendoo_field_free(actual_hash);
+    zendoo_field_free(temp_hash);
     zendoo_field_free(actual_hash_from_updatable);
+    zendoo_field_free(actual_hash_from_updatable_2);
 
     std::cout<< "...ok" << std::endl;
 }
