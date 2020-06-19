@@ -105,10 +105,19 @@ void hash_test() {
 
     assert(("Expected hashes to be equal", zendoo_field_assert_eq(expected_hash, actual_hash)));
 
+    // Let's use UpdatablePoseidonHash
+    auto uh = ZendooUpdatablePoseidonHash(NULL, 0);
+    uh.update(lhs_field);
+    uh.update(rhs_field);
+    auto actual_hash_from_updatable = uh.finalize();
+
+    assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_from_updatable, actual_hash)));
+
     zendoo_field_free(lhs_field);
     zendoo_field_free(rhs_field);
     zendoo_field_free(expected_hash);
     zendoo_field_free(actual_hash);
+    zendoo_field_free(actual_hash_from_updatable);
 
     std::cout<< "...ok" << std::endl;
 }

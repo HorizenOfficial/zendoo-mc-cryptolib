@@ -35,6 +35,11 @@ fn read_raw_pointer<'a, T>(input: *const T) -> &'a T {
     unsafe { &*input }
 }
 
+fn read_mut_raw_pointer<'a, T>(input: *mut T) -> &'a mut T {
+    assert!(!input.is_null());
+    unsafe { &mut *input }
+}
+
 fn read_nullable_raw_pointer<'a, T>(input: *const T) -> Option<&'a T> {
     unsafe { input.as_ref() }
 }
@@ -283,6 +288,56 @@ pub extern "C" fn zendoo_verify_sc_proof(
 }
 
 //********************Poseidon hash functions********************
+
+#[no_mangle]
+pub extern "C" fn zendoo_new_updatable_poseidon_hash(
+    personalization: *const *const FieldElement,
+    personalization_len: usize,
+) -> *mut UpdatableFieldHash {
+
+    let personalization = if !personalization.is_null() {
+        Some(read_double_raw_pointer(personalization, personalization_len))
+    } else {
+        None
+    };
+
+    Box::into_raw(Box::new(get_updatable_poseidon_hash(personalization)))
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_update_poseidon_hash(
+    fe: *const FieldElement,
+    digest: *mut UpdatableFieldHash
+){
+
+    let input = read_raw_pointer(fe);
+
+    let digest = read_mut_raw_pointer(digest);
+
+    update_poseidon_hash(digest, *input);
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_finalize_poseidon_hash(
+    digest: *mut UpdatableFieldHash
+) -> *mut FieldElement {
+
+    let digest = read_mut_raw_pointer(digest);
+
+    let output = finalize_poseidon_hash(digest);
+
+    Box::into_raw(Box::new(output))
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_free_updatable_poseidon_hash(
+    digest: *mut UpdatableFieldHash
+) {
+    if digest.is_null() {
+        return;
+    }
+    drop(unsafe { Box::from_raw(digest) });
+}
 
 #[no_mangle]
 pub extern "C" fn zendoo_compute_poseidon_hash(

@@ -134,6 +134,37 @@ extern "C" {
 
 //Poseidon hash related functions
 
+    typedef struct updatable_poseidon_hash updatable_poseidon_hash_t;
+
+    updatable_poseidon_hash_t* zendoo_new_updatable_poseidon_hash(const field_t** personalization, size_t personalization_len);
+
+    void zendoo_update_poseidon_hash(const field_t* fe, updatable_poseidon_hash_t* state);
+
+    field_t* zendoo_finalize_poseidon_hash(updatable_poseidon_hash_t* state);
+
+    void zendoo_free_updatable_poseidon_hash(updatable_poseidon_hash_t* state);
+
+    struct ZendooUpdatablePoseidonHash {
+        updatable_poseidon_hash_t* state;
+
+        ZendooUpdatablePoseidonHash(const field_t** personalization, size_t personalization_len){
+            state = zendoo_new_updatable_poseidon_hash(personalization, personalization_len);
+        }
+
+        void update(const field_t* fe) {
+            zendoo_update_poseidon_hash(fe, state);
+        }
+
+        field_t* finalize(){
+            return zendoo_finalize_poseidon_hash(state);
+        }
+
+        ~ZendooUpdatablePoseidonHash() {
+            zendoo_free_updatable_poseidon_hash(state);
+        }
+
+    };
+
     /*
      * Compute the Poseidon Hash of a list of field elements `input` of len `input_len`,
      * passed as a list of opaque pointers. Returns an opaque pointer to the hash output
