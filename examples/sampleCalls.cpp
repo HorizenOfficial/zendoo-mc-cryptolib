@@ -107,17 +107,22 @@ void hash_test() {
 
     // Let's use UpdatablePoseidonHash
     auto uh = ZendooUpdatablePoseidonHash(NULL, 0);
+
     uh.update(lhs_field);
+    zendoo_field_free(lhs_field); // We can free this, `uh` stores a copy of it
+
     auto temp_hash = uh.finalize();
     assert(("Expected hashes not to be equal", !zendoo_field_assert_eq(temp_hash, actual_hash)));
-    uh.update(rhs_field); //Call to finalize keeps the state
+
+    uh.update(rhs_field); // Call to finalize keeps the state
+    zendoo_field_free(rhs_field);// We can free this, `uh` stores a copy of it
+
     auto actual_hash_from_updatable = uh.finalize();
     assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_from_updatable, actual_hash)));
+
     auto actual_hash_from_updatable_2 = uh.finalize(); // finalize() is idempotent
     assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_from_updatable_2, actual_hash)));
 
-    zendoo_field_free(lhs_field);
-    zendoo_field_free(rhs_field);
     zendoo_field_free(expected_hash);
     zendoo_field_free(actual_hash);
     zendoo_field_free(temp_hash);
@@ -145,23 +150,38 @@ void merkle_test() {
         abort();
     }
 
+    //Free all the leaves, we don't need them anymore
+    for (int i = 0; i < leaves_len; i++){
+        zendoo_field_free((field_t*)leaves[i]);
+    }
+
     auto root = ginger_mt_get_root(tree);
 
     //Verify Merkle Path is ok for each leaf
     for (int i = 0; i < leaves_len; i++) {
 
+        //Get leaf
+        auto leaf = ginger_mt_get_leaf(tree, i);
+        if(leaf == NULL){
+            print_error("error");
+            abort();
+        }
+
         //Create Merkle Path for the i-th leaf
-        auto path = ginger_mt_get_merkle_path(leaves[i], i, tree);
+        auto path = ginger_mt_get_merkle_path(leaf, i, tree);
         if(path == NULL){
             print_error("error");
             abort();
         }
 
         //Verify Merkle Path for the i-th leaf
-        if(!ginger_mt_verify_merkle_path(leaves[i], root, path)){
+        if(!ginger_mt_verify_merkle_path(leaf, root, path)){
             error_or("Merkle path not verified");
             abort();
         }
+
+        //Free leaf
+        zendoo_field_free(leaf);
 
         //Free Merkle Path
         ginger_mt_path_free(path);
@@ -173,10 +193,6 @@ void merkle_test() {
     //Free the root
     zendoo_field_free(root);
 
-    //Free all the leaves
-    for (int i = 0; i < leaves_len; i++){
-        zendoo_field_free((field_t*)leaves[i]);
-    }
 
     std::cout<< "...ok" << std::endl;
 }

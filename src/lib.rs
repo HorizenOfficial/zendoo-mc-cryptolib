@@ -389,6 +389,22 @@ pub extern "C" fn ginger_mt_get_root(tree: *const GingerMerkleTree) -> *mut Fiel
 }
 
 #[no_mangle]
+pub extern "C" fn ginger_mt_get_leaf(tree: *const GingerMerkleTree, leaf_index: usize) -> *mut FieldElement {
+
+    // Read tree
+    let tree = read_raw_pointer(tree);
+
+    // Get leaf from tree
+    match get_ginger_merkle_leaf(tree, leaf_index) {
+        Ok(leaf) =>  Box::into_raw(Box::new(leaf)),
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            return null_mut();
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn ginger_mt_get_merkle_path(
     leaf: *const FieldElement,
     leaf_index: usize,

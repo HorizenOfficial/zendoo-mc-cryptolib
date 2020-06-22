@@ -8,7 +8,7 @@ use algebra::{
 use crate::BackwardTransfer;
 use primitives::{crh::{FieldBasedHash, MNT4PoseidonHash as FieldHash}, merkle_tree::field_based_mht::{
     FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath
-}, UpdatableFieldBasedHash};
+}, UpdatableFieldBasedHash, CryptoError};
 use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
 
 use std::{fs::File, io::Result as IoResult, path::Path};
@@ -246,6 +246,15 @@ pub fn new_ginger_merkle_tree(leaves: &[FieldElement]) -> Result<GingerMerkleTre
 
 pub fn get_ginger_merkle_root(tree: &GingerMerkleTree) -> FieldElement {
     tree.root()
+}
+
+pub fn get_ginger_merkle_leaf(tree: &GingerMerkleTree, leaf_index: usize) -> Result<FieldElement, Error> {
+    let leaves = tree.leaves();
+    if leaf_index >= leaves.len() {
+        Err(Box::new(CryptoError::InvalidElement(format!("Leaf index {} ", leaf_index))))
+    } else {
+        Ok(tree.leaves()[leaf_index])
+    }
 }
 
 pub fn get_ginger_merkle_path(
