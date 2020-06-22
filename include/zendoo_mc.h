@@ -136,33 +136,60 @@ extern "C" {
 
     typedef struct updatable_poseidon_hash updatable_poseidon_hash_t;
 
+    /*
+     * Gets a new instance of updatable_poseidon_hash. It's possible to customize the initial Poseidon state
+     * given a vector of field elements as `personalization`; this is not mandatory and `personalization` can
+     * be NULL.
+     */
     updatable_poseidon_hash_t* zendoo_new_updatable_poseidon_hash(const field_t** personalization, size_t personalization_len);
 
-    void zendoo_update_poseidon_hash(const field_t* fe, updatable_poseidon_hash_t* state);
+    /*
+     * Updates `digest` with a new field element `fe`.
+     * NOTE: The function will perform a copy of the FieldElement pointed by `fe` in order to store
+     * it as its internal state, therefore it's possible to free `fe` immediately afterwards.
+     * TODO: Shall we give the user the freedom to decide if freeing it, or not and we do it inside this function ?
+     */
+    void zendoo_update_poseidon_hash(const field_t* fe, updatable_poseidon_hash_t* digest);
 
-    field_t* zendoo_finalize_poseidon_hash(updatable_poseidon_hash_t* state);
+    /*
+     * Returns the final digest.
+     * NOTE: This method is idempotent, and calling it multiple times will give the same result.
+     * It's also possible to `update` with more inputs in between.
+     */
+    field_t* zendoo_finalize_poseidon_hash(updatable_poseidon_hash_t* digest);
 
-    void zendoo_free_updatable_poseidon_hash(updatable_poseidon_hash_t* state);
+    /*
+     * Free the memory from the updatable_poseidon_hash pointed by `digest`.
+     * It's caller responsibility to set `digest` to NULL afterwards.
+     * If `digest` was already null, the function does nothing.
+     */
+    void zendoo_free_updatable_poseidon_hash(updatable_poseidon_hash_t* digest);
 
+
+    /*
+     *   Support struct to enhance and make easier the usage of updatable_poseidon_hash, by
+     *   making updatable_poseidon_hash a member of the struct and wrapping the functions
+     *   above. Note the definition of the destructor: when an instance of this struct
+     *   will go out of scope, the memory Rust-side will be automatically freed.
+     */
     struct ZendooUpdatablePoseidonHash {
-        updatable_poseidon_hash_t* state;
+        updatable_poseidon_hash_t* digest;
 
         ZendooUpdatablePoseidonHash(const field_t** personalization, size_t personalization_len){
-            state = zendoo_new_updatable_poseidon_hash(personalization, personalization_len);
+            digest = zendoo_new_updatable_poseidon_hash(personalization, personalization_len);
         }
 
         void update(const field_t* fe) {
-            zendoo_update_poseidon_hash(fe, state);
+            zendoo_update_poseidon_hash(fe, digest);
         }
 
         field_t* finalize(){
-            return zendoo_finalize_poseidon_hash(state);
+            return zendoo_finalize_poseidon_hash(digest);
         }
 
         ~ZendooUpdatablePoseidonHash() {
-            zendoo_free_updatable_poseidon_hash(state);
+            zendoo_free_updatable_poseidon_hash(digest);
         }
-
     };
 
     /*
@@ -184,6 +211,10 @@ extern "C" {
      * Compute a ginger_mt from a list of leaves `leaves` of len `levaes_len`,
      * passed as a list of opaque pointers to `field`s. Return an opaque pointer
      * to a ginger_mt or NULL if some error occurred.
+     * NOTE: The function will copy and store all the leaves passed as input as
+     * its internal state, therefore it's possible to free `leaves` immediately
+     * afterwards.
+     * TODO: Shall we give the user the freedom to decide if freeing them, or not and we do it inside this function ?
      */
     ginger_mt_t* ginger_mt_new(
         const field_t** leaves,
@@ -193,6 +224,12 @@ extern "C" {
     /* Return an opaque pointer to the root of a ginger_mt given an opaque pointer `tree` to it */
     field_t* ginger_mt_get_root(
         const ginger_mt_t* tree
+    );
+
+    /* Return an opaque pointer to a leaf of the Merkle Tree given its index */
+    field_t* ginger_mt_get_leaf(
+        const ginger_mt_t* tree,
+        size_t leaf_index
     );
 
     /* Return an opaque pointer to a ginger_mt_path given:

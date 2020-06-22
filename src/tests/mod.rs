@@ -8,7 +8,15 @@ use algebra::{
 use proof_systems::groth16::Proof;
 use rand::rngs::OsRng;
 
-use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path, GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof};
+use crate::{
+    zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof,
+    zendoo_serialize_field, ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path,
+    ginger_mt_verify_merkle_path, GingerMerkleTree, ginger_mt_free, ginger_mt_path_free,
+    zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_compute_poseidon_hash,
+    zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free,
+    zendoo_serialize_sc_proof, zendoo_new_updatable_poseidon_hash, zendoo_update_poseidon_hash,
+    zendoo_finalize_poseidon_hash, zendoo_free_updatable_poseidon_hash,
+};
 
 use std::{fmt::Debug, fs::File, ptr::null};
 
@@ -405,8 +413,29 @@ fn poseidon_hash_test() {
 
     assert!(zendoo_field_assert_eq(expected_hash, actual_hash));
 
-    zendoo_field_free(lhs_field);
-    zendoo_field_free(rhs_field);
+    // Let's use UpdatablePoseidonHash
+    let uh = zendoo_new_updatable_poseidon_hash(null(), 0);
+
+    zendoo_update_poseidon_hash(lhs_field, uh);
+    zendoo_field_free(lhs_field); // We can free this, `uh` stores a copy of it
+
+    let temp_hash = zendoo_finalize_poseidon_hash(uh);
+    assert!(!zendoo_field_assert_eq(temp_hash, actual_hash));
+
+    zendoo_update_poseidon_hash(rhs_field, uh); // Call to finalize keeps the state
+    zendoo_field_free(rhs_field);// We can free this, `uh` stores a copy of it
+
+    let actual_hash_from_updatable = zendoo_finalize_poseidon_hash(uh);
+    assert!(zendoo_field_assert_eq(actual_hash_from_updatable, actual_hash));
+
+    let actual_hash_from_updatable_2 = zendoo_finalize_poseidon_hash(uh); // finalize() is idempotent
+    assert!(zendoo_field_assert_eq(actual_hash_from_updatable_2, actual_hash));
+
+    zendoo_free_updatable_poseidon_hash(uh);
+
     zendoo_field_free(expected_hash);
     zendoo_field_free(actual_hash);
+    zendoo_field_free(temp_hash);
+    zendoo_field_free(actual_hash_from_updatable);
+    zendoo_field_free(actual_hash_from_updatable_2);
 }
