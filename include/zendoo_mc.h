@@ -147,7 +147,6 @@ extern "C" {
      * Updates `digest` with a new field element `fe`.
      * NOTE: The function will perform a copy of the FieldElement pointed by `fe` in order to store
      * it as its internal state, therefore it's possible to free `fe` immediately afterwards.
-     * TODO: Shall we give the user the freedom to decide if freeing it, or not and we do it inside this function ?
      */
     void zendoo_update_poseidon_hash(const field_t* fe, updatable_poseidon_hash_t* digest);
 
@@ -214,7 +213,6 @@ extern "C" {
      * NOTE: The function will copy and store all the leaves passed as input as
      * its internal state, therefore it's possible to free `leaves` immediately
      * afterwards.
-     * TODO: Shall we give the user the freedom to decide if freeing them, or not and we do it inside this function ?
      */
     ginger_mt_t* ginger_mt_new(
         const field_t** leaves,
