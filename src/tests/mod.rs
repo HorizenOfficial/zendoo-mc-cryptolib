@@ -15,7 +15,7 @@ use crate::{
     zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_compute_poseidon_hash,
     zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free,
     zendoo_serialize_sc_proof, zendoo_new_updatable_poseidon_hash, zendoo_update_poseidon_hash,
-    zendoo_finalize_poseidon_hash, zendoo_free_updatable_poseidon_hash,
+    zendoo_finalize_poseidon_hash, zendoo_free_updatable_poseidon_hash, ginger_mt_get_leaf
 };
 
 use std::{fmt::Debug, fs::File, ptr::null};
@@ -340,17 +340,26 @@ fn merkle_tree_test() {
     }
     let tree = ginger_mt_new(fes_ptr.as_ptr(), 16);
 
+    // Free the leaves: we don't need them anymore
+    for i in 0..16 {
+        zendoo_field_free(fes_ptr[i] as *mut Fr);
+    }
+
     //Get root and compare the two trees
     let root = ginger_mt_get_root(tree);
 
     assert_eq!(unsafe { *root }, native_tree.root());
 
     for i in 0..16 {
-        //Get native Merkle Path for a leaf
+
+        //Get leaf
+        let leaf = ginger_mt_get_leaf(tree, i);
+
+        //Get native Merkle Path for the leaf
         let native_mp = native_tree.generate_proof(i, &fes[i]).unwrap();
 
         //Get Merkle Path from lib
-        let path = ginger_mt_get_merkle_path(fes_ptr[i], i, tree);
+        let path = ginger_mt_get_merkle_path(leaf, i, tree);
 
         for (native_path, path) in native_mp.path.iter().zip(unsafe { &*path }.path.iter()) {
             assert_eq!(native_path, path);
@@ -358,7 +367,10 @@ fn merkle_tree_test() {
 
         //Verify that both merkle paths are correct
         assert!(native_mp.verify(&native_tree.root(), &fes[i]).unwrap());
-        assert!(ginger_mt_verify_merkle_path(fes_ptr[i], root, path));
+        assert!(ginger_mt_verify_merkle_path(leaf, root, path));
+
+        //Free leaf
+        zendoo_field_free(leaf);
 
         //Free path
         ginger_mt_path_free(path);
@@ -367,9 +379,6 @@ fn merkle_tree_test() {
     //Free memory
     ginger_mt_free(tree);
     zendoo_field_free(root);
-    for i in 0..16 {
-        zendoo_field_free(fes_ptr[i] as *mut Fr);
-    }
 }
 
 #[test]
