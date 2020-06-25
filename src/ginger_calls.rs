@@ -76,7 +76,7 @@ pub fn update_poseidon_hash(hash: &mut UpdatableFieldHash, input: FieldElement){
     hash.update(input);
 }
 
-pub fn finalize_poseidon_hash(hash: &mut UpdatableFieldHash) -> FieldElement{
+pub fn finalize_poseidon_hash(hash: &UpdatableFieldHash) -> FieldElement{
     hash.finalize()
 }
 

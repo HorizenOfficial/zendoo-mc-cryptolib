@@ -319,10 +319,10 @@ pub extern "C" fn zendoo_update_poseidon_hash(
 
 #[no_mangle]
 pub extern "C" fn zendoo_finalize_poseidon_hash(
-    digest: *mut UpdatableFieldHash
+    digest: *const UpdatableFieldHash
 ) -> *mut FieldElement {
 
-    let digest = read_mut_raw_pointer(digest);
+    let digest = read_raw_pointer(digest);
 
     let output = finalize_poseidon_hash(digest);
 

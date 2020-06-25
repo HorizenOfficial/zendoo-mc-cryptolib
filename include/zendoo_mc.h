@@ -155,7 +155,7 @@ extern "C" {
      * NOTE: This method is idempotent, and calling it multiple times will give the same result.
      * It's also possible to `update` with more inputs in between.
      */
-    field_t* zendoo_finalize_poseidon_hash(updatable_poseidon_hash_t* digest);
+    field_t* zendoo_finalize_poseidon_hash(const updatable_poseidon_hash_t* digest);
 
     /*
      * Free the memory from the updatable_poseidon_hash pointed by `digest`.

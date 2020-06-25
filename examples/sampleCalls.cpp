@@ -106,28 +106,49 @@ void hash_test() {
     assert(("Expected hashes to be equal", zendoo_field_assert_eq(expected_hash, actual_hash)));
 
     // Let's use UpdatablePoseidonHash
-    auto uh = ZendooUpdatablePoseidonHash(NULL, 0);
+    {
+        auto uh = ZendooUpdatablePoseidonHash(NULL, 0);
 
-    uh.update(lhs_field);
-    zendoo_field_free(lhs_field); // We can free this, `uh` stores a copy of it
+        uh.update(lhs_field);
 
-    auto temp_hash = uh.finalize();
-    assert(("Expected hashes not to be equal", !zendoo_field_assert_eq(temp_hash, actual_hash)));
+        auto temp_hash = uh.finalize();
+        uh.update(rhs_field); // Call to finalize keeps the state
 
-    uh.update(rhs_field); // Call to finalize keeps the state
-    zendoo_field_free(rhs_field);// We can free this, `uh` stores a copy of it
+        auto actual_hash_from_updatable = uh.finalize();
+        assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_from_updatable, actual_hash)));
+        zendoo_field_free(actual_hash_from_updatable);
 
-    auto actual_hash_from_updatable = uh.finalize();
-    assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_from_updatable, actual_hash)));
+        auto actual_hash_from_updatable_2 = uh.finalize(); // finalize() is idempotent
+        assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_from_updatable_2, actual_hash)));
+        zendoo_field_free(actual_hash_from_updatable_2);
 
-    auto actual_hash_from_updatable_2 = uh.finalize(); // finalize() is idempotent
-    assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_from_updatable_2, actual_hash)));
+        zendoo_field_free(expected_hash);
+        zendoo_field_free(actual_hash);
+        zendoo_field_free(temp_hash);
+    }
 
-    zendoo_field_free(expected_hash);
-    zendoo_field_free(actual_hash);
-    zendoo_field_free(temp_hash);
-    zendoo_field_free(actual_hash_from_updatable);
-    zendoo_field_free(actual_hash_from_updatable_2);
+    // Test initializing UpdatablePoseidonHash with personalization is the same as concatenating
+    // to PoseidonHash input the personalization and the (eventual) padding.
+    {
+        auto personalization = hash_input;
+        auto uh = ZendooUpdatablePoseidonHash(personalization, 2); //Use previous hash input as personalization
+        auto random_f = zendoo_get_random_field();
+
+        uh.update(random_f);
+        auto uh_output = uh.finalize();
+
+        const field_t* single_hash_input[] = {lhs_field, rhs_field, random_f};
+        auto h_output = zendoo_compute_poseidon_hash(single_hash_input, 3);
+
+        assert(("Expected hashes to be equal", zendoo_field_assert_eq(uh_output, h_output)));
+
+        zendoo_field_free(random_f);
+        zendoo_field_free(uh_output);
+        zendoo_field_free(h_output);
+    }
+
+    zendoo_field_free(lhs_field);
+    zendoo_field_free(rhs_field);
 
     std::cout<< "...ok" << std::endl;
 }
