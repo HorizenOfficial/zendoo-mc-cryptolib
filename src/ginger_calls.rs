@@ -2,12 +2,11 @@ use algebra::{
     curves::mnt4753::MNT4 as PairingCurve,
     fields::{mnt4753::Fr, PrimeField},
     BigInteger768, FromBytes, ToBytes,
-    field_new
 };
 
 use crate::BackwardTransfer;
 use primitives::{crh::{FieldBasedHash, MNT4PoseidonHash as FieldHash}, merkle_tree::field_based_mht::{
-    FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath
+    FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath, MNT4753_PHANTOM_MERKLE_ROOT
 }, UpdatableFieldBasedHash, CryptoError};
 use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
 
@@ -219,23 +218,6 @@ impl FieldBasedMerkleTreeConfig for FieldBasedMerkleTreeParams {
     const HEIGHT: usize = 13;
     type H = FieldHash;
 }
-
-// PoseidonHash("This represents an empty Merkle Root for a MNT4753PoseidonHash based Merkle Tree.") padded with 0s
-pub const MNT4753_PHANTOM_MERKLE_ROOT: FieldElement =
-    field_new!(FieldElement, BigInteger768([
-        8534937690304963668,
-        5486292534803213323,
-        1720870611961422927,
-        11405914840660719672,
-        7162329517212056783,
-        11658292353137306079,
-        17490588101047840223,
-        12735752881395833110,
-        11735157047413601083,
-        6658060155531600932,
-        1470933043432945054,
-        312822709740712
-    ]));
 
 pub type GingerMerkleTree = FieldBasedMerkleHashTree<FieldBasedMerkleTreeParams>;
 pub type GingerMerkleTreePath = FieldBasedMerkleTreePath<FieldBasedMerkleTreeParams>;
