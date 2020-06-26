@@ -67,11 +67,11 @@ pub fn read_field_element_from_u64(num: u64) -> FieldElement {
 
 pub type UpdatableFieldHash = UpdatablePoseidonHash<FieldElement, MNT4753PoseidonParameters>;
 
-pub fn get_updatable_poseidon_hash(personalization: Option<Vec<FieldElement>>) -> UpdatableFieldHash {
+pub fn get_updatable_poseidon_hash(personalization: Option<&[FieldElement]>) -> UpdatableFieldHash {
     UpdatableFieldHash::new(personalization)
 }
 
-pub fn update_poseidon_hash(hash: &mut UpdatableFieldHash, input: FieldElement){
+pub fn update_poseidon_hash(hash: &mut UpdatableFieldHash, input: &FieldElement){
     hash.update(input);
 }
 

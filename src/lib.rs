@@ -295,13 +295,13 @@ pub extern "C" fn zendoo_new_updatable_poseidon_hash(
     personalization_len: usize,
 ) -> *mut UpdatableFieldHash {
 
-    let personalization = if !personalization.is_null() {
-        Some(read_double_raw_pointer(personalization, personalization_len))
+    let uh = if !personalization.is_null(){
+        get_updatable_poseidon_hash(Some(read_double_raw_pointer(personalization, personalization_len).as_slice()))
     } else {
-        None
+        get_updatable_poseidon_hash(None)
     };
 
-    Box::into_raw(Box::new(get_updatable_poseidon_hash(personalization)))
+    Box::into_raw(Box::new(uh))
 }
 
 #[no_mangle]
@@ -314,7 +314,7 @@ pub extern "C" fn zendoo_update_poseidon_hash(
 
     let digest = read_mut_raw_pointer(digest);
 
-    update_poseidon_hash(digest, *input);
+    update_poseidon_hash(digest, input);
 }
 
 #[no_mangle]
