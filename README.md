@@ -1,7 +1,7 @@
 # zendoo-mc-cryptolib
 
 
-`zendoo-mc-cryptolib` is an FFI library crate that exposes the [ginger-lib](https://github.com/ZencashOfficial/ginger-lib) Rust components needed to support [Zendoo](https://eprint.iacr.org/2020/123.pdf "Zendoo") in mainchain.  
+`zendoo-mc-cryptolib` is an FFI library crate that exposes the [ginger-lib](https://github.com/HorizenOfficial/ginger-lib) Rust components needed to support [Zendoo](https://eprint.iacr.org/2020/123.pdf "Zendoo") in mainchain.  
 
 In particular it exposes interfaces to:
 
