@@ -5,9 +5,9 @@ use algebra::{
 };
 
 use crate::BackwardTransfer;
-use primitives::{crh::{FieldBasedHash, MNT4PoseidonHash as FieldHash}, merkle_tree::field_based_mht::{
+use primitives::{crh::{FieldBasedHash, MNT4PoseidonHash}, merkle_tree::field_based_mht::{
     FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath, MNT4753_PHANTOM_MERKLE_ROOT
-}, UpdatableFieldBasedHash, CryptoError};
+}, CryptoError};
 use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
 
 use std::{fs::File, io::Result as IoResult, path::Path};
@@ -15,8 +15,6 @@ pub type Error = Box<dyn std::error::Error>;
 
 #[cfg(feature = "mc-test-circuit")]
 use crate::MCTestCircuit;
-use primitives::crh::poseidon::updatable::UpdatablePoseidonHash;
-use primitives::crh::poseidon::parameters::MNT4753PoseidonParameters;
 
 pub type FieldElement = Fr;
 
@@ -29,7 +27,6 @@ pub const GROTH_PROOF_SIZE: usize = 771;
 pub const VK_SIZE: usize = 1544;
 
 //*******************************Generic I/O functions**********************************************
-// Note: Should decide if panicking or handling IO errors
 
 pub fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8]) -> IoResult<T> {
     T::read(buffer)
@@ -65,22 +62,31 @@ pub fn read_field_element_from_u64(num: u64) -> FieldElement {
 
 //************************************Poseidon Hash function****************************************
 
-pub type UpdatableFieldHash = UpdatablePoseidonHash<FieldElement, MNT4753PoseidonParameters>;
+pub type FieldHash = MNT4PoseidonHash;
 
-pub fn get_updatable_poseidon_hash(personalization: Option<&[FieldElement]>) -> UpdatableFieldHash {
-    UpdatableFieldHash::new(personalization)
+pub fn init_poseidon_hash(personalization: Option<&[FieldElement]>) -> FieldHash {
+    FieldHash::init(personalization)
 }
 
-pub fn update_poseidon_hash(hash: &mut UpdatableFieldHash, input: &FieldElement){
-    hash.update(input);
+pub fn update_poseidon_hash(hash: &mut FieldHash, input: &FieldElement){
+    hash.update(*input);
 }
 
-pub fn finalize_poseidon_hash(hash: &UpdatableFieldHash) -> FieldElement{
+pub fn finalize_poseidon_hash(hash: &FieldHash) -> FieldElement{
     hash.finalize()
 }
 
+pub fn reset_poseidon_hash(hash: &mut FieldHash, personalization: Option<&[FieldElement]>) {
+    hash.reset(personalization);
+}
+
+#[deprecated(note="Use UpdatableFieldHash instead")]
 pub fn compute_poseidon_hash(input: &[FieldElement]) -> Result<FieldElement, Error> {
-    FieldHash::evaluate(input)
+    let mut digest = FieldHash::init(None);
+    for &fe in input.iter() {
+        digest.update(fe);
+    }
+    Ok(digest.finalize())
 }
 
 //*****************************Naive threshold sig circuit related functions************************
@@ -185,25 +191,30 @@ pub fn verify_sc_proof(
     let pvk = prepare_verifying_key(&vk);
 
     //Prepare public inputs
-    let mut public_inputs = Vec::new();
 
-    let wcert_sysdata_hash = compute_poseidon_hash(&[
-        quality,
-        bt_root,
-        prev_end_epoch_mc_b_hash,
-        end_epoch_mc_b_hash,
-    ])?;
+    let wcert_sysdata_hash = {
+        let mut digest = init_poseidon_hash(None);
+        digest
+            .update(quality)
+            .update(bt_root)
+            .update(prev_end_epoch_mc_b_hash)
+            .update(end_epoch_mc_b_hash)
+            .finalize()
+    };
+
+    let mut digest = init_poseidon_hash(None);
 
     if constant.is_some(){
-        public_inputs.push(*(constant.unwrap()));
+        digest.update(*(constant.unwrap()));
     }
-    if proofdata.is_some(){
-        public_inputs.push(*(proofdata.unwrap()));
-    }
-    public_inputs.push(wcert_sysdata_hash);
 
-    let aggregated_inputs = compute_poseidon_hash(public_inputs.as_slice())?;
-    drop(public_inputs);
+    if proofdata.is_some(){
+        digest.update(*(proofdata.unwrap()));
+    }
+
+    digest.update(wcert_sysdata_hash);
+
+    let aggregated_inputs = digest.finalize();
 
     //Verify proof
     let is_verified = verify_proof(&pvk, &sc_proof, &[aggregated_inputs])?;

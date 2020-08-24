@@ -290,15 +290,15 @@ pub extern "C" fn zendoo_verify_sc_proof(
 //********************Poseidon hash functions********************
 
 #[no_mangle]
-pub extern "C" fn zendoo_new_updatable_poseidon_hash(
+pub extern "C" fn zendoo_init_poseidon_hash(
     personalization: *const *const FieldElement,
     personalization_len: usize,
-) -> *mut UpdatableFieldHash {
+) -> *mut FieldHash {
 
     let uh = if !personalization.is_null(){
-        get_updatable_poseidon_hash(Some(read_double_raw_pointer(personalization, personalization_len).as_slice()))
+        init_poseidon_hash(Some(read_double_raw_pointer(personalization, personalization_len).as_slice()))
     } else {
-        get_updatable_poseidon_hash(None)
+        init_poseidon_hash(None)
     };
 
     Box::into_raw(Box::new(uh))
@@ -307,7 +307,7 @@ pub extern "C" fn zendoo_new_updatable_poseidon_hash(
 #[no_mangle]
 pub extern "C" fn zendoo_update_poseidon_hash(
     fe: *const FieldElement,
-    digest: *mut UpdatableFieldHash
+    digest: *mut FieldHash
 ){
 
     let input = read_raw_pointer(fe);
@@ -319,7 +319,7 @@ pub extern "C" fn zendoo_update_poseidon_hash(
 
 #[no_mangle]
 pub extern "C" fn zendoo_finalize_poseidon_hash(
-    digest: *const UpdatableFieldHash
+    digest: *const FieldHash
 ) -> *mut FieldElement {
 
     let digest = read_raw_pointer(digest);
@@ -330,8 +330,24 @@ pub extern "C" fn zendoo_finalize_poseidon_hash(
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_free_updatable_poseidon_hash(
-    digest: *mut UpdatableFieldHash
+pub extern "C" fn zendoo_reset_poseidon_hash(
+    digest: *mut FieldHash,
+    personalization: *const *const FieldElement,
+    personalization_len: usize,
+) {
+
+    let digest = read_mut_raw_pointer(digest);
+
+    if !personalization.is_null(){
+        reset_poseidon_hash(digest, Some(read_double_raw_pointer(personalization, personalization_len).as_slice()));
+    } else {
+        reset_poseidon_hash(digest, None);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_free_poseidon_hash(
+    digest: *mut FieldHash
 ) {
     if digest.is_null() {
         return;
@@ -339,26 +355,24 @@ pub extern "C" fn zendoo_free_updatable_poseidon_hash(
     drop(unsafe { Box::from_raw(digest) });
 }
 
+#[deprecated]
 #[no_mangle]
 pub extern "C" fn zendoo_compute_poseidon_hash(
     input: *const *const FieldElement,
     input_len: usize,
 ) -> *mut FieldElement {
 
-    //Read message
+    // Read message
     let message = read_double_raw_pointer(input, input_len);
 
-    //Compute hash
-    let hash = match compute_poseidon_hash(message.as_slice()) {
-        Ok(hash) => hash,
-        Err(e) => {
-            set_last_error(e, CRYPTO_ERROR);
-            return null_mut()
-        }
-    };
+    // Compute hash
+    let mut digest = init_poseidon_hash(None);
+    for fe in message.into_iter(){
+        digest.update(fe);
+    }
 
     //Return pointer to hash
-    Box::into_raw(Box::new(hash))
+    Box::into_raw(Box::new(digest.finalize()))
 }
 
 // ********************Merkle Tree functions********************
@@ -475,6 +489,7 @@ pub extern "C" fn ginger_mt_path_free(path: *mut GingerMerkleTreePath) {
 pub mod mc_test_circuit;
 #[cfg(feature = "mc-test-circuit")]
 pub use self::mc_test_circuit::*;
+use primitives::FieldBasedHash;
 
 #[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
 #[no_mangle]

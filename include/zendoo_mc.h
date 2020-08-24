@@ -134,48 +134,59 @@ extern "C" {
 
 //Poseidon hash related functions
 
-    typedef struct updatable_poseidon_hash updatable_poseidon_hash_t;
+    typedef struct poseidon_hash poseidon_hash_t;
 
     /*
-     * Gets a new instance of updatable_poseidon_hash. It's possible to customize the initial Poseidon state
+     * Gets a new instance of poseidon_hash. It's possible to customize the initial Poseidon state
      * given a vector of field elements as `personalization`; this is not mandatory and `personalization` can
      * be NULL.
      */
-    updatable_poseidon_hash_t* zendoo_new_updatable_poseidon_hash(const field_t** personalization, size_t personalization_len);
+    poseidon_hash_t* zendoo_init_poseidon_hash(
+        const field_t** personalization,
+        size_t personalization_len
+    );
 
     /*
      * Updates `digest` with a new field element `fe`.
      * NOTE: The function will perform a copy of the FieldElement pointed by `fe` in order to store
      * it as its internal state, therefore it's possible to free `fe` immediately afterwards.
      */
-    void zendoo_update_poseidon_hash(const field_t* fe, updatable_poseidon_hash_t* digest);
+    void zendoo_update_poseidon_hash(const field_t* fe, poseidon_hash_t* digest);
 
     /*
      * Returns the final digest.
      * NOTE: This method is idempotent, and calling it multiple times will give the same result.
      * It's also possible to `update` with more inputs in between.
      */
-    field_t* zendoo_finalize_poseidon_hash(const updatable_poseidon_hash_t* digest);
+    field_t* zendoo_finalize_poseidon_hash(const poseidon_hash_t* digest);
 
     /*
-     * Free the memory from the updatable_poseidon_hash pointed by `digest`.
+     * Restore digest to its initial state, allowing to change `personalization` too if needed.
+     */
+    void zendoo_reset_poseidon_hash(
+        poseidon_hash_t* digest,
+        const field_t** personalization,
+        size_t personalization_len
+    );
+
+    /*
+     * Free the memory from the poseidon_hash pointed by `digest`.
      * It's caller responsibility to set `digest` to NULL afterwards.
      * If `digest` was already null, the function does nothing.
      */
-    void zendoo_free_updatable_poseidon_hash(updatable_poseidon_hash_t* digest);
-
+    void zendoo_free_poseidon_hash(poseidon_hash_t* digest);
 
     /*
-     *   Support struct to enhance and make easier the usage of updatable_poseidon_hash, by
-     *   making updatable_poseidon_hash a member of the struct and wrapping the functions
+     *   Support struct to enhance and make easier the usage of poseidon_hash, by
+     *   making poseidon_hash a member of the struct and wrapping the functions
      *   above. Note the definition of the destructor: when an instance of this struct
      *   will go out of scope, the memory Rust-side will be automatically freed.
      */
-    struct ZendooUpdatablePoseidonHash {
-        updatable_poseidon_hash_t* digest;
+    struct ZendooPoseidonHash {
+        poseidon_hash_t* digest;
 
-        ZendooUpdatablePoseidonHash(const field_t** personalization, size_t personalization_len){
-            digest = zendoo_new_updatable_poseidon_hash(personalization, personalization_len);
+        ZendooPoseidonHash(const field_t** personalization, size_t personalization_len){
+            digest = zendoo_init_poseidon_hash(personalization, personalization_len);
         }
 
         void update(const field_t* fe) {
@@ -186,8 +197,12 @@ extern "C" {
             return zendoo_finalize_poseidon_hash(digest);
         }
 
-        ~ZendooUpdatablePoseidonHash() {
-            zendoo_free_updatable_poseidon_hash(digest);
+        void reset(const field_t** personalization, size_t personalization_len) {
+            zendoo_reset_poseidon_hash(digest, personalization, personalization_len);
+        }
+
+        ~ZendooPoseidonHash() {
+            zendoo_free_poseidon_hash(digest);
         }
     };
 
@@ -196,80 +211,101 @@ extern "C" {
      * passed as a list of opaque pointers. Returns an opaque pointer to the hash output
      * or NULL if some error occurred.
      */
+    [[deprecated("Use ZendooPoseidonHash instead")]]
     field_t* zendoo_compute_poseidon_hash(
         const field_t** input,
         size_t input_len
     );
 
-//Poseidon-based Merkle Tree related functions
+//Poseidon-based Random Access Merkle Tree related functions
 
-    typedef struct ginger_mt      ginger_mt_t;
-    typedef struct ginger_mt_path ginger_mt_path_t;
+    typedef struct ginger_ramt ginger_ramt_t;
 
     /*
-     * Compute a ginger_mt from a list of leaves `leaves` of len `levaes_len`,
-     * passed as a list of opaque pointers to `field`s. Return an opaque pointer
-     * to a ginger_mt or NULL if some error occurred.
-     * NOTE: The function will copy and store all the leaves passed as input as
-     * its internal state, therefore it's possible to free `leaves` immediately
-     * afterwards.
+     * Gets a new instance of a Ginger Random Access Merkle Tree, able to support up to
+     * `num_leaves` leaves.
      */
-    ginger_mt_t* ginger_mt_new(
-        const field_t** leaves,
-        size_t leaves_len
-    );
+    ginger_ramt_t* zendoo_new_ginger_ramt(size_t num_leaves);
 
-    /* Return an opaque pointer to the root of a ginger_mt given an opaque pointer `tree` to it */
-    field_t* ginger_mt_get_root(
-        const ginger_mt_t* tree
-    );
-
-    /* Return an opaque pointer to a leaf of the Merkle Tree given its index */
-    field_t* ginger_mt_get_leaf(
-        const ginger_mt_t* tree,
-        size_t leaf_index
-    );
-
-    /* Return an opaque pointer to a ginger_mt_path given:
-     * - An opaque pointer `leaf` to a field representing a leaf;
-     * - The index of the leaf;
-     * - An opaque pointer `tree` to a ginger_mt.
-     * Return NULL if some error occurred.
+    /*
+     * Appends `leaf` to `tree`.
+     * NOTE: The function will perform a copy of the FieldElement pointed by `leaf` in order to store
+     * it as its internal state, therefore it's possible to free `leaf` immediately afterwards.
      */
-    ginger_mt_path_t* ginger_mt_get_merkle_path(
-        const field_t* leaf,
-        size_t leaf_index,
-        const ginger_mt_t* tree
-    );
+    void zendoo_append_leaf(const field_t* leaf, ginger_ramt_t* tree);
 
     /*
-     * Verify that a ginger_mt_path, for a given leaf and merkle root, all passed
-     * as opaque pointers to this function is correct. Return `true` if the ginger_mt_path
-     * is correct and `false` otherwise (or if some error occurred).
+     * This function finalizes the computation of the Merkle tree and returns an updated
+     * copy of it. This method is idempotent, and calling it multiple times will
+     * give the same result. It's also possible to `update` with more inputs in between.
      */
-    bool ginger_mt_verify_merkle_path(
-        const field_t* leaf,
-        const field_t* mr,
-        const ginger_mt_path_t* path
-    );
+    ginger_ramt_t* zendoo_finalize_ramt(const ginger_ramt_t* tree);
 
     /*
-    * Free the memory from the ginger_mt pointed by `tree`. It's caller responsibility
-    * to set `tree` to NULL afterwards. If `tree` was already NULL, the function does
-    * nothing.
-    */
-    void ginger_mt_free(
-        ginger_mt_t* tree
-    );
+     * This function finalizes the computation of the Merkle tree
+     * Once this function is called, it is not possible to further update the tree.
+     */
+    void zendoo_finalize_ramt_in_place(ginger_ramt_t* tree);
 
     /*
-    * Free the memory from the ginger_mt_path pointed by `path`. It's caller responsibility
-    * to set `path` to NULL afterwards. If `path` was already NULL, the function does
-    * nothing.
-    */
-    void ginger_mt_path_free(
-        ginger_mt_path_t* path
-    );
+     * Returns the root of the Merkle Tree. This function must be called on a finalized tree.
+     * If not, the function returns null.
+     */
+    field_t* zendoo_get_ramt_root(const ginger_ramt_t* tree);
+
+    /*
+     * Restores the tree to its initial state.
+     */
+    void zendoo_reset_ramt(ginger_ramt_t* tree);
+
+    /*
+     * Free the memory from the Ginger Random Access Merkle Tree pointed by `tree`.
+     * It's caller responsibility to set `tree` to NULL afterwards.
+     * If `tree` was already null, the function does nothing.
+     */
+    void zendoo_free_ginger_ramt(ginger_ramt_t* tree);
+
+    /*
+     *   Support struct to enhance and make easier the usage of ginger_ramt, by
+     *   making ginger_ramt a member of the struct and wrapping the functions
+     *   above. Note the definition of the destructor: when an instance of this struct
+     *   will go out of scope, the memory Rust-side will be automatically freed.
+     */
+    struct ZendooGingerRandomAccessMerkleTree {
+        ginger_ramt_t* tree;
+
+        ZendooGingerRandomAccessMerkleTree();
+
+        ZendooGingerRandomAccessMerkleTree(size_t num_leaves){
+            tree = zendoo_new_ginger_ramt(num_leaves);
+        }
+
+        void append(const field_t* leaf) {
+            zendoo_append_leaf(leaf, tree);
+        }
+
+        ZendooGingerRandomAccessMerkleTree finalize(){
+            ZendooGingerRandomAccessMerkleTree ramt;
+            ramt.tree = zendoo_finalize_ramt(tree);
+            return ramt;
+        }
+
+        void finalize_in_place(){
+            zendoo_finalize_ramt_in_place(tree);
+        }
+
+        field_t* root(){
+            return zendoo_get_ramt_root(tree);
+        }
+
+        void reset(){
+            zendoo_reset_ramt(tree);
+        }
+
+        ~ZendooGingerRandomAccessMerkleTree() {
+            zendoo_free_ginger_ramt(tree);
+        }
+    };
 
 //Test functions
 
