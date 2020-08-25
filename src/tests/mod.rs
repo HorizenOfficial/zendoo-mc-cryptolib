@@ -1,14 +1,11 @@
 use algebra::{
     bytes::{FromBytes, ToBytes},
     curves::mnt4753::MNT4 as PairingCurve,
-    fields::mnt4753::Fr,
-    to_bytes, UniformRand,
 };
 
 use proof_systems::groth16::Proof;
-use rand::rngs::OsRng;
 
-use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path, GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof, zendoo_init_poseidon_hash, zendoo_update_poseidon_hash, zendoo_finalize_poseidon_hash, zendoo_free_poseidon_hash, ginger_mt_get_leaf, zendoo_get_random_field};
+use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof, zendoo_init_poseidon_hash, zendoo_update_poseidon_hash, zendoo_finalize_poseidon_hash, zendoo_free_poseidon_hash, zendoo_new_ginger_ramt, zendoo_append_leaf_to_ginger_ramt, zendoo_get_field_from_long, zendoo_finalize_ginger_ramt, zendoo_get_ginger_ramt_root, zendoo_finalize_ginger_ramt_in_place, zendoo_free_ginger_ramt};
 
 use std::{fmt::Debug, fs::File, ptr::null};
 
@@ -217,6 +214,7 @@ fn create_verify_mc_test_proof(){
         zendoo_generate_mc_test_params, zendoo_get_random_field, zendoo_create_mc_test_proof,
         zendoo_deserialize_sc_proof_from_file,
     };
+    use rand::rngs::OsRng;
     use rand::Rng;
 
     let mut rng = OsRng::default();
@@ -306,71 +304,54 @@ fn create_verify_mc_test_proof(){
     ));
 }
 
-//#[test]
+#[test]
 fn merkle_tree_test() {
-    let mut rng = OsRng::default();
+    let height = 10;
+    let expected_root_bytes: [u8; 96] = [
+        231, 64, 42, 251, 206, 22, 102, 105, 222, 145, 252, 133, 62, 169, 60, 150, 50, 133, 187, 38,
+        47, 246, 192, 170, 161, 204, 152, 177, 20, 209, 217, 101, 34, 159, 246, 176, 23, 223, 62,
+        191, 103, 165, 210, 114, 179, 110, 140, 252, 250, 167, 106, 31, 7, 178, 109, 108, 20, 239,
+        162, 121, 99, 207, 137, 224, 124, 212, 65, 229, 5, 112, 116, 75, 145, 11, 77, 252, 134, 37,
+        127, 54, 244, 236, 68, 129, 16, 191, 196, 6, 17, 185, 138, 98, 183, 153, 1, 0
+    ];
+    let expected_root = zendoo_deserialize_field(&expected_root_bytes);
 
-    //Generate random field elements
-    let mut fes = vec![];
-    for _ in 0..16 {
-        fes.push(Fr::rand(&mut rng));
+    // Generate leaves
+    let leaves_len = 512;
+    let mut leaves = vec![];
+    for i in 0..leaves_len {
+        leaves.push(zendoo_get_field_from_long(i as u64));
     }
 
-    //Get native Merkle Tree
-    let native_tree = GingerMerkleTree::new(fes.as_slice()).unwrap();
+    // Create tree
+    let tree = zendoo_new_ginger_ramt(height);
 
-    //Get Merkle Tree from lib
-    let mut fes_ptr = vec![];
-    let fes_b = to_bytes!(fes).unwrap();
-    for i in 0..16 {
-        let mut fe = [0u8; 96];
-        fes_b[(i * 96)..((i + 1) * 96)]
-            .to_vec()
-            .write(&mut fe[..])
-            .unwrap();
-        fes_ptr.push(zendoo_deserialize_field(&fe) as *const Fr)
-    }
-    let tree = ginger_mt_new(fes_ptr.as_ptr(), 16);
-
-    // Free the leaves: we don't need them anymore
-    for i in 0..16 {
-        zendoo_field_free(fes_ptr[i] as *mut Fr);
+    // Add leaves to tree
+    for &leaf in leaves.iter(){
+        zendoo_append_leaf_to_ginger_ramt(leaf, tree);
     }
 
-    //Get root and compare the two trees
-    let root = ginger_mt_get_root(tree);
+    // Finalize tree and assert root equality
+    zendoo_finalize_ginger_ramt_in_place(tree);
+    let root = zendoo_get_ginger_ramt_root(tree);
+    assert!(zendoo_field_assert_eq(root, expected_root));
 
-    assert_eq!(unsafe { *root }, native_tree.root());
+    // It is the same by calling zendoo_finalize_ginger_ramt
+    let tree_copy = zendoo_finalize_ginger_ramt(tree);
+    let root_copy = zendoo_get_ginger_ramt_root(tree_copy);
+    assert!(zendoo_field_assert_eq(root, root_copy));
 
-    for i in 0..16 {
+    // Free memory
 
-        //Get leaf
-        let leaf = ginger_mt_get_leaf(tree, i);
-
-        //Get native Merkle Path for the leaf
-        let native_mp = native_tree.generate_proof(i, &fes[i]).unwrap();
-
-        //Get Merkle Path from lib
-        let path = ginger_mt_get_merkle_path(leaf, i, tree);
-
-        for (native_path, path) in native_mp.path.iter().zip(unsafe { &*path }.path.iter()) {
-            assert_eq!(native_path, path);
-        }
-
-        //Verify that both merkle paths are correct
-        assert!(native_mp.verify(&native_tree.root(), &fes[i]).unwrap());
-        assert!(ginger_mt_verify_merkle_path(leaf, root, path));
-
-        //Free leaf
+    zendoo_field_free(expected_root);
+    for leaf in leaves.into_iter(){
         zendoo_field_free(leaf);
-
-        //Free path
-        ginger_mt_path_free(path);
     }
-
-    //Free memory
-    ginger_mt_free(tree);
+    zendoo_free_ginger_ramt(tree);
     zendoo_field_free(root);
+
+    zendoo_free_ginger_ramt(tree_copy);
+    zendoo_field_free(root_copy);
 }
 
 #[test]

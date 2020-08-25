@@ -95,18 +95,18 @@ void hash_test() {
         abort();
     }
 
-    auto uh = ZendooPoseidonHash(NULL, 0);
+    auto digest = ZendooPoseidonHash(NULL, 0);
 
-    uh.update(lhs_field);
+    digest.update(lhs_field);
 
-    auto temp_hash = uh.finalize();
-    uh.update(rhs_field); // Call to finalize keeps the state
+    auto temp_hash = digest.finalize();
+    digest.update(rhs_field); // Call to finalize keeps the state
 
-    auto actual_hash = uh.finalize();
+    auto actual_hash = digest.finalize();
     assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash, expected_hash)));
     zendoo_field_free(actual_hash);
 
-    auto actual_hash_2 = uh.finalize(); // finalize() is idempotent
+    auto actual_hash_2 = digest.finalize(); // finalize() is idempotent
     assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_2, expected_hash)));
     zendoo_field_free(actual_hash_2);
 
@@ -116,73 +116,70 @@ void hash_test() {
     zendoo_field_free(rhs_field);
 
     std::cout<< "...ok" << std::endl;
+
+    // Once out of scope the destructor of ZendooPoseidonHash will automatically free the memory Rust-side
+    // for digest
 }
 
-/*
 void merkle_test() {
 
     std::cout << "Merkle test" << std::endl;
 
-    //Generate random leaves
-    int leaves_len = 16;
-    const field_t* leaves[leaves_len];
-    for (int i = 0; i < leaves_len; i++){
-        leaves[i] = zendoo_get_random_field();
-    }
+    size_t height = 10;
 
-    //Create Merkle Tree and get the root
-    auto tree = ginger_mt_new(leaves, leaves_len);
-    if(tree == NULL){
+    // Deserialize root
+    unsigned char expected_root_bytes[96] = {
+        231, 64, 42, 251, 206, 22, 102, 105, 222, 145, 252, 133, 62, 169, 60, 150, 50, 133, 187, 38, 47, 246, 192, 170,
+        161, 204, 152, 177, 20, 209, 217, 101, 34, 159, 246, 176, 23, 223, 62, 191, 103, 165, 210, 114, 179, 110, 140,
+        252, 250, 167, 106, 31, 7, 178, 109, 108, 20, 239, 162, 121, 99, 207, 137, 224, 124, 212, 65, 229, 5, 112, 116,
+        75, 145, 11, 77, 252, 134, 37, 127, 54, 244, 236, 68, 129, 16, 191, 196, 6, 17, 185, 138, 98, 183, 153, 1, 0
+    };
+    auto expected_root = zendoo_deserialize_field(expected_root_bytes);
+    if (expected_root == NULL) {
         print_error("error");
         abort();
     }
 
-    //Free all the leaves, we don't need them anymore
+    //Generate leaves
+    int leaves_len = 512;
+    const field_t* leaves[leaves_len];
+    for (int i = 0; i < leaves_len; i++){
+        leaves[i] = zendoo_get_field_from_long(i);
+    }
+
+    // Initialize tree
+    auto tree = ZendooGingerRandomAccessMerkleTree(height);
+
+    // Add leaves to tree
+    for (int i = 0; i < leaves_len; i++){
+        tree.append(leaves[i]);
+    }
+
+    // Finalize tree
+    tree.finalize_in_place();
+
+    // Compute root and assert equality with expected one
+    auto root = tree.root();
+    assert(("Expected roots to be equal", zendoo_field_assert_eq(root, expected_root)));
+
+    // It is the same by calling finalize()
+    auto tree_copy = tree.finalize();
+    auto root_copy = tree_copy.root();
+    assert(("Expected roots to be equal", zendoo_field_assert_eq(root_copy, expected_root)));
+
+    // Free memory
+    zendoo_field_free(expected_root);
     for (int i = 0; i < leaves_len; i++){
         zendoo_field_free((field_t*)leaves[i]);
     }
-
-    auto root = ginger_mt_get_root(tree);
-
-    //Verify Merkle Path is ok for each leaf
-    for (int i = 0; i < leaves_len; i++) {
-
-        //Get leaf
-        auto leaf = ginger_mt_get_leaf(tree, i);
-        if(leaf == NULL){
-            print_error("error");
-            abort();
-        }
-
-        //Create Merkle Path for the i-th leaf
-        auto path = ginger_mt_get_merkle_path(leaf, i, tree);
-        if(path == NULL){
-            print_error("error");
-            abort();
-        }
-
-        //Verify Merkle Path for the i-th leaf
-        if(!ginger_mt_verify_merkle_path(leaf, root, path)){
-            error_or("Merkle path not verified");
-            abort();
-        }
-
-        //Free leaf
-        zendoo_field_free(leaf);
-
-        //Free Merkle Path
-        ginger_mt_path_free(path);
-    }
-
-    //Free the tree
-    ginger_mt_free(tree);
-
-    //Free the root
     zendoo_field_free(root);
-
+    zendoo_field_free(root_copy);
 
     std::cout<< "...ok" << std::endl;
-}*/
+
+    // Once out of scope, the destructor of ZendooGingerRandomAccessMerkleTree will
+    // free the memory Rust-side for tree and tree_copy.
+}
 
 void proof_test() {
 
@@ -418,7 +415,7 @@ void proof_test_no_bwt() {
 int main() {
     field_test();
     hash_test();
-    //merkle_test();
+    merkle_test();
     //proof_test();
     //proof_test_no_bwt();
 }

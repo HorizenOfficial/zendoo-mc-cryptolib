@@ -5,9 +5,13 @@ use algebra::{
 };
 
 use crate::BackwardTransfer;
-use primitives::{crh::{FieldBasedHash, MNT4PoseidonHash}, merkle_tree::field_based_mht::{
-    FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath, MNT4753_PHANTOM_MERKLE_ROOT
-}, CryptoError};
+use primitives::{
+    crh::{FieldBasedHash, MNT4PoseidonHash, poseidon::parameters::MNT4753PoseidonParameters},
+    merkle_tree::field_based_mht::{
+        ramht::{RandomAccessMerkleTree, poseidon::PoseidonRandomAccessMerkleTree},
+        MNT4753_PHANTOM_MERKLE_ROOT
+    },
+};
 use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
 
 use std::{fs::File, io::Result as IoResult, path::Path};
@@ -154,20 +158,24 @@ pub fn create_test_mc_proof(
     Ok(())
 }
 
+const BT_MERKLE_TREE_HEIGHT: usize = 13;
+
 pub fn get_bt_merkle_root(bt_list: &[BackwardTransfer]) -> Result<FieldElement, Error>
 {
-    let bt_root = if bt_list.len() > 0 {
+    if bt_list.len() > 0 {
         let mut bt_as_fes = vec![];
         for bt in bt_list.iter() {
             let bt_as_fe = bt.to_field_element()?;
             bt_as_fes.push(bt_as_fe);
         }
-        //Get Merkle Root of Backward Transfer list
-        let bt_tree = new_ginger_merkle_tree(bt_as_fes.as_slice())?;
-        get_ginger_merkle_root(&bt_tree)
-    } else { MNT4753_PHANTOM_MERKLE_ROOT };
+        let mut bt_mt = GingerRAMT::init(2usize.pow((BT_MERKLE_TREE_HEIGHT - 1) as u32));
+        for &fe in bt_as_fes.iter(){
+            bt_mt.append(fe);
+        }
+        bt_mt.finalize_in_place();
+        bt_mt.root().ok_or(Error::from("Failed to compute BT Merkle Tree root"))
 
-    Ok(bt_root)
+    } else { Ok(MNT4753_PHANTOM_MERKLE_ROOT) }
 }
 
 pub fn verify_sc_proof(
@@ -223,45 +231,28 @@ pub fn verify_sc_proof(
 
 //************Merkle Tree functions******************
 
-pub struct FieldBasedMerkleTreeParams;
+pub type GingerRAMT = PoseidonRandomAccessMerkleTree<FieldElement, MNT4753PoseidonParameters>;
 
-impl FieldBasedMerkleTreeConfig for FieldBasedMerkleTreeParams {
-    const HEIGHT: usize = 13;
-    type H = FieldHash;
+pub fn new_ginger_ramt(height: usize) -> GingerRAMT {
+    GingerRAMT::init(2usize.pow((height - 1) as u32))
 }
 
-pub type GingerMerkleTree = FieldBasedMerkleHashTree<FieldBasedMerkleTreeParams>;
-pub type GingerMerkleTreePath = FieldBasedMerkleTreePath<FieldBasedMerkleTreeParams>;
-
-pub fn new_ginger_merkle_tree(leaves: &[FieldElement]) -> Result<GingerMerkleTree, Error> {
-    GingerMerkleTree::new(leaves)
+pub fn append_leaf_to_ginger_ramt(tree: &mut GingerRAMT, leaf: &FieldElement){
+    tree.append(*leaf);
 }
 
-pub fn get_ginger_merkle_root(tree: &GingerMerkleTree) -> FieldElement {
+pub fn finalize_ginger_ramt(tree: &GingerRAMT) -> GingerRAMT {
+    tree.finalize()
+}
+
+pub fn finalize_ginger_ramt_in_place(tree: &mut GingerRAMT) {
+    tree.finalize_in_place();
+}
+
+pub fn get_ginger_ramt_root(tree: &GingerRAMT) -> Option<FieldElement> {
     tree.root()
 }
 
-pub fn get_ginger_merkle_leaf(tree: &GingerMerkleTree, leaf_index: usize) -> Result<FieldElement, Error> {
-    let leaves = tree.leaves();
-    if leaf_index >= leaves.len() {
-        Err(Box::new(CryptoError::InvalidElement(format!("Leaf index {} ", leaf_index))))
-    } else {
-        Ok(tree.leaves()[leaf_index])
-    }
-}
-
-pub fn get_ginger_merkle_path(
-    leaf: &FieldElement,
-    leaf_index: usize,
-    tree: &GingerMerkleTree,
-) -> Result<GingerMerkleTreePath, Error> {
-    tree.generate_proof(leaf_index, leaf)
-}
-
-pub fn verify_ginger_merkle_path(
-    path: &GingerMerkleTreePath,
-    merkle_root: &FieldElement,
-    leaf: &FieldElement,
-) -> Result<bool, Error> {
-    path.verify(merkle_root, leaf)
+pub fn reset_ginger_ramt(tree: &mut GingerRAMT){
+    tree.reset();
 }

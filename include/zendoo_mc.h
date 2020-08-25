@@ -211,11 +211,10 @@ extern "C" {
      * passed as a list of opaque pointers. Returns an opaque pointer to the hash output
      * or NULL if some error occurred.
      */
-    [[deprecated("Use ZendooPoseidonHash instead")]]
     field_t* zendoo_compute_poseidon_hash(
         const field_t** input,
         size_t input_len
-    );
+    )__attribute__((deprecated("Use ZendooPoseidonHash instead")));
 
 //Poseidon-based Random Access Merkle Tree related functions
 
@@ -225,38 +224,38 @@ extern "C" {
      * Gets a new instance of a Ginger Random Access Merkle Tree, able to support up to
      * `num_leaves` leaves.
      */
-    ginger_ramt_t* zendoo_new_ginger_ramt(size_t num_leaves);
+    ginger_ramt_t* zendoo_new_ginger_ramt(size_t height);
 
     /*
      * Appends `leaf` to `tree`.
      * NOTE: The function will perform a copy of the FieldElement pointed by `leaf` in order to store
      * it as its internal state, therefore it's possible to free `leaf` immediately afterwards.
      */
-    void zendoo_append_leaf(const field_t* leaf, ginger_ramt_t* tree);
+    void zendoo_append_leaf_to_ginger_ramt(const field_t* leaf, ginger_ramt_t* tree);
 
     /*
      * This function finalizes the computation of the Merkle tree and returns an updated
      * copy of it. This method is idempotent, and calling it multiple times will
      * give the same result. It's also possible to `update` with more inputs in between.
      */
-    ginger_ramt_t* zendoo_finalize_ramt(const ginger_ramt_t* tree);
+    ginger_ramt_t* zendoo_finalize_ginger_ramt(const ginger_ramt_t* tree);
 
     /*
      * This function finalizes the computation of the Merkle tree
      * Once this function is called, it is not possible to further update the tree.
      */
-    void zendoo_finalize_ramt_in_place(ginger_ramt_t* tree);
+    void zendoo_finalize_ginger_ramt_in_place(ginger_ramt_t* tree);
 
     /*
      * Returns the root of the Merkle Tree. This function must be called on a finalized tree.
      * If not, the function returns null.
      */
-    field_t* zendoo_get_ramt_root(const ginger_ramt_t* tree);
+    field_t* zendoo_get_ginger_ramt_root(const ginger_ramt_t* tree);
 
     /*
      * Restores the tree to its initial state.
      */
-    void zendoo_reset_ramt(ginger_ramt_t* tree);
+    void zendoo_reset_ginger_ramt(ginger_ramt_t* tree);
 
     /*
      * Free the memory from the Ginger Random Access Merkle Tree pointed by `tree`.
@@ -274,32 +273,30 @@ extern "C" {
     struct ZendooGingerRandomAccessMerkleTree {
         ginger_ramt_t* tree;
 
-        ZendooGingerRandomAccessMerkleTree();
+        ZendooGingerRandomAccessMerkleTree(ginger_ramt_t* tree): tree(tree) {}
 
-        ZendooGingerRandomAccessMerkleTree(size_t num_leaves){
-            tree = zendoo_new_ginger_ramt(num_leaves);
+        ZendooGingerRandomAccessMerkleTree(size_t height){
+            tree = zendoo_new_ginger_ramt(height);
         }
 
         void append(const field_t* leaf) {
-            zendoo_append_leaf(leaf, tree);
+            zendoo_append_leaf_to_ginger_ramt(leaf, tree);
         }
 
-        ZendooGingerRandomAccessMerkleTree finalize(){
-            ZendooGingerRandomAccessMerkleTree ramt;
-            ramt.tree = zendoo_finalize_ramt(tree);
-            return ramt;
+        ZendooGingerRandomAccessMerkleTree finalize(void){
+            return ZendooGingerRandomAccessMerkleTree(zendoo_finalize_ginger_ramt(tree));
         }
 
         void finalize_in_place(){
-            zendoo_finalize_ramt_in_place(tree);
+            zendoo_finalize_ginger_ramt_in_place(tree);
         }
 
         field_t* root(){
-            return zendoo_get_ramt_root(tree);
+            return zendoo_get_ginger_ramt_root(tree);
         }
 
         void reset(){
-            zendoo_reset_ramt(tree);
+            zendoo_reset_ginger_ramt(tree);
         }
 
         ~ZendooGingerRandomAccessMerkleTree() {
@@ -339,6 +336,9 @@ extern "C" {
 
     /* Get an opaque pointer to a random field element */
     field_t* zendoo_get_random_field(void);
+
+    /* Get a field element given `value` */
+    field_t* zendoo_get_field_from_long(uint64_t value);
 
     /* Return `true` if the fields pointed by `field_1` and `field_2` are
      * equal, and `false` otherwise.

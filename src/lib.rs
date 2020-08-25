@@ -377,110 +377,81 @@ pub extern "C" fn zendoo_compute_poseidon_hash(
 
 // ********************Merkle Tree functions********************
 #[no_mangle]
-pub extern "C" fn ginger_mt_new(
-    leaves: *const *const FieldElement,
-    leaves_len: usize,
-) -> *mut GingerMerkleTree {
+pub extern "C" fn zendoo_new_ginger_ramt(
+    height: usize,
+) -> *mut GingerRAMT {
 
-    //Read leaves
-    let leaves = read_double_raw_pointer(leaves, leaves_len);
-
-    //Generate tree and compute Merkle Root
-    let gmt = match new_ginger_merkle_tree(leaves.as_slice()) {
-        Ok(tree) => tree,
-        Err(e) => {
-            set_last_error(e, CRYPTO_ERROR);
-            return null_mut();
-        }
-    };
-
+    let gmt = new_ginger_ramt(height);
     Box::into_raw(Box::new(gmt))
 }
 
 #[no_mangle]
-pub extern "C" fn ginger_mt_get_root(tree: *const GingerMerkleTree) -> *mut FieldElement {
-    Box::into_raw(Box::new(get_ginger_merkle_root(read_raw_pointer(tree))))
+pub extern "C" fn zendoo_append_leaf_to_ginger_ramt(
+    leaf: *const FieldElement,
+    tree: *mut GingerRAMT,
+)
+{
+    let leaf = read_raw_pointer(leaf);
+
+    let tree = read_mut_raw_pointer(tree);
+
+    append_leaf_to_ginger_ramt(tree, leaf);
 }
 
 #[no_mangle]
-pub extern "C" fn ginger_mt_get_leaf(tree: *const GingerMerkleTree, leaf_index: usize) -> *mut FieldElement {
-
-    // Read tree
+pub extern "C" fn zendoo_finalize_ginger_ramt(
+    tree: *const GingerRAMT
+) -> *mut GingerRAMT
+{
     let tree = read_raw_pointer(tree);
 
-    // Get leaf from tree
-    match get_ginger_merkle_leaf(tree, leaf_index) {
-        Ok(leaf) =>  Box::into_raw(Box::new(leaf)),
-        Err(e) => {
-            set_last_error(e, CRYPTO_ERROR);
-            return null_mut();
-        }
+    let tree_copy = finalize_ginger_ramt(tree);
+
+    Box::into_raw(Box::new(tree_copy))
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_finalize_ginger_ramt_in_place(
+    tree: *mut GingerRAMT
+)
+{
+    let tree = read_mut_raw_pointer(tree);
+
+    finalize_ginger_ramt_in_place(tree);
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_ginger_ramt_root(
+    tree: *const GingerRAMT
+) -> *mut FieldElement
+{
+    let tree = read_raw_pointer(tree);
+
+    match get_ginger_ramt_root(tree) {
+        Some(root) => Box::into_raw(Box::new(root)),
+        None => null_mut()
     }
 }
 
 #[no_mangle]
-pub extern "C" fn ginger_mt_get_merkle_path(
-    leaf: *const FieldElement,
-    leaf_index: usize,
-    tree: *const GingerMerkleTree,
-) -> *mut GingerMerkleTreePath {
-    //Read tree
-    let tree = read_raw_pointer(tree);
-    //Read leaf
-    let leaf = read_raw_pointer(leaf);
+pub extern "C" fn zendoo_reset_ginger_ramt(
+    tree: *mut GingerRAMT
+)
+{
+    let tree = read_mut_raw_pointer(tree);
 
-    //Compute Merkle Path
-    let mp = match get_ginger_merkle_path(leaf, leaf_index, tree) {
-        Ok(path) => path,
-        Err(e) => {
-            set_last_error(e, CRYPTO_ERROR);
-            return null_mut();
-        }
-    };
-
-    Box::into_raw(Box::new(mp))
+    reset_ginger_ramt(tree);
 }
 
 #[no_mangle]
-pub extern "C" fn ginger_mt_verify_merkle_path(
-    leaf: *const FieldElement,
-    merkle_root: *const FieldElement,
-    path: *const GingerMerkleTreePath,
-) -> bool {
-
-    //Read path
-    let path = read_raw_pointer(path);
-
-    //Read leaf
-    let leaf = read_raw_pointer(leaf);
-
-    //Read root
-    let root = read_raw_pointer(merkle_root);
-
-    // Verify leaf belonging
-    match verify_ginger_merkle_path(path, root, leaf) {
-        Ok(result) => result,
-        Err(e) => {
-            set_last_error(e, CRYPTO_ERROR);
-            false
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn ginger_mt_free(tree: *mut GingerMerkleTree) {
+pub extern "C" fn zendoo_free_ginger_ramt(
+    tree: *mut GingerRAMT
+)
+{
     if tree.is_null() {
         return;
     }
     drop(unsafe { Box::from_raw(tree) });
-}
-
-#[no_mangle]
-pub extern "C" fn ginger_mt_path_free(path: *mut GingerMerkleTreePath) {
-    if path.is_null() {
-        return;
-    }
-    drop(unsafe { Box::from_raw(path) });
 }
 
 //***************Test functions*******************
@@ -702,6 +673,12 @@ pub extern "C" fn zendoo_get_random_field() -> *mut FieldElement {
     let mut rng = OsRng;
     let random_f = FieldElement::rand(&mut rng);
     Box::into_raw(Box::new(random_f))
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_field_from_long(value: u64) -> *mut FieldElement {
+    let fe = FieldElement::from(value);
+    Box::into_raw(Box::new(fe))
 }
 
 #[no_mangle]
