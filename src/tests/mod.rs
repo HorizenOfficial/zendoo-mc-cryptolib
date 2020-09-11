@@ -5,7 +5,7 @@ use algebra::{
 
 use proof_systems::groth16::Proof;
 
-use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof, zendoo_init_poseidon_hash, zendoo_update_poseidon_hash, zendoo_finalize_poseidon_hash, zendoo_free_poseidon_hash, zendoo_new_ginger_ramt, zendoo_append_leaf_to_ginger_ramt, zendoo_get_field_from_long, zendoo_finalize_ginger_ramt, zendoo_get_ginger_ramt_root, zendoo_finalize_ginger_ramt_in_place, zendoo_free_ginger_ramt};
+use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof, zendoo_init_poseidon_hash, zendoo_update_poseidon_hash, zendoo_finalize_poseidon_hash, zendoo_free_poseidon_hash, zendoo_new_ginger_mht, zendoo_append_leaf_to_ginger_mht, zendoo_get_field_from_long, zendoo_finalize_ginger_mht, zendoo_get_ginger_mht_root, zendoo_finalize_ginger_mht_in_place, zendoo_free_ginger_mht, zendoo_get_ginger_merkle_path, zendoo_verify_ginger_merkle_path, zendoo_free_ginger_merkle_path};
 
 use std::{fmt::Debug, fs::File, ptr::null};
 
@@ -306,51 +306,57 @@ fn create_verify_mc_test_proof(){
 
 #[test]
 fn merkle_tree_test() {
-    let height = 10;
+    let height = 5;
     let expected_root_bytes: [u8; 96] = [
-        231, 64, 42, 251, 206, 22, 102, 105, 222, 145, 252, 133, 62, 169, 60, 150, 50, 133, 187, 38,
-        47, 246, 192, 170, 161, 204, 152, 177, 20, 209, 217, 101, 34, 159, 246, 176, 23, 223, 62,
-        191, 103, 165, 210, 114, 179, 110, 140, 252, 250, 167, 106, 31, 7, 178, 109, 108, 20, 239,
-        162, 121, 99, 207, 137, 224, 124, 212, 65, 229, 5, 112, 116, 75, 145, 11, 77, 252, 134, 37,
-        127, 54, 244, 236, 68, 129, 16, 191, 196, 6, 17, 185, 138, 98, 183, 153, 1, 0
+        192, 138, 102, 85, 151, 8, 139, 184, 209, 249, 171, 182, 227, 80, 52, 215, 32, 37, 145, 166,
+        74, 136, 40, 200, 213, 72, 124, 101, 91, 235, 114, 0, 147, 61, 180, 29, 183, 111, 247, 2,
+        169, 12, 179, 173, 87, 88, 187, 229, 26, 139, 80, 228, 125, 246, 145, 141, 43, 19, 148, 94,
+        190, 140, 20, 123, 208, 132, 48, 243, 14, 2, 48, 106, 100, 13, 41, 254, 129, 225, 168, 23,
+        72, 215, 207, 255, 98, 156, 102, 215, 201, 158, 10, 123, 107, 238, 0, 0
     ];
     let expected_root = zendoo_deserialize_field(&expected_root_bytes);
 
     // Generate leaves
-    let leaves_len = 512;
+    let leaves_len = 32;
     let mut leaves = vec![];
     for i in 0..leaves_len {
         leaves.push(zendoo_get_field_from_long(i as u64));
     }
 
     // Create tree
-    let tree = zendoo_new_ginger_ramt(height);
+    let tree = zendoo_new_ginger_mht(height, leaves_len);
 
     // Add leaves to tree
     for &leaf in leaves.iter(){
-        zendoo_append_leaf_to_ginger_ramt(leaf, tree);
+        zendoo_append_leaf_to_ginger_mht(leaf, tree);
     }
 
     // Finalize tree and assert root equality
-    zendoo_finalize_ginger_ramt_in_place(tree);
-    let root = zendoo_get_ginger_ramt_root(tree);
+    zendoo_finalize_ginger_mht_in_place(tree);
+    let root = zendoo_get_ginger_mht_root(tree);
     assert!(zendoo_field_assert_eq(root, expected_root));
 
-    // It is the same by calling zendoo_finalize_ginger_ramt
-    let tree_copy = zendoo_finalize_ginger_ramt(tree);
-    let root_copy = zendoo_get_ginger_ramt_root(tree_copy);
+    // It is the same by calling zendoo_finalize_ginger_mht
+    let tree_copy = zendoo_finalize_ginger_mht(tree);
+    let root_copy = zendoo_get_ginger_mht_root(tree_copy);
     assert!(zendoo_field_assert_eq(root, root_copy));
 
-    // Free memory
+    //Test merkle paths
+    for (i, leaf) in leaves.clone().into_iter().skip(500).enumerate() {
+        let path = zendoo_get_ginger_merkle_path(tree, i);
+        assert!(zendoo_verify_ginger_merkle_path(path, height, leaf, root));
+        zendoo_free_ginger_merkle_path(path);
+    }
 
+    // Free memory
     zendoo_field_free(expected_root);
     for leaf in leaves.into_iter(){
         zendoo_field_free(leaf);
     }
-    zendoo_free_ginger_ramt(tree);
+    zendoo_free_ginger_mht(tree);
     zendoo_field_free(root);
 
-    zendoo_free_ginger_ramt(tree_copy);
+    zendoo_free_ginger_mht(tree_copy);
     zendoo_field_free(root_copy);
 }
 

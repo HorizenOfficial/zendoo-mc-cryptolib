@@ -6,10 +6,22 @@ use algebra::{
 
 use crate::BackwardTransfer;
 use primitives::{
-    crh::{FieldBasedHash, MNT4PoseidonHash, poseidon::parameters::MNT4753PoseidonParameters},
+    crh::{
+        FieldBasedHash,
+        poseidon::{
+            MNT4PoseidonHash,
+            batched_crh::MNT4BatchPoseidonHash as BatchFieldHash,
+        }
+    },
     merkle_tree::field_based_mht::{
-        ramht::{RandomAccessMerkleTree, poseidon::PoseidonRandomAccessMerkleTree},
-        MNT4753_PHANTOM_MERKLE_ROOT
+        optimized::FieldBasedOptimizedMHT,
+        poseidon::{
+            MNT4753_PHANTOM_MERKLE_ROOT as PHANTOM_MERKLE_ROOT,
+            MNT4753_MHT_POSEIDON_PARAMETERS as MHT_PARAMETERS
+        },
+        FieldBasedMerkleTree, FieldBasedMerkleTreeParameters, BatchFieldBasedMerkleTreeParameters,
+        FieldBasedMerkleTreePrecomputedEmptyConstants,
+        FieldBasedMerkleTreePath, FieldBasedMHTPath,
     },
 };
 use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
@@ -84,7 +96,7 @@ pub fn reset_poseidon_hash(hash: &mut FieldHash, personalization: Option<&[Field
     hash.reset(personalization);
 }
 
-#[deprecated(note="Use UpdatableFieldHash instead")]
+#[deprecated(note = "Use UpdatableFieldHash instead")]
 pub fn compute_poseidon_hash(input: &[FieldElement]) -> Result<FieldElement, Error> {
     let mut digest = FieldHash::init(None);
     for &fe in input.iter() {
@@ -96,7 +108,6 @@ pub fn compute_poseidon_hash(input: &[FieldElement]) -> Result<FieldElement, Err
 //*****************************Naive threshold sig circuit related functions************************
 pub type SCProof = Proof<PairingCurve>;
 pub type SCVk = VerifyingKey<PairingCurve>;
-
 
 impl BackwardTransfer {
     pub fn to_field_element(&self) -> IoResult<FieldElement> {
@@ -158,7 +169,7 @@ pub fn create_test_mc_proof(
     Ok(())
 }
 
-const BT_MERKLE_TREE_HEIGHT: usize = 13;
+const BT_MERKLE_TREE_HEIGHT: usize = 12;
 
 pub fn get_bt_merkle_root(bt_list: &[BackwardTransfer]) -> Result<FieldElement, Error>
 {
@@ -168,14 +179,15 @@ pub fn get_bt_merkle_root(bt_list: &[BackwardTransfer]) -> Result<FieldElement, 
             let bt_as_fe = bt.to_field_element()?;
             bt_as_fes.push(bt_as_fe);
         }
-        let mut bt_mt = GingerRAMT::init(2usize.pow((BT_MERKLE_TREE_HEIGHT - 1) as u32));
+        let mut bt_mt =
+            GingerMHT::init(BT_MERKLE_TREE_HEIGHT,2usize.pow(BT_MERKLE_TREE_HEIGHT as u32));
         for &fe in bt_as_fes.iter(){
             bt_mt.append(fe);
         }
         bt_mt.finalize_in_place();
         bt_mt.root().ok_or(Error::from("Failed to compute BT Merkle Tree root"))
 
-    } else { Ok(MNT4753_PHANTOM_MERKLE_ROOT) }
+    } else { Ok(PHANTOM_MERKLE_ROOT) }
 }
 
 pub fn verify_sc_proof(
@@ -231,28 +243,58 @@ pub fn verify_sc_proof(
 
 //************Merkle Tree functions******************
 
-pub type GingerRAMT = PoseidonRandomAccessMerkleTree<FieldElement, MNT4753PoseidonParameters>;
+#[derive(Debug, Clone)]
+pub struct GingerMerkleTreeParameters;
 
-pub fn new_ginger_ramt(height: usize) -> GingerRAMT {
-    GingerRAMT::init(2usize.pow((height - 1) as u32))
+impl FieldBasedMerkleTreeParameters for GingerMerkleTreeParameters {
+    type Data = FieldElement;
+    type H = FieldHash;
+    const MERKLE_ARITY: usize = 2;
+    const EMPTY_HASH_CST: Option<FieldBasedMerkleTreePrecomputedEmptyConstants<'static, Self::H>> =
+        Some(MHT_PARAMETERS);
 }
 
-pub fn append_leaf_to_ginger_ramt(tree: &mut GingerRAMT, leaf: &FieldElement){
+impl BatchFieldBasedMerkleTreeParameters for GingerMerkleTreeParameters {
+    type BH = BatchFieldHash;
+}
+
+pub type GingerMHTPath = FieldBasedMHTPath<GingerMerkleTreeParameters>;
+
+pub fn verify_ginger_merkle_path(
+    path: &GingerMHTPath,
+    height: usize,
+    leaf: &FieldElement,
+    root: &FieldElement
+) -> Result<bool, Error> {
+    path.verify(height, leaf, root)
+}
+
+pub type GingerMHT = FieldBasedOptimizedMHT<GingerMerkleTreeParameters>;
+
+pub fn new_ginger_mht(height: usize, processing_step: usize) -> GingerMHT {
+    GingerMHT::init(height, processing_step)
+}
+
+pub fn append_leaf_to_ginger_mht(tree: &mut GingerMHT, leaf: &FieldElement){
     tree.append(*leaf);
 }
 
-pub fn finalize_ginger_ramt(tree: &GingerRAMT) -> GingerRAMT {
+pub fn finalize_ginger_mht(tree: &GingerMHT) -> GingerMHT {
     tree.finalize()
 }
 
-pub fn finalize_ginger_ramt_in_place(tree: &mut GingerRAMT) {
+pub fn finalize_ginger_mht_in_place(tree: &mut GingerMHT) {
     tree.finalize_in_place();
 }
 
-pub fn get_ginger_ramt_root(tree: &GingerRAMT) -> Option<FieldElement> {
+pub fn get_ginger_mht_root(tree: &GingerMHT) -> Option<FieldElement> {
     tree.root()
 }
 
-pub fn reset_ginger_ramt(tree: &mut GingerRAMT){
+pub fn get_ginger_mht_path(tree: &GingerMHT, leaf_index: usize) -> Option<GingerMHTPath> {
+    tree.get_merkle_path(leaf_index)
+}
+
+pub fn reset_ginger_mht(tree: &mut GingerMHT){
     tree.reset();
 }

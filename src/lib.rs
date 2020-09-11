@@ -104,6 +104,12 @@ fn deserialize_from_file<T: FromBytes>(
     }
 }
 
+pub fn free_pointer<T> (ptr: *mut T) {
+    if ptr.is_null() { return };
+
+    unsafe { drop( Box::from_raw(ptr)) }
+}
+
 //***********Field functions****************
 #[no_mangle]
 pub extern "C" fn zendoo_get_field_size_in_bytes() -> c_uint {
@@ -129,12 +135,7 @@ pub extern "C" fn zendoo_deserialize_field(
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_field_free(field: *mut FieldElement) {
-    if field.is_null() {
-        return;
-    }
-    drop(unsafe { Box::from_raw(field) });
-}
+pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(field) }
 
 //********************Sidechain SNARK functions********************
 #[repr(C)]
@@ -167,12 +168,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof(
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_sc_proof_free(sc_proof: *mut SCProof) {
-    if sc_proof.is_null() {
-        return;
-    }
-    drop(unsafe { Box::from_raw(sc_proof) });
-}
+pub extern "C" fn zendoo_sc_proof_free(sc_proof: *mut SCProof) { free_pointer(sc_proof) }
 
 #[no_mangle]
 pub extern "C" fn zendoo_get_sc_vk_size_in_bytes() -> c_uint {
@@ -224,11 +220,7 @@ pub extern "C" fn zendoo_deserialize_sc_vk(
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut SCVk)
-{
-    if sc_vk.is_null()  { return }
-    drop(unsafe { Box::from_raw(sc_vk) });
-}
+pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut SCVk) { free_pointer(sc_vk) }
 
 #[no_mangle]
 pub extern "C" fn zendoo_verify_sc_proof(
@@ -348,12 +340,7 @@ pub extern "C" fn zendoo_reset_poseidon_hash(
 #[no_mangle]
 pub extern "C" fn zendoo_free_poseidon_hash(
     digest: *mut FieldHash
-) {
-    if digest.is_null() {
-        return;
-    }
-    drop(unsafe { Box::from_raw(digest) });
-}
+) { free_pointer(digest) }
 
 #[deprecated]
 #[no_mangle]
@@ -377,82 +364,119 @@ pub extern "C" fn zendoo_compute_poseidon_hash(
 
 // ********************Merkle Tree functions********************
 #[no_mangle]
-pub extern "C" fn zendoo_new_ginger_ramt(
+pub extern "C" fn zendoo_new_ginger_mht(
     height: usize,
-) -> *mut GingerRAMT {
+    processing_step: usize,
+) -> *mut GingerMHT {
 
-    let gmt = new_ginger_ramt(height);
+    let gmt = new_ginger_mht(height, processing_step);
     Box::into_raw(Box::new(gmt))
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_append_leaf_to_ginger_ramt(
+pub extern "C" fn zendoo_append_leaf_to_ginger_mht(
     leaf: *const FieldElement,
-    tree: *mut GingerRAMT,
+    tree: *mut GingerMHT,
 )
 {
     let leaf = read_raw_pointer(leaf);
 
     let tree = read_mut_raw_pointer(tree);
 
-    append_leaf_to_ginger_ramt(tree, leaf);
+    append_leaf_to_ginger_mht(tree, leaf);
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_finalize_ginger_ramt(
-    tree: *const GingerRAMT
-) -> *mut GingerRAMT
+pub extern "C" fn zendoo_finalize_ginger_mht(
+    tree: *const GingerMHT
+) -> *mut GingerMHT
 {
     let tree = read_raw_pointer(tree);
 
-    let tree_copy = finalize_ginger_ramt(tree);
+    let tree_copy = finalize_ginger_mht(tree);
 
     Box::into_raw(Box::new(tree_copy))
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_finalize_ginger_ramt_in_place(
-    tree: *mut GingerRAMT
+pub extern "C" fn zendoo_finalize_ginger_mht_in_place(
+    tree: *mut GingerMHT
 )
 {
     let tree = read_mut_raw_pointer(tree);
 
-    finalize_ginger_ramt_in_place(tree);
+    finalize_ginger_mht_in_place(tree);
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_get_ginger_ramt_root(
-    tree: *const GingerRAMT
+pub extern "C" fn zendoo_get_ginger_mht_root(
+    tree: *const GingerMHT
 ) -> *mut FieldElement
 {
     let tree = read_raw_pointer(tree);
 
-    match get_ginger_ramt_root(tree) {
+    match get_ginger_mht_root(tree) {
         Some(root) => Box::into_raw(Box::new(root)),
         None => null_mut()
     }
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_reset_ginger_ramt(
-    tree: *mut GingerRAMT
+pub extern "C" fn zendoo_get_ginger_merkle_path(
+    tree: *const GingerMHT,
+    leaf_index: usize
+) -> *mut GingerMHTPath
+{
+    let tree = read_raw_pointer(tree);
+
+    match get_ginger_mht_path(tree, leaf_index) {
+        Some(path) => Box::into_raw(Box::new(path)),
+        None => null_mut()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_verify_ginger_merkle_path(
+    path: *const GingerMHTPath,
+    height: usize,
+    leaf: *const FieldElement,
+    root: *const FieldElement,
+) -> bool
+{
+    let path = read_raw_pointer(path);
+
+    let root = read_raw_pointer(root);
+
+    let leaf = read_raw_pointer(leaf);
+
+    match verify_ginger_merkle_path(path, height, leaf, root) {
+        Ok(result) => result,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_free_ginger_merkle_path(
+    path: *mut GingerMHTPath
+) { free_pointer(path) }
+
+#[no_mangle]
+pub extern "C" fn zendoo_reset_ginger_mht(
+    tree: *mut GingerMHT
 )
 {
     let tree = read_mut_raw_pointer(tree);
 
-    reset_ginger_ramt(tree);
+    reset_ginger_mht(tree);
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_free_ginger_ramt(
-    tree: *mut GingerRAMT
-)
-{
-    if tree.is_null() {
-        return;
-    }
-    drop(unsafe { Box::from_raw(tree) });
-}
+pub extern "C" fn zendoo_free_ginger_mht(
+    tree: *mut GingerMHT
+) { free_pointer(tree) }
 
 //***************Test functions*******************
 

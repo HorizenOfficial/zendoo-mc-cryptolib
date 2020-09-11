@@ -216,91 +216,136 @@ extern "C" {
         size_t input_len
     )__attribute__((deprecated("Use ZendooPoseidonHash instead")));
 
-//Poseidon-based Random Access Merkle Tree related functions
+// Merkle Path related functions
 
-    typedef struct ginger_ramt ginger_ramt_t;
+    typedef struct ginger_merkle_path ginger_merkle_path_t;
 
     /*
-     * Gets a new instance of a Ginger Random Access Merkle Tree, able to support up to
-     * `num_leaves` leaves.
+     * Verify the Merkle Path `path` from `leaf' to `root` for a Merkle Tree of height `height`
      */
-    ginger_ramt_t* zendoo_new_ginger_ramt(size_t height);
+    bool zendoo_verify_ginger_merkle_path(
+        const ginger_merkle_path_t* path,
+        size_t height,
+        const field_t* leaf,
+        const field_t* root
+    );
+
+    /*
+     * Free the memory from the Ginger Merkle Path pointed by `path`.
+     * It's caller responsibility to set `path` to NULL afterwards.
+     * If `path` was already null, the function does nothing.
+     */
+    void zendoo_free_ginger_mht_path(ginger_merkle_path_t* path);
+
+
+//Poseidon-based Merkle Tree related functions
+
+    typedef struct ginger_mht ginger_mht_t;
+
+    /*
+     * Gets a new instance of a Ginger Merkle Tree, of height `height`.
+     * `processing_step` is used to tune the memory usage of the tree.
+     * In particular, `processing_step` defines the number of leaves to
+     * store before triggering the computation of the root.
+     * Decreasing `processing_step` leads to less memory consumption but
+     * significantly worsen performances, as the computation of the root is
+     * triggered more often; conversely, increasing `processing_step` increases
+     * the memory usage too but improves performances.
+     * Meaningful values for `processing_step` are between 1 (i.e. update the root
+     * at each leaf), leading to best memory efficiency but worse performances, and
+     * the maximum number of leaves (or the mean number of leaves you plan to add),
+     * leading to worse memory efficiency but best performances (root is computed
+     * just once, but all the leaves must be kept in memory).
+     */
+    ginger_mht_t* zendoo_new_ginger_mht(size_t height, size_t processing_step);
 
     /*
      * Appends `leaf` to `tree`.
      * NOTE: The function will perform a copy of the FieldElement pointed by `leaf` in order to store
      * it as its internal state, therefore it's possible to free `leaf` immediately afterwards.
      */
-    void zendoo_append_leaf_to_ginger_ramt(const field_t* leaf, ginger_ramt_t* tree);
+    void zendoo_append_leaf_to_ginger_mht(const field_t* leaf, ginger_mht_t* tree);
 
     /*
      * This function finalizes the computation of the Merkle tree and returns an updated
      * copy of it. This method is idempotent, and calling it multiple times will
      * give the same result. It's also possible to `update` with more inputs in between.
      */
-    ginger_ramt_t* zendoo_finalize_ginger_ramt(const ginger_ramt_t* tree);
+    ginger_mht_t* zendoo_finalize_ginger_mht(const ginger_mht_t* tree);
 
     /*
      * This function finalizes the computation of the Merkle tree
      * Once this function is called, it is not possible to further update the tree.
      */
-    void zendoo_finalize_ginger_ramt_in_place(ginger_ramt_t* tree);
+    void zendoo_finalize_ginger_mht_in_place(ginger_mht_t* tree);
 
     /*
      * Returns the root of the Merkle Tree. This function must be called on a finalized tree.
      * If not, the function returns null.
      */
-    field_t* zendoo_get_ginger_ramt_root(const ginger_ramt_t* tree);
+    field_t* zendoo_get_ginger_mht_root(const ginger_mht_t* tree);
+
+    /*
+     * Returns the path from the leaf at `leaf_index` to the root of `tree`.
+     */
+    ginger_merkle_path_t* zendoo_get_ginger_merkle_path(
+        const ginger_mht_t* tree,
+        size_t leaf_index
+    );
 
     /*
      * Restores the tree to its initial state.
      */
-    void zendoo_reset_ginger_ramt(ginger_ramt_t* tree);
+    void zendoo_reset_ginger_mht(ginger_mht_t* tree);
 
     /*
      * Free the memory from the Ginger Random Access Merkle Tree pointed by `tree`.
      * It's caller responsibility to set `tree` to NULL afterwards.
      * If `tree` was already null, the function does nothing.
      */
-    void zendoo_free_ginger_ramt(ginger_ramt_t* tree);
+    void zendoo_free_ginger_mht(ginger_mht_t* tree);
 
     /*
-     *   Support struct to enhance and make easier the usage of ginger_ramt, by
-     *   making ginger_ramt a member of the struct and wrapping the functions
+     *   Support struct to enhance and make easier the usage of ginger_mht, by
+     *   making ginger_mht a member of the struct and wrapping the functions
      *   above. Note the definition of the destructor: when an instance of this struct
      *   will go out of scope, the memory Rust-side will be automatically freed.
      */
-    struct ZendooGingerRandomAccessMerkleTree {
-        ginger_ramt_t* tree;
+    struct ZendooGingerMerkleTree {
+        ginger_mht_t* tree;
 
-        ZendooGingerRandomAccessMerkleTree(ginger_ramt_t* tree): tree(tree) {}
+        ZendooGingerMerkleTree(ginger_mht_t* tree): tree(tree) {}
 
-        ZendooGingerRandomAccessMerkleTree(size_t height){
-            tree = zendoo_new_ginger_ramt(height);
+        ZendooGingerMerkleTree(size_t height, size_t processing_step){
+            tree = zendoo_new_ginger_mht(height, processing_step);
         }
 
         void append(const field_t* leaf) {
-            zendoo_append_leaf_to_ginger_ramt(leaf, tree);
+            zendoo_append_leaf_to_ginger_mht(leaf, tree);
         }
 
-        ZendooGingerRandomAccessMerkleTree finalize(void){
-            return ZendooGingerRandomAccessMerkleTree(zendoo_finalize_ginger_ramt(tree));
+        ZendooGingerMerkleTree finalize(){
+            return ZendooGingerMerkleTree(zendoo_finalize_ginger_mht(tree));
         }
 
         void finalize_in_place(){
-            zendoo_finalize_ginger_ramt_in_place(tree);
+            zendoo_finalize_ginger_mht_in_place(tree);
         }
 
         field_t* root(){
-            return zendoo_get_ginger_ramt_root(tree);
+            return zendoo_get_ginger_mht_root(tree);
+        }
+
+        ginger_merkle_path_t* get_merkle_path(size_t leaf_index) {
+            return zendoo_get_ginger_merkle_path(tree, leaf_index);
         }
 
         void reset(){
-            zendoo_reset_ginger_ramt(tree);
+            zendoo_reset_ginger_mht(tree);
         }
 
-        ~ZendooGingerRandomAccessMerkleTree() {
-            zendoo_free_ginger_ramt(tree);
+        ~ZendooGingerMerkleTree() {
+            zendoo_free_ginger_mht(tree);
         }
     };
 
