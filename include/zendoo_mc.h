@@ -185,6 +185,10 @@ extern "C" {
     struct ZendooPoseidonHash {
         poseidon_hash_t* digest;
 
+        ZendooPoseidonHash(){
+            digest = zendoo_init_poseidon_hash(NULL, 0);
+        }
+
         ZendooPoseidonHash(const field_t** personalization, size_t personalization_len){
             digest = zendoo_init_poseidon_hash(personalization, personalization_len);
         }
@@ -235,7 +239,7 @@ extern "C" {
      * It's caller responsibility to set `path` to NULL afterwards.
      * If `path` was already null, the function does nothing.
      */
-    void zendoo_free_ginger_mht_path(ginger_merkle_path_t* path);
+    void zendoo_free_ginger_merkle_path(ginger_merkle_path_t* path);
 
 
 //Poseidon-based Merkle Tree related functions

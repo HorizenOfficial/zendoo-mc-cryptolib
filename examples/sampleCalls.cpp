@@ -95,7 +95,7 @@ void hash_test() {
         abort();
     }
 
-    auto digest = ZendooPoseidonHash(NULL, 0);
+    auto digest = ZendooPoseidonHash();
 
     digest.update(lhs_field);
 
@@ -172,7 +172,7 @@ void merkle_test() {
     for (int i = 0; i < leaves_len; i++) {
         auto path = tree.get_merkle_path(i);
         assert(("Merkle Path must be verified", zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root)));
-        zendoo_free_ginger_mht_path(path);
+        zendoo_free_ginger_merkle_path(path);
     }
 
     // Free memory
