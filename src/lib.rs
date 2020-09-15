@@ -436,6 +436,21 @@ pub extern "C" fn zendoo_get_ginger_merkle_path(
 }
 
 #[no_mangle]
+pub extern "C" fn zendoo_get_ginger_empty_node(
+    height: usize
+) -> *mut FieldElement
+{
+    use primitives::merkle_tree::field_based_mht::MNT4753_MHT_POSEIDON_PARAMETERS as MHT_PARAMETERS;
+
+    let max_height = MHT_PARAMETERS.nodes.len() - 1;
+    assert!(height <= max_height, format!("Empty node not pre-computed for height {}", height));
+
+    let empty_node = MHT_PARAMETERS.nodes[max_height - height].clone();
+
+    Box::into_raw(Box::new(empty_node))
+}
+
+#[no_mangle]
 pub extern "C" fn zendoo_verify_ginger_merkle_path(
     path: *const GingerMHTPath,
     height: usize,

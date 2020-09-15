@@ -7,6 +7,7 @@
 static const size_t SC_PROOF_SIZE = 771;
 static const size_t SC_VK_SIZE = 1544;
 static const size_t SC_FIELD_SIZE = 96;
+static const size_t SC_FIELD_SAFE_SIZE = 94;
 
 extern "C" {
 
@@ -298,6 +299,12 @@ extern "C" {
     );
 
     /*
+     * Returns the value of a node at height h assuming that all its children
+     * are recursively empty, starting from a pre-defined empty leaf.
+     */
+    field_t* zendoo_get_ginger_empty_node(size_t height);
+
+    /*
      * Restores the tree to its initial state.
      */
     void zendoo_reset_ginger_mht(ginger_mht_t* tree);
@@ -346,6 +353,10 @@ extern "C" {
 
         void reset(){
             zendoo_reset_ginger_mht(tree);
+        }
+
+        static field_t* get_empty_node(size_t height) {
+            return zendoo_get_ginger_empty_node(height);
         }
 
         ~ZendooGingerMerkleTree() {
