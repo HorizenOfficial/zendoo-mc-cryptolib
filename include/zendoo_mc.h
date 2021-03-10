@@ -6,8 +6,8 @@
 
 static const size_t SC_PROOF_SIZE = 771;
 static const size_t SC_VK_SIZE = 1544;
-static const size_t SC_FIELD_SIZE = 96;
-static const size_t SC_FIELD_SAFE_SIZE = 94;
+static const size_t SC_FIELD_SIZE = 32;
+//static const size_t SC_FIELD_SAFE_SIZE = 31;
 
 extern "C" {
 

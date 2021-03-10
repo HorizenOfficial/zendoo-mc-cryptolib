@@ -431,7 +431,212 @@ pub extern "C" fn zendoo_free_ginger_mht(
 ) { free_pointer(tree) }
 
 //***************Test functions*******************
+
+#[cfg(feature = "mc-test-circuit")]
+pub mod mc_test_circuit;
+#[cfg(feature = "mc-test-circuit")]
+pub use self::mc_test_circuit::*;
 use primitives::FieldBasedHash;
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_generate_mc_test_params(
+    params_dir: *const u16,
+    params_dir_len: usize,
+) -> bool {
+
+    // Read params_dir
+    let params_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    });
+    let params_dir = Path::new(&params_str);
+
+    match ginger_calls::generate_test_mc_parameters(params_dir) {
+        Ok(()) => true,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            false
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_generate_mc_test_params(
+    params_dir: *const u8,
+    params_dir_len: usize,
+) -> bool {
+
+    // Read params_dir
+    let params_dir = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    }));
+
+    match ginger_calls::generate_test_mc_parameters(params_dir) {
+        Ok(()) => true,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            false
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
+    proof_path: *const u8,
+    proof_path_len: usize,
+) -> *mut SCProof
+{
+    // Read file path
+    let proof_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    }));
+
+    match deserialize_from_file(proof_path){
+        Some(proof) => Box::into_raw(Box::new(proof)),
+        None => null_mut(),
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
+    proof_path: *const u16,
+    proof_path_len: usize,
+) -> *mut SCProof
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    });
+    let proof_path = Path::new(&path_str);
+
+    match deserialize_from_file(proof_path){
+        Some(proof) => Box::into_raw(Box::new(proof)),
+        None => null_mut(),
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_create_mc_test_proof(
+    end_epoch_mc_b_hash: *const [c_uchar; 32],
+    prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
+    bt_list: *const BackwardTransfer,
+    bt_list_len: usize,
+    quality: u64,
+    constant: *const FieldElement,
+    pk_path: *const u8,
+    pk_path_len: usize,
+    proof_path: *const u8,
+    proof_path_len: usize,
+) -> bool
+{
+    //Read end_epoch_mc_b_hash
+    let end_epoch_mc_b_hash = read_raw_pointer(end_epoch_mc_b_hash);
+
+    //Read prev_end_epoch_mc_b_hash
+    let prev_end_epoch_mc_b_hash = read_raw_pointer(prev_end_epoch_mc_b_hash);
+
+    //Read bt_list
+    let bt_list = if !bt_list.is_null() {
+        unsafe { slice::from_raw_parts(bt_list, bt_list_len) }
+    } else {
+        &[]
+    };
+
+    //Read constant
+    let constant = read_raw_pointer(constant);
+
+    //Read pk path
+    let pk_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(pk_path, pk_path_len)
+    }));
+
+    //Read path to which save the proof
+    let proof_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    }));
+
+    //Generate proof and vk
+    match ginger_calls::create_test_mc_proof(
+        end_epoch_mc_b_hash,
+        prev_end_epoch_mc_b_hash,
+        bt_list,
+        quality,
+        constant,
+        pk_path,
+        proof_path,
+    ) {
+        Ok(()) => true,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            false
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_create_mc_test_proof(
+    end_epoch_mc_b_hash: *const [c_uchar; 32],
+    prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
+    bt_list: *const BackwardTransfer,
+    bt_list_len: usize,
+    quality: u64,
+    constant: *const FieldElement,
+    pk_path: *const u16,
+    pk_path_len: usize,
+    proof_path: *const u16,
+    proof_path_len: usize,
+) -> bool
+{
+    //Read end_epoch_mc_b_hash
+    let end_epoch_mc_b_hash = read_raw_pointer(end_epoch_mc_b_hash);
+
+    //Read prev_end_epoch_mc_b_hash
+    let prev_end_epoch_mc_b_hash = read_raw_pointer(prev_end_epoch_mc_b_hash);
+
+    //Read bt_list
+    let bt_list = if !bt_list.is_null() {
+        unsafe { slice::from_raw_parts(bt_list, bt_list_len) }
+    } else {
+        &[]
+    };
+
+    //Read constant
+    let constant = read_raw_pointer(constant);
+
+    //Read pk path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(pk_path, pk_path_len)
+    });
+    let pk_path = Path::new(&path_str);
+
+    //Read path to which save the proof
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    });
+    let proof_path = Path::new(&path_str);
+
+    //Generate proof and vk
+    match ginger_calls::create_test_mc_proof(
+        end_epoch_mc_b_hash,
+        prev_end_epoch_mc_b_hash,
+        bt_list,
+        quality,
+        constant,
+        pk_path,
+        proof_path,
+    ) {
+        Ok(()) => true,
+        Err(e) => {
+            set_last_error(e, CRYPTO_ERROR);
+            false
+        }
+    }
+}
 
 fn check_equal<T: PartialEq>(val_1: *const T, val_2: *const T) -> bool {
     let val_1 = unsafe { &*val_1 };

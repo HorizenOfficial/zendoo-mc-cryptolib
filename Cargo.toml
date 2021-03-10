@@ -34,8 +34,31 @@ version = "0.1.0"
 
 [dependencies.cctp_primitives]
 git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git"
-branch = "initial_implementation"
+branch = "pt/bit_vector"
 version = "0.1.0"
+
+[dependencies.r1cs-crypto]
+git = "https://github.com/HorizenOfficial/ginger-lib.git"
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
+version = "0.1.0"
+optional = true
+
+[dependencies.r1cs-core]
+git = "https://github.com/HorizenOfficial/ginger-lib.git"
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
+version = "0.1.0"
+optional = true
+
+[dependencies.r1cs-std]
+git = "https://github.com/HorizenOfficial/ginger-lib.git"
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
+features = ["tweedle"]
+version = "0.1.0"
+optional = true
+
+
+[features]
+mc-test-circuit = ["r1cs-crypto", "r1cs-core", "r1cs-std"]
 
 [profile.release]
 #lto = true
