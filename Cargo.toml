@@ -21,42 +21,50 @@ crate-type = ["staticlib"]
 maybe-uninit = "=2.0.0"
 rand = "0.7.3"
 winapi = "=0.3.6"
-lazy_static = "=1.2.0"
+lazy_static = "=1.4.0"
 libc = "=0.2.70"
 cfg-if = "= 0.1.2"
 
 [dependencies.algebra]
 git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "ba60ec4b2abd85e06dc2eac7c3709d05a8432307"
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
+features = ["tweedle", "mnt4_753", "mnt6_753"]
+version = "0.1.0"
+
+[dependencies.algebra-utils]
+git = "https://github.com/HorizenOfficial/ginger-lib.git"
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
+features = ["tweedle", "bn_382"]
 version = "0.1.0"
 
 [dependencies.primitives]
 git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "ba60ec4b2abd85e06dc2eac7c3709d05a8432307"
-features = ["merkle_tree"]
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
+features = ["merkle_tree", "tweedle"]
 version = "0.1.0"
 
 [dependencies.proof-systems]
 git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "ba60ec4b2abd85e06dc2eac7c3709d05a8432307"
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
 features = ["groth16"]
 version = "0.1.0"
 
 [dependencies.r1cs-crypto]
 git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "ba60ec4b2abd85e06dc2eac7c3709d05a8432307"
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
 version = "0.1.0"
 optional = true
 
 [dependencies.r1cs-core]
 git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "ba60ec4b2abd85e06dc2eac7c3709d05a8432307"
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
 version = "0.1.0"
 optional = true
 
 [dependencies.r1cs-std]
 git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "ba60ec4b2abd85e06dc2eac7c3709d05a8432307"
+rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"
+features = ["tweedle"]
 version = "0.1.0"
 optional = true
 
