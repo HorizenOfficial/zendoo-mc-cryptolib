@@ -113,6 +113,17 @@ pub fn free_pointer<T> (ptr: *mut T) {
     unsafe { drop( Box::from_raw(ptr)) }
 }
 
+use cctp_primitives::bit_vector::*;
+
+//***********Bit Vector functions****************
+#[no_mangle]
+pub extern "C" fn zendoo_compress_bit_vector(buffer: *const [c_uchar; BV_SIZE], algorithm: CompressionAlgorithm) -> *mut Vec<u8> {
+    match compression::compress_bit_vector( &(unsafe { &*buffer })[..], algorithm) {
+        Ok(x) => Box::into_raw(Box::new(x)),
+        Err(_) => null_mut()
+    }
+}
+
 //***********Field functions****************
 #[no_mangle]
 pub extern "C" fn zendoo_get_field_size_in_bytes() -> c_uint {

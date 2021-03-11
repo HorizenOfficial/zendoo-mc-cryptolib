@@ -23,6 +23,8 @@ extern "C" {
 
     typedef struct field field_t;
 
+    typedef struct compressed_result compressed_t;
+
     /* Get the number of bytes needed to serialize/deserialize a field. */
     size_t zendoo_get_field_size_in_bytes(void);
 

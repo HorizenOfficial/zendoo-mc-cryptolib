@@ -19,6 +19,8 @@ use primitives::{
     },
 };
 
+pub type CompressionAlgorithm = cctp_primitives::bit_vector::compression::CompressionAlgorithm;
+
 pub type BigInteger = BigInteger256;
 pub type FieldElement = Fr;
 pub type FieldHash = TweedleFrPoseidonHash;
@@ -26,6 +28,8 @@ pub type BatchFieldHash = TweedleFrBatchPoseidonHash;
 
 pub const FIELD_SIZE: usize = 32; //Field size in bytes
 pub const SCALAR_FIELD_SIZE: usize = FIELD_SIZE; // 32
+pub const BV_SIZE: usize = 1000000 / 8; //Bit Vector size in bytes
+     
 
 #[derive(Debug, Clone)]
 pub struct GingerMerkleTreeParameters;
