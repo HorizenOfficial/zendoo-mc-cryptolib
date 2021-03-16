@@ -34,8 +34,8 @@ version = "0.1.0"
 
 [dependencies.cctp_primitives]
 git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git"
-#branch = "pt/bit_vector"
-rev = "7996dab12b900a7564267ef9245a76961e0eb952"
+branch = "crypto_lib_integration"
+#rev = "7996dab12b900a7564267ef9245a76961e0eb952"
 version = "0.1.0"
 
 [profile.release]

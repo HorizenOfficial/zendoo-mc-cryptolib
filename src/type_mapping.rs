@@ -19,8 +19,6 @@ use primitives::{
     },
 };
 
-pub type CompressionAlgorithm = cctp_primitives::bit_vector::compression::CompressionAlgorithm;
-
 pub type BigInteger = BigInteger256;
 pub type FieldElement = Fr;
 pub type FieldHash = TweedleFrPoseidonHash;
