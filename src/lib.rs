@@ -123,17 +123,27 @@ pub struct BitVectorBuffer {
 }
 
 #[no_mangle]
+pub extern "C" fn free_bit_vector(buffer: *mut BitVectorBuffer) {
+    unsafe {
+        let buffer = Box::from_raw(buffer);
+        Vec::from_raw_parts((*buffer).data, (*buffer).len, (*buffer).len);
+    };
+}
+
+#[no_mangle]
 pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BitVectorBuffer, algorithm: CompressionAlgorithm) -> *mut BitVectorBuffer {
 
-    let bit_vector: Vec<u8> = unsafe { Vec::from_raw_parts((*buffer).data, (*buffer).len, (*buffer).len) };
+    let bit_vector = unsafe { slice::from_raw_parts((*buffer).data, (*buffer).len) };
 
-    match compress_bit_vector(&bit_vector, algorithm) {
+    match compress_bit_vector(bit_vector, algorithm) {
         Ok(mut compressed_bit_vector) => {
             let data = compressed_bit_vector.as_mut_ptr();
             let len = compressed_bit_vector.len();
+            assert_eq!(len, compressed_bit_vector.capacity());
             std::mem::forget(compressed_bit_vector);
             let bit_vector_buffer = BitVectorBuffer {data, len};
             Box::into_raw(Box::new(bit_vector_buffer))
+            
         },
         Err(_) => null_mut()
     }
@@ -143,9 +153,9 @@ pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BitVectorBuffer, alg
 #[no_mangle]
 pub extern "C" fn zendoo_decompress_bit_vector(buffer: *const BitVectorBuffer, expected_uncrompressed_size: usize) -> *mut BitVectorBuffer {
 
-    let compressed_bit_vector: Vec<u8> = unsafe { Vec::from_raw_parts((*buffer).data, (*buffer).len, (*buffer).len) };
+    let compressed_slice = unsafe { slice::from_raw_parts((*buffer).data, (*buffer).len ) };
 
-    match decompress_bit_vector(&compressed_bit_vector, expected_uncrompressed_size) {
+    match decompress_bit_vector(compressed_slice, expected_uncrompressed_size) {
         Ok(mut decompressed_bit_vector) => {
             let data = decompressed_bit_vector.as_mut_ptr();
             let len = decompressed_bit_vector.len();
@@ -160,28 +170,21 @@ pub extern "C" fn zendoo_decompress_bit_vector(buffer: *const BitVectorBuffer, e
 
 #[test]
 fn compress_decompress() {
-    use std::{alloc::{self, Layout}, mem};
-    loop {
+    for _ in 0..1000000 {
         let mut bit_vector: Vec<u8> = (0..100).collect();
-        println!("Capacity: {}", bit_vector.capacity());
         let data = bit_vector.as_mut_ptr();
-        let len = bit_vector.len();
+        let len = bit_vector.len();        
 
         let buffer = BitVectorBuffer { data, len };
 
         let compressed_buffer = zendoo_compress_bit_vector(&buffer, CompressionAlgorithm::Bzip2);
         let uncompressed_buffer = zendoo_decompress_bit_vector(compressed_buffer, len);
 
-        let processed_bit_vector = unsafe { Vec::from_raw_parts((*uncompressed_buffer).data, (*uncompressed_buffer).len, (*uncompressed_buffer).len) };
+        let processed_bit_vector = unsafe { slice::from_raw_parts((*uncompressed_buffer).data, (*uncompressed_buffer).len) };
         assert_eq!((0..100).collect::<Vec<u8>>(), processed_bit_vector);
 
-        std::mem::forget(bit_vector);
-        std::mem::forget(unsafe{(*compressed_buffer).data});
-
-        let layout = Layout::from_size_align(processed_bit_vector.len(), mem::align_of::<u8>()).expect("Bad layout");
-        //unsafe {alloc::dealloc((*uncompressed_buffer).data, layout)};
-
-        //break;
+        free_bit_vector(compressed_buffer);
+        free_bit_vector(uncompressed_buffer);
     }
 }
 
