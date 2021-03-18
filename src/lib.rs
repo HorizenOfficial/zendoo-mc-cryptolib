@@ -3,7 +3,6 @@ use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
 use std::{
     io::{Error as IoError, ErrorKind},
-    path::Path,
     ptr::null_mut,
     any::type_name,
     slice,
@@ -21,16 +20,6 @@ use type_mapping::*;
 //#[cfg(test)]
 //pub mod tests;
 
-#[cfg(not(target_os = "windows"))]
-use std::ffi::OsStr;
-#[cfg(not(target_os = "windows"))]
-use std::os::unix::ffi::OsStrExt;
-
-#[cfg(target_os = "windows")]
-use std::ffi::OsString;
-#[cfg(target_os = "windows")]
-use std::os::windows::ffi::OsStringExt;
-
 // ***********UTILITY FUNCTIONS*************
 
 fn read_raw_pointer<'a, T>(input: *const T) -> &'a T {
@@ -41,10 +30,6 @@ fn read_raw_pointer<'a, T>(input: *const T) -> &'a T {
 fn read_mut_raw_pointer<'a, T>(input: *mut T) -> &'a mut T {
     assert!(!input.is_null());
     unsafe { &mut *input }
-}
-
-fn read_nullable_raw_pointer<'a, T>(input: *const T) -> Option<&'a T> {
-    unsafe { input.as_ref() }
 }
 
 fn read_double_raw_pointer<T: Copy>(
@@ -85,26 +70,6 @@ fn serialize_from_raw_pointer<T: ToBytes>(
 ) {
     serialize_to_buffer(read_raw_pointer(to_write), buffer)
         .expect(format!("unable to write {} to buffer", type_name::<T>()).as_str())
-}
-
-fn deserialize_from_file<T: FromBytes>(
-    file_path: &Path,
-) -> Option<T> {
-    match read_from_file(file_path) {
-        Ok(t) => Some(t),
-        Err(e) => {
-            let e = IoError::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "unable to deserialize {} from file: {}",
-                    type_name::<T>(),
-                    e.to_string()
-                ),
-            );
-            set_last_error(Box::new(e), IO_ERROR);
-            None
-        }
-    }
 }
 
 pub fn free_pointer<T> (ptr: *mut T) {
@@ -251,21 +216,21 @@ pub extern "C" fn zendoo_merkle_root_from_compressed_bytes(buffer: *const BitVec
 
 #[test]
 fn compress_decompress() {
-    for _ in 0..1000000 {
+    for _ in 0..10 {
         let mut bit_vector: Vec<u8> = (0..100).collect();
         let data = bit_vector.as_mut_ptr();
         let len = bit_vector.len();        
 
         let buffer = BitVectorBuffer { data, len };
-
-        let compressed_buffer = zendoo_compress_bit_vector(&buffer, CompressionAlgorithm::Bzip2);
-        let uncompressed_buffer = zendoo_decompress_bit_vector(compressed_buffer, len);
+        let mut ret_code = BitVectorErrorCode::OK;
+        let compressed_buffer = zendoo_compress_bit_vector(&buffer, CompressionAlgorithm::Bzip2, &mut ret_code);
+        let uncompressed_buffer = zendoo_decompress_bit_vector(compressed_buffer, len, &mut ret_code);
 
         let processed_bit_vector = unsafe { slice::from_raw_parts((*uncompressed_buffer).data, (*uncompressed_buffer).len) };
         assert_eq!((0..100).collect::<Vec<u8>>(), processed_bit_vector);
 
-        free_bit_vector(compressed_buffer);
-        free_bit_vector(uncompressed_buffer);
+        zendoo_free_bit_vector(compressed_buffer);
+        zendoo_free_bit_vector(uncompressed_buffer);
     }
 }
 
@@ -310,19 +275,19 @@ pub extern "C" fn zendoo_get_sc_proof_size_in_bytes() -> c_uint {
 
 #[no_mangle]
 pub extern "C" fn zendoo_serialize_sc_proof(
-    sc_proof: *const SCProof,
-    sc_proof_bytes: *mut [c_uchar; SC_PROOF_SIZE],
+    _sc_proof: *const SCProof,
+    _sc_proof_bytes: *mut [c_uchar; SC_PROOF_SIZE],
 ){}
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_proof(
-    sc_proof_bytes: *const [c_uchar; SC_PROOF_SIZE],
+    _sc_proof_bytes: *const [c_uchar; SC_PROOF_SIZE],
 ) -> *mut SCProof {
     null_mut()
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_sc_proof_free(sc_proof: *mut SCProof) {  }
+pub extern "C" fn zendoo_sc_proof_free(_sc_proof: *mut SCProof) {  }
 
 #[no_mangle]
 pub extern "C" fn zendoo_get_sc_vk_size_in_bytes() -> c_uint {
@@ -332,8 +297,8 @@ pub extern "C" fn zendoo_get_sc_vk_size_in_bytes() -> c_uint {
 #[cfg(not(target_os = "windows"))]
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
-    vk_path: *const u8,
-    vk_path_len: usize,
+    _vk_path: *const u8,
+    _vk_path_len: usize,
 ) -> *mut SCVk
 {
     null_mut()
@@ -342,8 +307,8 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
 #[cfg(target_os = "windows")]
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
-    vk_path: *const u16,
-    vk_path_len: usize,
+    _vk_path: *const u16,
+    _vk_path_len: usize,
 ) -> *mut SCVk
 {
     null_mut()
@@ -351,25 +316,25 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk(
-    sc_vk_bytes: *const [c_uchar; SC_VK_SIZE],
+    _sc_vk_bytes: *const [c_uchar; SC_VK_SIZE],
 ) -> *mut SCVk {
     null_mut()
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut SCVk) { }
+pub extern "C" fn zendoo_sc_vk_free(_sc_vk: *mut SCVk) { }
 
 #[no_mangle]
 pub extern "C" fn zendoo_verify_sc_proof(
-    end_epoch_mc_b_hash: *const [c_uchar; 32],
-    prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
-    bt_list: *const BackwardTransfer,
-    bt_list_len: usize,
-    quality: u64,
-    constant: *const FieldElement,
-    proofdata: *const FieldElement,
-    sc_proof: *const SCProof,
-    vk:       *const SCVk,
+    _end_epoch_mc_b_hash: *const [c_uchar; 32],
+    _prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
+    _bt_list: *const BackwardTransfer,
+    _bt_list_len: usize,
+    _quality: u64,
+    _constant: *const FieldElement,
+    _proofdata: *const FieldElement,
+    _sc_proof: *const SCProof,
+    _vk:       *const SCVk,
 ) -> bool { true }
 
 //********************Poseidon hash functions********************

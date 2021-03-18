@@ -1,5 +1,5 @@
 use algebra::{
-    fields::{tweedle::Fr, PrimeField},
+    fields::{tweedle::Fr},
     BigInteger256,
 };
 
@@ -11,11 +11,10 @@ use primitives::{
         }
     },
     merkle_tree::field_based_mht::{
-        optimized::FieldBasedOptimizedMHT,
         parameters::tweedle_fr::TWEEDLE_MHT_POSEIDON_PARAMETERS as MHT_PARAMETERS,
-        FieldBasedMerkleTree, FieldBasedMerkleTreeParameters, BatchFieldBasedMerkleTreeParameters,
+        FieldBasedMerkleTreeParameters, BatchFieldBasedMerkleTreeParameters,
         FieldBasedMerkleTreePrecomputedEmptyConstants,
-        FieldBasedMerkleTreePath, FieldBasedMHTPath,
+        FieldBasedMHTPath,
     },
 };
 
