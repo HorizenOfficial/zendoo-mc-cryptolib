@@ -115,6 +115,42 @@ pub fn free_pointer<T> (ptr: *mut T) {
 
 //***********Bit Vector functions****************
 use cctp_primitives::bit_vector::compression::*;
+use cctp_primitives::bit_vector::merkle_tree::*;
+
+#[derive(Debug)]
+#[repr(C)]
+pub enum BitVectorErrorCode {
+    OK,
+    GenericError,
+    NullPtr,
+    InvalidBufferData,
+    InvalidBufferLength,
+    CompressError,
+    UncompressError,
+    MerkleRootBuildError
+}
+
+pub fn check_bit_vector_buffer(buffer: *const BitVectorBuffer) -> (bool, BitVectorErrorCode)
+{
+    if buffer.is_null() {
+        println!("===> ERR CODE {:?}", BitVectorErrorCode::NullPtr);
+        return (false, BitVectorErrorCode::NullPtr)
+    }
+
+    let data_attr = unsafe { (*buffer).data };
+    if data_attr.is_null() {
+        println!("===> ERR CODE {:?}", BitVectorErrorCode::InvalidBufferData);
+        return (false, BitVectorErrorCode::InvalidBufferData)
+    }
+
+    let len_attr = unsafe { (*buffer).len };
+    if len_attr == 0 {
+        println!("===> ERR CODE {:?}", BitVectorErrorCode::InvalidBufferLength);
+        return (false, BitVectorErrorCode::InvalidBufferLength)
+    }
+
+    (true, BitVectorErrorCode::OK)
+}
 
 #[repr(C)]
 pub struct BitVectorBuffer {
@@ -123,7 +159,7 @@ pub struct BitVectorBuffer {
 }
 
 #[no_mangle]
-pub extern "C" fn free_bit_vector(buffer: *mut BitVectorBuffer) {
+pub extern "C" fn zendoo_free_bit_vector(buffer: *mut BitVectorBuffer) {
     unsafe {
         let buffer = Box::from_raw(buffer);
         Vec::from_raw_parts((*buffer).data, (*buffer).len, (*buffer).len);
@@ -131,7 +167,13 @@ pub extern "C" fn free_bit_vector(buffer: *mut BitVectorBuffer) {
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BitVectorBuffer, algorithm: CompressionAlgorithm) -> *mut BitVectorBuffer {
+pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BitVectorBuffer, algorithm: CompressionAlgorithm, ret_code: &mut BitVectorErrorCode) -> *mut BitVectorBuffer {
+
+    let (is_ok, err) = check_bit_vector_buffer(buffer);
+    if !is_ok {
+        *ret_code = err;
+        return null_mut();
+    }
 
     let bit_vector = unsafe { slice::from_raw_parts((*buffer).data, (*buffer).len) };
 
@@ -142,30 +184,69 @@ pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BitVectorBuffer, alg
             assert_eq!(len, compressed_bit_vector.capacity());
             std::mem::forget(compressed_bit_vector);
             let bit_vector_buffer = BitVectorBuffer {data, len};
+            *ret_code = BitVectorErrorCode::OK;
             Box::into_raw(Box::new(bit_vector_buffer))
-            
         },
-        Err(_) => null_mut()
+        Err(e) => {
+            println!("===> {}", e);
+            *ret_code = BitVectorErrorCode::CompressError;
+            null_mut()
+        }
     }
 
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_decompress_bit_vector(buffer: *const BitVectorBuffer, expected_uncrompressed_size: usize) -> *mut BitVectorBuffer {
+pub extern "C" fn zendoo_decompress_bit_vector(buffer: *const BitVectorBuffer, expected_uncompressed_size: usize, ret_code: &mut BitVectorErrorCode) -> *mut BitVectorBuffer {
+
+    let (is_ok, err) = check_bit_vector_buffer(buffer);
+    if !is_ok {
+        *ret_code = err;
+        return null_mut();
+    }
 
     let compressed_slice = unsafe { slice::from_raw_parts((*buffer).data, (*buffer).len ) };
 
-    match decompress_bit_vector(compressed_slice, expected_uncrompressed_size) {
+    match decompress_bit_vector(compressed_slice, expected_uncompressed_size) {
         Ok(mut decompressed_bit_vector) => {
             let data = decompressed_bit_vector.as_mut_ptr();
             let len = decompressed_bit_vector.len();
             std::mem::forget(decompressed_bit_vector);
             let bit_vector_buffer = BitVectorBuffer {data, len};
+            *ret_code = BitVectorErrorCode::OK;
             Box::into_raw(Box::new(bit_vector_buffer))
         },
-        Err(_) => null_mut()
+        Err(e) => {
+            println!("===> {}", e);
+            *ret_code = BitVectorErrorCode::UncompressError;
+            null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_merkle_root_from_compressed_bytes(buffer: *const BitVectorBuffer, expected_uncompressed_size: usize, ret_code: &mut BitVectorErrorCode) -> *mut FieldElement
+{
+    let (is_ok, err) = check_bit_vector_buffer(buffer);
+    if !is_ok {
+        *ret_code = err;
+        return null_mut();
     }
 
+    let compressed_slice = unsafe { slice::from_raw_parts((*buffer).data, (*buffer).len ) };
+
+    match merkle_root_from_compressed_bytes(compressed_slice, expected_uncompressed_size)
+    {
+        Ok(x) =>  {
+            *ret_code = BitVectorErrorCode::OK;
+            Box::into_raw(Box::new(x))
+        },
+        Err(e) => {
+            println!("===> {}", e);
+            *ret_code = BitVectorErrorCode::MerkleRootBuildError;
+            null_mut()
+        }
+    }
 }
 
 #[test]

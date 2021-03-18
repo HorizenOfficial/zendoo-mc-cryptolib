@@ -7,6 +7,8 @@
 static const size_t SC_PROOF_SIZE = 771;
 static const size_t SC_VK_SIZE = 1544;
 static const size_t SC_FIELD_SIZE = 32;
+static const size_t BV_SIZE_IN_BITS = 1048576; // 2^20
+static const size_t BV_SIZE_IN_BYTES = BV_SIZE_IN_BITS/8;
 //static const size_t SC_FIELD_SAFE_SIZE = 31;
 
 extern "C" {
@@ -22,8 +24,6 @@ extern "C" {
 //Field related functions
 
     typedef struct field field_t;
-
-    typedef struct compressed_result compressed_t;
 
     /* Get the number of bytes needed to serialize/deserialize a field. */
     size_t zendoo_get_field_size_in_bytes(void);
@@ -52,6 +52,40 @@ extern "C" {
      * nothing.
      */
     void zendoo_field_free(field_t* field);
+
+// Bit Vectors related declarations
+
+    typedef enum eCompressionAlgorithm {
+        Uncompressed,
+        Bzip2,
+        Gzip
+    } CompressionAlgorithm; 
+
+    typedef enum eBitVectorErrorCode {
+        OK,
+        GenericError,
+        NullPtr,
+        InvalidBufferData,
+        InvalidBufferLength,
+        CompressError,
+        UncompressError,
+        MerkleRootBuildError
+    } BitVectorErrorCode;
+
+    struct BitVectorBuffer {
+        unsigned char* data;
+        size_t len;
+
+        BitVectorBuffer(): data(nullptr), len(0) {}
+        BitVectorBuffer(unsigned char* dataIn, size_t lenIn): data(dataIn), len(lenIn) {}
+    };
+
+    BitVectorBuffer* zendoo_compress_bit_vector(BitVectorBuffer* buf, CompressionAlgorithm algorithm, BitVectorErrorCode* ret_code);
+    BitVectorBuffer* zendoo_decompress_bit_vector(BitVectorBuffer* buf, size_t expected_decomp_len, BitVectorErrorCode* ret_code);
+    field_t* zendoo_merkle_root_from_compressed_bytes(BitVectorBuffer* compressed_data, size_t expected_decomp_len, BitVectorErrorCode* ret_code);
+
+    void zendoo_free_bit_vector(BitVectorBuffer* buf);
+
 
 //SC SNARK related functions
 
