@@ -78,6 +78,68 @@ pub fn free_pointer<T> (ptr: *mut T) {
     unsafe { drop( Box::from_raw(ptr)) }
 }
 
+//*********** Commitment Tree functions ****************
+use cctp_primitives::commitment_tree::CommitmentTree;
+
+#[no_mangle]
+pub extern "C" fn zendoo_commitment_tree_create() -> *mut CommitmentTree {
+
+    let cmt = CommitmentTree::create();
+    let heap_obj = Box::new(cmt);
+    println!("Ctor: heap_obj {:p}", heap_obj);
+    let raw_obj = Box::into_raw(heap_obj);
+    println!("      raw_obj  {:p}", raw_obj);
+    raw_obj
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_commitment_tree_delete(ptr : *mut CommitmentTree) {
+    if ptr.is_null() {
+        println!("delete: nullptr!");
+        return;
+    }
+    unsafe {
+        println!("Dtor: raw_obj  {:p}", ptr);
+        let heap_obj = Box::from_raw(ptr);
+        println!("      heap_obj {:p}", heap_obj);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
+    sc_id: *mut [c_uchar; 32],
+    amount: u64,
+    pub_key: *mut [c_uchar; 32],
+    withdrawal_epoch_length: u32,
+    custom_data: *mut [c_uchar; 32],
+    constant: *mut [c_uchar; 32],
+    cert_verification_key: *mut [c_uchar; 32],
+    btr_verification_key: *mut [c_uchar; 32],
+    csw_verification_key: *mut [c_uchar; 32],
+    tx_hash: *mut [c_uchar; 32],
+    out_idx: u32)-> bool
+{
+    if ptr.is_null() {
+        println!("add_scc: nullptr!");
+        return false;
+    }
+
+    let rs_sc_id       = &mut (unsafe { &mut *sc_id                })[..];
+    let rs_pub_key     = &mut (unsafe { &mut *pub_key              })[..];
+    let rs_custom_data = &mut (unsafe { &mut *custom_data          })[..];
+    let rs_constant    = &mut (unsafe { &mut *constant             })[..];
+    let rs_cert_vk     = &mut (unsafe { &mut *cert_verification_key})[..];
+    let rs_btr_vk      = &mut (unsafe { &mut *btr_verification_key })[..];
+    let rs_csw_vk      = &mut (unsafe { &mut *csw_verification_key })[..];
+    let rs_tx_hash     = &mut (unsafe { &mut *tx_hash              })[..];
+
+    let cmt = unsafe { &mut *ptr };
+    cmt.add_scc(
+        rs_sc_id,       amount,      rs_pub_key, withdrawal_epoch_length,
+        rs_custom_data, rs_constant, rs_cert_vk, rs_btr_vk,
+        rs_csw_vk,      rs_tx_hash,  out_idx)
+}
+
 //***********Bit Vector functions****************
 use cctp_primitives::bit_vector::compression::*;
 use cctp_primitives::bit_vector::merkle_tree::*;

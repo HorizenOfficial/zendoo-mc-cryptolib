@@ -53,6 +53,17 @@ extern "C" {
      */
     void zendoo_field_free(field_t* field);
 
+// Commitment Tree related declarations
+
+    typedef struct CommitmentTree commitment_tree_t;
+
+    commitment_tree_t *zendoo_commitment_tree_create();
+    void zendoo_commitment_tree_delete(commitment_tree_t *ptr);
+    bool zendoo_commitment_tree_add_scc(commitment_tree_t *ptr,
+         unsigned char* sc_id,       uint64_t amount,         unsigned char* pub_key, uint32_t withdrawal_epoch_length,
+         unsigned char* custom_data, unsigned char* constant, unsigned char* cert_vk, unsigned char* btr_vk,
+         unsigned char* csw_vk,      unsigned char* tx_hash,  uint32_t out_idx);
+
 // Bit Vectors related declarations
 
     typedef enum eCompressionAlgorithm {
