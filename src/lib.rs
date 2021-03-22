@@ -107,37 +107,84 @@ pub extern "C" fn zendoo_commitment_tree_delete(ptr : *mut CommitmentTree) {
 
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
-    sc_id: *mut [c_uchar; 32],
-    amount: u64,
-    pub_key: *mut [c_uchar; 32],
+    sc_id: *mut BufferWithSize,
+    amount: i64,
+    pub_key: *mut BufferWithSize,
     withdrawal_epoch_length: u32,
-    custom_data: *mut [c_uchar; 32],
-    constant: *mut [c_uchar; 32],
-    cert_verification_key: *mut [c_uchar; 32],
-    btr_verification_key: *mut [c_uchar; 32],
-    csw_verification_key: *mut [c_uchar; 32],
-    tx_hash: *mut [c_uchar; 32],
-    out_idx: u32)-> bool
+    custom_data: *mut BufferWithSize,
+    constant:    *mut BufferWithSize,
+    cert_vk: *mut BufferWithSize,
+    btr_vk: *mut BufferWithSize,
+    csw_vk: *mut BufferWithSize,
+    tx_hash: *mut BufferWithSize,
+    out_idx: u32, 
+    ret_code : &mut CctpErrorCode)-> bool
 {
     if ptr.is_null() {
         println!("add_scc: nullptr!");
+        *ret_code = CctpErrorCode::NullPtr;
         return false;
     }
 
-    let rs_sc_id       = &mut (unsafe { &mut *sc_id                })[..];
-    let rs_pub_key     = &mut (unsafe { &mut *pub_key              })[..];
-    let rs_custom_data = &mut (unsafe { &mut *custom_data          })[..];
-    let rs_constant    = &mut (unsafe { &mut *constant             })[..];
-    let rs_cert_vk     = &mut (unsafe { &mut *cert_verification_key})[..];
-    let rs_btr_vk      = &mut (unsafe { &mut *btr_verification_key })[..];
-    let rs_csw_vk      = &mut (unsafe { &mut *csw_verification_key })[..];
-    let rs_tx_hash     = &mut (unsafe { &mut *tx_hash              })[..];
+    // optional or variable size parameters
+    let mut rs_custom_data : &[u8] = &[];
+    let (is_ok, _err) = check_buffer_with_size(custom_data);
+    if is_ok { rs_custom_data = unsafe { slice::from_raw_parts((*custom_data).data, (*custom_data).len)}; }
+
+    let mut rs_constant    : &[u8] = &[];
+    let (is_ok, _err) = check_buffer_with_size(constant);
+    if is_ok { rs_constant = unsafe { slice::from_raw_parts((*constant).data, (*constant).len)}; }
+
+    let mut rs_csw_vk      : Option<&[u8]> = None;
+    let (is_ok, _err) = check_buffer_with_size(csw_vk);
+    if is_ok { rs_csw_vk = Some(unsafe { slice::from_raw_parts((*csw_vk).data, (*csw_vk).len)}); }
+
+    let mut rs_btr_vk      : Option<&[u8]> = None;
+    let (is_ok, _err) = check_buffer_with_size(btr_vk);
+    if is_ok { rs_btr_vk = Some(unsafe { slice::from_raw_parts((*btr_vk).data, (*btr_vk).len)}); }
+
+    // mandatory and constant size parameters
+    let rs_sc_id       = &mut (unsafe { slice::from_raw_parts((*sc_id).data, (*sc_id).len)});
+    let rs_pub_key     = &mut (unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)});
+    let rs_cert_vk     = &mut (unsafe { slice::from_raw_parts((*cert_vk).data, (*cert_vk).len)});
+    let rs_tx_hash     = &mut (unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)});
 
     let cmt = unsafe { &mut *ptr };
-    cmt.add_scc(
+    let ret = cmt.add_scc(
         rs_sc_id,       amount,      rs_pub_key, withdrawal_epoch_length,
         rs_custom_data, rs_constant, rs_cert_vk, rs_btr_vk,
-        rs_csw_vk,      rs_tx_hash,  out_idx)
+        rs_csw_vk,      rs_tx_hash,  out_idx);
+    if !ret {
+        println!("add_scc() failed!");
+    }
+    ret
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_commitment_tree_get_commitment(ptr : *mut CommitmentTree) -> *mut FieldElement {
+    if ptr.is_null() {
+        println!("get_commitment: nullptr!");
+        return null_mut();
+    }
+    let cmt = unsafe { &mut *ptr };
+
+    match cmt.get_commitment() {
+        Some(commitment) => 
+        {
+            /*
+            let heap_obj = Box::new(commitment);
+            println!("Got ct: heap_obj {:p}", heap_obj);
+            let raw_obj = Box::into_raw(heap_obj);
+            println!("      :  raw_obj {:p}", raw_obj);
+            raw_obj
+            */
+            Box::into_raw(Box::new(commitment))
+        }
+        None =>  {
+            println!("get_commitment() failed!");
+            null_mut()
+        }
+    }
 }
 
 //***********Bit Vector functions****************
@@ -146,7 +193,7 @@ use cctp_primitives::bit_vector::merkle_tree::*;
 
 #[derive(Debug)]
 #[repr(C)]
-pub enum BitVectorErrorCode {
+pub enum CctpErrorCode {
     OK,
     GenericError,
     NullPtr,
@@ -157,36 +204,37 @@ pub enum BitVectorErrorCode {
     MerkleRootBuildError
 }
 
-pub fn check_bit_vector_buffer(buffer: *const BitVectorBuffer) -> (bool, BitVectorErrorCode)
+// checks that it is a valid buffer with non-zero data
+pub fn check_buffer_with_size(buffer: *const BufferWithSize) -> (bool, CctpErrorCode)
 {
     if buffer.is_null() {
-        println!("===> ERR CODE {:?}", BitVectorErrorCode::NullPtr);
-        return (false, BitVectorErrorCode::NullPtr)
+        //println!("===> ERR CODE {:?}", CctpErrorCode::NullPtr);
+        return (false, CctpErrorCode::NullPtr)
     }
 
     let data_attr = unsafe { (*buffer).data };
     if data_attr.is_null() {
-        println!("===> ERR CODE {:?}", BitVectorErrorCode::InvalidBufferData);
-        return (false, BitVectorErrorCode::InvalidBufferData)
+        //println!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferData);
+        return (false, CctpErrorCode::InvalidBufferData)
     }
 
     let len_attr = unsafe { (*buffer).len };
     if len_attr == 0 {
-        println!("===> ERR CODE {:?}", BitVectorErrorCode::InvalidBufferLength);
-        return (false, BitVectorErrorCode::InvalidBufferLength)
+        //println!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferLength);
+        return (false, CctpErrorCode::InvalidBufferLength)
     }
 
-    (true, BitVectorErrorCode::OK)
+    (true, CctpErrorCode::OK)
 }
 
 #[repr(C)]
-pub struct BitVectorBuffer {
+pub struct BufferWithSize {
     data: *mut u8,
     len: usize,
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_free_bit_vector(buffer: *mut BitVectorBuffer) {
+pub extern "C" fn zendoo_free_bit_vector(buffer: *mut BufferWithSize) {
     unsafe {
         let buffer = Box::from_raw(buffer);
         Vec::from_raw_parts((*buffer).data, (*buffer).len, (*buffer).len);
@@ -194,9 +242,9 @@ pub extern "C" fn zendoo_free_bit_vector(buffer: *mut BitVectorBuffer) {
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BitVectorBuffer, algorithm: CompressionAlgorithm, ret_code: &mut BitVectorErrorCode) -> *mut BitVectorBuffer {
+pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BufferWithSize, algorithm: CompressionAlgorithm, ret_code: &mut CctpErrorCode) -> *mut BufferWithSize {
 
-    let (is_ok, err) = check_bit_vector_buffer(buffer);
+    let (is_ok, err) = check_buffer_with_size(buffer);
     if !is_ok {
         *ret_code = err;
         return null_mut();
@@ -210,13 +258,13 @@ pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BitVectorBuffer, alg
             let len = compressed_bit_vector.len();
             assert_eq!(len, compressed_bit_vector.capacity());
             std::mem::forget(compressed_bit_vector);
-            let bit_vector_buffer = BitVectorBuffer {data, len};
-            *ret_code = BitVectorErrorCode::OK;
+            let bit_vector_buffer = BufferWithSize {data, len};
+            *ret_code = CctpErrorCode::OK;
             Box::into_raw(Box::new(bit_vector_buffer))
         },
         Err(e) => {
             println!("===> {}", e);
-            *ret_code = BitVectorErrorCode::CompressError;
+            *ret_code = CctpErrorCode::CompressError;
             null_mut()
         }
     }
@@ -224,9 +272,9 @@ pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BitVectorBuffer, alg
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_decompress_bit_vector(buffer: *const BitVectorBuffer, expected_uncompressed_size: usize, ret_code: &mut BitVectorErrorCode) -> *mut BitVectorBuffer {
+pub extern "C" fn zendoo_decompress_bit_vector(buffer: *const BufferWithSize, expected_uncompressed_size: usize, ret_code: &mut CctpErrorCode) -> *mut BufferWithSize {
 
-    let (is_ok, err) = check_bit_vector_buffer(buffer);
+    let (is_ok, err) = check_buffer_with_size(buffer);
     if !is_ok {
         *ret_code = err;
         return null_mut();
@@ -239,22 +287,22 @@ pub extern "C" fn zendoo_decompress_bit_vector(buffer: *const BitVectorBuffer, e
             let data = decompressed_bit_vector.as_mut_ptr();
             let len = decompressed_bit_vector.len();
             std::mem::forget(decompressed_bit_vector);
-            let bit_vector_buffer = BitVectorBuffer {data, len};
-            *ret_code = BitVectorErrorCode::OK;
+            let bit_vector_buffer = BufferWithSize {data, len};
+            *ret_code = CctpErrorCode::OK;
             Box::into_raw(Box::new(bit_vector_buffer))
         },
         Err(e) => {
             println!("===> {}", e);
-            *ret_code = BitVectorErrorCode::UncompressError;
+            *ret_code = CctpErrorCode::UncompressError;
             null_mut()
         }
     }
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_merkle_root_from_compressed_bytes(buffer: *const BitVectorBuffer, expected_uncompressed_size: usize, ret_code: &mut BitVectorErrorCode) -> *mut FieldElement
+pub extern "C" fn zendoo_merkle_root_from_compressed_bytes(buffer: *const BufferWithSize, expected_uncompressed_size: usize, ret_code: &mut CctpErrorCode) -> *mut FieldElement
 {
-    let (is_ok, err) = check_bit_vector_buffer(buffer);
+    let (is_ok, err) = check_buffer_with_size(buffer);
     if !is_ok {
         *ret_code = err;
         return null_mut();
@@ -265,12 +313,12 @@ pub extern "C" fn zendoo_merkle_root_from_compressed_bytes(buffer: *const BitVec
     match merkle_root_from_compressed_bytes(compressed_slice, expected_uncompressed_size)
     {
         Ok(x) =>  {
-            *ret_code = BitVectorErrorCode::OK;
+            *ret_code = CctpErrorCode::OK;
             Box::into_raw(Box::new(x))
         },
         Err(e) => {
             println!("===> {}", e);
-            *ret_code = BitVectorErrorCode::MerkleRootBuildError;
+            *ret_code = CctpErrorCode::MerkleRootBuildError;
             null_mut()
         }
     }
@@ -283,8 +331,8 @@ fn compress_decompress() {
         let data = bit_vector.as_mut_ptr();
         let len = bit_vector.len();        
 
-        let buffer = BitVectorBuffer { data, len };
-        let mut ret_code = BitVectorErrorCode::OK;
+        let buffer = BufferWithSize { data, len };
+        let mut ret_code = CctpErrorCode::OK;
         let compressed_buffer = zendoo_compress_bit_vector(&buffer, CompressionAlgorithm::Bzip2, &mut ret_code);
         let uncompressed_buffer = zendoo_decompress_bit_vector(compressed_buffer, len, &mut ret_code);
 

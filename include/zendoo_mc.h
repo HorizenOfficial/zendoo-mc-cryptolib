@@ -53,6 +53,27 @@ extern "C" {
      */
     void zendoo_field_free(field_t* field);
 
+// CCTP lib
+
+    typedef enum eCctpErrorCode {
+        OK,
+        GenericError,
+        NullPtr,
+        InvalidBufferData,
+        InvalidBufferLength,
+        CompressError,
+        UncompressError,
+        MerkleRootBuildError
+    } CctpErrorCode;
+
+    struct BufferWithSize {
+        unsigned char* data;
+        size_t len;
+
+        BufferWithSize(): data(NULL), len(0) {}
+        BufferWithSize(unsigned char* dataIn, size_t lenIn): data(dataIn), len(lenIn) {}
+    };
+
 // Commitment Tree related declarations
 
     typedef struct CommitmentTree commitment_tree_t;
@@ -60,9 +81,12 @@ extern "C" {
     commitment_tree_t *zendoo_commitment_tree_create();
     void zendoo_commitment_tree_delete(commitment_tree_t *ptr);
     bool zendoo_commitment_tree_add_scc(commitment_tree_t *ptr,
-         unsigned char* sc_id,       uint64_t amount,         unsigned char* pub_key, uint32_t withdrawal_epoch_length,
-         unsigned char* custom_data, unsigned char* constant, unsigned char* cert_vk, unsigned char* btr_vk,
-         unsigned char* csw_vk,      unsigned char* tx_hash,  uint32_t out_idx);
+         const BufferWithSize* sc_id,       int64_t amount,                    const BufferWithSize* pub_key,
+         uint32_t withdrawal_epoch_length,  const BufferWithSize* custom_data, const BufferWithSize* constant,
+         const BufferWithSize* cert_vk,     const BufferWithSize* btr_vk,      const BufferWithSize* csw_vk,
+         const BufferWithSize* tx_hash,     uint32_t out_idx);
+
+    field_t* zendoo_commitment_tree_get_commitment(commitment_tree_t *ptr);
 
 // Bit Vectors related declarations
 
@@ -72,30 +96,11 @@ extern "C" {
         Gzip
     } CompressionAlgorithm; 
 
-    typedef enum eBitVectorErrorCode {
-        OK,
-        GenericError,
-        NullPtr,
-        InvalidBufferData,
-        InvalidBufferLength,
-        CompressError,
-        UncompressError,
-        MerkleRootBuildError
-    } BitVectorErrorCode;
+    BufferWithSize* zendoo_compress_bit_vector(const BufferWithSize* buf, CompressionAlgorithm algorithm, CctpErrorCode* ret_code);
+    BufferWithSize* zendoo_decompress_bit_vector(const BufferWithSize* buf, size_t expected_decomp_len, CctpErrorCode* ret_code);
+    field_t* zendoo_merkle_root_from_compressed_bytes(const BufferWithSize* compressed_data, size_t expected_decomp_len, CctpErrorCode* ret_code);
 
-    struct BitVectorBuffer {
-        unsigned char* data;
-        size_t len;
-
-        BitVectorBuffer(): data(nullptr), len(0) {}
-        BitVectorBuffer(unsigned char* dataIn, size_t lenIn): data(dataIn), len(lenIn) {}
-    };
-
-    BitVectorBuffer* zendoo_compress_bit_vector(BitVectorBuffer* buf, CompressionAlgorithm algorithm, BitVectorErrorCode* ret_code);
-    BitVectorBuffer* zendoo_decompress_bit_vector(BitVectorBuffer* buf, size_t expected_decomp_len, BitVectorErrorCode* ret_code);
-    field_t* zendoo_merkle_root_from_compressed_bytes(BitVectorBuffer* compressed_data, size_t expected_decomp_len, BitVectorErrorCode* ret_code);
-
-    void zendoo_free_bit_vector(BitVectorBuffer* buf);
+    void zendoo_free_bit_vector(BufferWithSize* buf);
 
 
 //SC SNARK related functions

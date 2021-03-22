@@ -35,6 +35,7 @@ version = "0.1.0"
 [dependencies.cctp_primitives]
 git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git"
 branch = "crypto_lib_integration"
+#path = "/mnt/horizen_dev_disk/horizen/zendoo_rust/zendoo-cctp-lib/cctp_primitives"
 version = "0.1.0"
 
 [profile.release]
