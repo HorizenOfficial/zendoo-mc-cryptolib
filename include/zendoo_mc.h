@@ -91,21 +91,25 @@ extern "C" {
          const BufferWithSize* sc_id,      int64_t amount,                    const BufferWithSize* pub_key,
          uint32_t withdrawal_epoch_length, const BufferWithSize* custom_data, const BufferWithSize* constant,
          const BufferWithSize* cert_vk,    const BufferWithSize* btr_vk,      const BufferWithSize* csw_vk,
-         const BufferWithSize* tx_hash,    uint32_t out_idx);
+         const BufferWithSize* tx_hash,    uint32_t out_idx,
+         CctpErrorCode *ret_code);
 
     bool zendoo_commitment_tree_add_fwt(commitment_tree_t *ptr,
          const BufferWithSize* sc_id,   int64_t amount, const BufferWithSize* pub_key,
-         const BufferWithSize* tx_hash, uint32_t out_idx);
+         const BufferWithSize* tx_hash, uint32_t out_idx,
+         CctpErrorCode *ret_code);
 
     bool zendoo_commitment_tree_add_bwtr(commitment_tree_t *ptr,
-         const BufferWithSize* sc_id,   int64_t amount,   const BufferWithSize* pub_key,
-         const BufferWithSize* tx_hash, uint32_t out_idx, const BufferWithSize* sc_req_data); // TODO move last param in 4th pos
+         const BufferWithSize* sc_id,   int64_t sc_fee,                const BufferWithSize* sc_req_data,
+         const BufferWithSize* pub_key, const BufferWithSize* tx_hash, uint32_t out_idx,
+         CctpErrorCode *ret_code);
 
     bool zendoo_commitment_tree_add_cert(commitment_tree_t *ptr,
          const BufferWithSize* sc_id,                     uint32_t epoch_number,
          uint64_t quality,                                const BufferWithSize* cert_data_hash,
          const backward_transfer_t* bt_list,              size_t bt_list_len,
-         const BufferWithSize* custom_fields_merkle_root, const BufferWithSize* end_cum_comm_tree_root);
+         const BufferWithSize* custom_fields_merkle_root, const BufferWithSize* end_cum_comm_tree_root,
+         CctpErrorCode *ret_code);
 
     field_t* zendoo_commitment_tree_get_commitment(commitment_tree_t *ptr);
 
@@ -117,9 +121,14 @@ extern "C" {
         Gzip
     } CompressionAlgorithm; 
 
-    BufferWithSize* zendoo_compress_bit_vector(const BufferWithSize* buf, CompressionAlgorithm algorithm, CctpErrorCode* ret_code);
-    BufferWithSize* zendoo_decompress_bit_vector(const BufferWithSize* buf, size_t expected_decomp_len, CctpErrorCode* ret_code);
-    field_t* zendoo_merkle_root_from_compressed_bytes(const BufferWithSize* compressed_data, size_t expected_decomp_len, CctpErrorCode* ret_code);
+    BufferWithSize* zendoo_compress_bit_vector(
+        const BufferWithSize* buf, CompressionAlgorithm algorithm, CctpErrorCode* ret_code);
+
+    BufferWithSize* zendoo_decompress_bit_vector(
+        const BufferWithSize* buf, size_t expected_decomp_len, CctpErrorCode* ret_code);
+
+    field_t* zendoo_merkle_root_from_compressed_bytes(
+        const BufferWithSize* compressed_data, size_t expected_decomp_len, CctpErrorCode* ret_code);
 
     void zendoo_free_bit_vector(BufferWithSize* buf);
 

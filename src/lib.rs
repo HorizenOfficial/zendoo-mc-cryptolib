@@ -105,6 +105,7 @@ pub extern "C" fn zendoo_commitment_tree_delete(ptr : *mut CommitmentTree) {
     }
 }
 
+
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
     sc_id: *mut BufferWithSize,
@@ -120,9 +121,10 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
     out_idx: u32, 
     ret_code : &mut CctpErrorCode)-> bool
 {
+    *ret_code = CctpErrorCode::OK;
     if ptr.is_null() {
-        println!("add_scc: nullptr!");
         *ret_code = CctpErrorCode::NullPtr;
+        dbg!(*ret_code);
         return false;
     }
 
@@ -131,7 +133,7 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
     let (is_ok, _err) = check_buffer(custom_data);
     if is_ok {
         rs_custom_data = unsafe {
-            if (*custom_data).len > CUSTOM_DATA_MAX_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; return false; } 
+            if (*custom_data).len > CUSTOM_DATA_MAX_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; dbg!(*ret_code); return false; } 
             slice::from_raw_parts((*custom_data).data, (*custom_data).len)
         };
     }
@@ -140,7 +142,7 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
     let (is_ok, _err) = check_buffer(constant);
     if is_ok {
         rs_constant = Some(unsafe {
-            if (*constant).len != FIELD_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; return false; } 
+            if (*constant).len != FIELD_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; dbg!(*ret_code); return false; } 
             slice::from_raw_parts((*constant).data, (*constant).len)
         });
     }
@@ -149,7 +151,7 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
     let (is_ok, _err) = check_buffer(csw_vk);
     if is_ok {
         rs_csw_vk = Some(unsafe {
-            if (*csw_vk).len != SC_VK_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; return false; } 
+            if (*csw_vk).len != SC_VK_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; dbg!(*ret_code); return false; } 
             slice::from_raw_parts((*csw_vk).data, (*csw_vk).len)
         });
     }
@@ -158,27 +160,27 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
     let (is_ok, _err) = check_buffer(btr_vk);
     if is_ok {
         rs_btr_vk = Some(unsafe {
-            if (*btr_vk).len != SC_VK_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; return false; } 
+            if (*btr_vk).len != SC_VK_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; dbg!(*ret_code); return false; } 
             slice::from_raw_parts((*btr_vk).data, (*btr_vk).len)
         });
     }
 
     // mandatory and constant size parameters
     let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; return false; }
-    let rs_sc_id       = &mut (unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)});
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
+    let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)});
 
     let (is_ok, err) = check_buffer_length(pub_key, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; return false; }
-    let rs_pub_key     = &mut (unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)});
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
+    let rs_pub_key = &mut (unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)});
 
     let (is_ok, err) = check_buffer_length(cert_vk, SC_VK_SIZE);
-    if !is_ok { *ret_code = err; return false; }
-    let rs_cert_vk     = &mut (unsafe { slice::from_raw_parts((*cert_vk).data, (*cert_vk).len)});
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
+    let rs_cert_vk = &mut (unsafe { slice::from_raw_parts((*cert_vk).data, (*cert_vk).len)});
 
     let (is_ok, err) = check_buffer_length(tx_hash, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; return false; }
-    let rs_tx_hash     = &mut (unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)});
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
+    let rs_tx_hash = &mut (unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)});
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_scc(
@@ -186,8 +188,8 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
         rs_custom_data, rs_constant, rs_cert_vk, rs_btr_vk,
         rs_csw_vk,      rs_tx_hash,  out_idx);
     if !ret {
-        println!("add_scc() failed!");
         *ret_code = CctpErrorCode::GenericError;
+        dbg!(*ret_code);
     }
     ret
 }
@@ -201,31 +203,32 @@ pub extern "C" fn zendoo_commitment_tree_add_fwt(ptr : *mut CommitmentTree,
     out_idx: u32, 
     ret_code : &mut CctpErrorCode)-> bool
 {
+    *ret_code = CctpErrorCode::OK;
     if ptr.is_null() {
-        println!("add_fwt: nullptr!");
         *ret_code = CctpErrorCode::NullPtr;
+        dbg!(*ret_code);
         return false;
     }
 
     let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)});
 
     let (is_ok, err) = check_buffer_length(pub_key, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_pub_key = &mut (unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)});
 
     let (is_ok, err) = check_buffer_length(tx_hash, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; return false; }
-    let rs_tx_hash = &mut (unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)});
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
+    let rs_tx_hash     = &mut (unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)});
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_fwt(
         rs_sc_id, amount, rs_pub_key, rs_tx_hash, out_idx);
 
     if !ret {
-        println!("add_fwt() failed!");
         *ret_code = CctpErrorCode::GenericError;
+        dbg!("add_fwt() failed!");
     }
     ret
 }
@@ -234,41 +237,42 @@ pub extern "C" fn zendoo_commitment_tree_add_fwt(ptr : *mut CommitmentTree,
 pub extern "C" fn zendoo_commitment_tree_add_bwtr(ptr : *mut CommitmentTree,
     sc_id: *mut BufferWithSize,
     sc_fee: i64,
+    sc_req_data: *mut BufferWithSize, // TODO move after sc_fee
     pk_hash: *mut BufferWithSize,
     tx_hash: *mut BufferWithSize,
     out_idx: u32, 
-    sc_req_data: *mut BufferWithSize, // TODO move after sc_fee
     ret_code : &mut CctpErrorCode)-> bool
 {
+    *ret_code = CctpErrorCode::OK;
     if ptr.is_null() {
-        println!("add_bwtr: nullptr!");
         *ret_code = CctpErrorCode::NullPtr;
+        dbg!(*ret_code);
         return false;
     }
 
     let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)});
 
     let (is_ok, err) = check_buffer_length(pk_hash, UINT_160_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_pk_hash = &mut (unsafe { slice::from_raw_parts((*pk_hash).data, (*pk_hash).len)});
 
     let (is_ok, err) = check_buffer_length(tx_hash, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_tx_hash = &mut (unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)});
 
     let (is_ok, err) = check_buffer_length(sc_req_data, FIELD_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_sc_req_data = &mut (unsafe { slice::from_raw_parts((*sc_req_data).data, (*sc_req_data).len)});
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_bwtr(
-        rs_sc_id, sc_fee, rs_pk_hash, rs_tx_hash, out_idx, rs_sc_req_data);
+        rs_sc_id, sc_fee, rs_sc_req_data, rs_pk_hash, rs_tx_hash, out_idx);
 
     if !ret {
-        println!("add_bwtr() failed!");
         *ret_code = CctpErrorCode::GenericError;
+        dbg!("add_bwtr() failed!");
     }
     ret
 }
@@ -285,39 +289,49 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(ptr : *mut CommitmentTree,
     end_cum_comm_tree_root: *mut BufferWithSize,
     ret_code : &mut CctpErrorCode)-> bool
 {
+    *ret_code = CctpErrorCode::OK;
     if ptr.is_null() {
-        println!("add_bwtr: nullptr!");
         *ret_code = CctpErrorCode::NullPtr;
+        dbg!(*ret_code);
         return false;
     }
 
     let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data, (*sc_id).len)});
 
     let (is_ok, err) = check_buffer_length(cert_data_hash, FIELD_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_cert_data_hash = &mut (unsafe { slice::from_raw_parts((*cert_data_hash).data, (*cert_data_hash).len)});
 
     let (is_ok, err) = check_buffer_length(custom_fields_merkle_root, FIELD_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_custom_fields_merkle_root = &mut (unsafe { slice::from_raw_parts((*custom_fields_merkle_root).data, (*custom_fields_merkle_root).len)});
 
     let (is_ok, err) = check_buffer_length(end_cum_comm_tree_root, FIELD_SIZE);
-    if !is_ok { *ret_code = err; return false; }
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
     let rs_end_cum_comm_tree_root = &mut (unsafe { slice::from_raw_parts((*end_cum_comm_tree_root).data, (*end_cum_comm_tree_root).len)});
 
 
     //Read bt_list
-    let mut v : Vec<(u64, [u8; UINT_160_SIZE])> = Vec::new();
+    let mut v : Vec<(i64, [u8; UINT_160_SIZE])> = Vec::new();
     if !bt_list.is_null() {
         let list_sliced = unsafe { slice::from_raw_parts(bt_list, bt_list_len) };
         for x in list_sliced.iter() {
-            let p1 : (u64, [u8; UINT_160_SIZE]) = (x.amount, x.pk_dest);
+            let p1 : (i64, [u8; UINT_160_SIZE]) = (x.amount, x.pk_dest);
             v.push(p1);
         }
     }
-    let rs_bt_list: &[(u64, [u8; UINT_160_SIZE])] = v.as_slice();
+    let rs_bt_list: &[(i64, [u8; UINT_160_SIZE])] = v.as_slice();
+    /*
+    for x in rs_bt_list.iter() {
+        print!("val = {:5} -> [", x.0);
+        for y in x.1.iter() {
+            print!("{:02x}", y);
+        }
+        println!("]");
+    }
+    */
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_cert(
@@ -325,8 +339,8 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(ptr : *mut CommitmentTree,
         rs_custom_fields_merkle_root, rs_end_cum_comm_tree_root);
 
     if !ret {
-        println!("add_bwtr() failed!");
         *ret_code = CctpErrorCode::GenericError;
+        dbg!(*ret_code);
     }
     ret
 }
@@ -334,7 +348,7 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(ptr : *mut CommitmentTree,
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_get_commitment(ptr : *mut CommitmentTree) -> *mut FieldElement {
     if ptr.is_null() {
-        println!("get_commitment: nullptr!");
+        dbg!("get_commitment: nullptr!");
         return null_mut();
     }
     let cmt = unsafe { &mut *ptr };
@@ -352,7 +366,7 @@ pub extern "C" fn zendoo_commitment_tree_get_commitment(ptr : *mut CommitmentTre
             Box::into_raw(Box::new(commitment))
         }
         None =>  {
-            println!("get_commitment() failed!");
+            dbg!("get_commitment() failed!");
             null_mut()
         }
     }
@@ -362,7 +376,7 @@ pub extern "C" fn zendoo_commitment_tree_get_commitment(ptr : *mut CommitmentTre
 use cctp_primitives::bit_vector::compression::*;
 use cctp_primitives::bit_vector::merkle_tree::*;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub enum CctpErrorCode {
     OK,
@@ -448,9 +462,9 @@ pub extern "C" fn zendoo_compress_bit_vector(buffer: *const BufferWithSize, algo
             *ret_code = CctpErrorCode::OK;
             Box::into_raw(Box::new(bit_vector_buffer))
         },
-        Err(e) => {
-            println!("===> {}", e);
+        Err(_) => {
             *ret_code = CctpErrorCode::CompressError;
+            dbg!(*ret_code);
             null_mut()
         }
     }
@@ -561,7 +575,7 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(fie
 #[repr(C)]
 pub struct BackwardTransfer {
     pub pk_dest: [c_uchar; 20],
-    pub amount: u64,
+    pub amount: i64,
 }
 
 #[no_mangle]
