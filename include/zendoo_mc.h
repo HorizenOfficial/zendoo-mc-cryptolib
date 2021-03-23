@@ -21,6 +21,11 @@ extern "C" {
 
 /* Note: Functions panic if input pointers are NULL.*/
 
+    typedef struct backward_transfer{
+      unsigned char pk_dest[20];
+      int64_t amount;
+    } backward_transfer_t;
+
 //Field related functions
 
     typedef struct field field_t;
@@ -67,11 +72,11 @@ extern "C" {
     } CctpErrorCode;
 
     struct BufferWithSize {
-        unsigned char* data;
+        const unsigned char* data;
         size_t len;
 
         BufferWithSize(): data(NULL), len(0) {}
-        BufferWithSize(unsigned char* dataIn, size_t lenIn): data(dataIn), len(lenIn) {}
+        BufferWithSize(const unsigned char* dataIn, size_t lenIn): data(dataIn), len(lenIn) {}
     };
 
 // Commitment Tree related declarations
@@ -79,12 +84,28 @@ extern "C" {
     typedef struct CommitmentTree commitment_tree_t;
 
     commitment_tree_t *zendoo_commitment_tree_create();
+
     void zendoo_commitment_tree_delete(commitment_tree_t *ptr);
+
     bool zendoo_commitment_tree_add_scc(commitment_tree_t *ptr,
-         const BufferWithSize* sc_id,       int64_t amount,                    const BufferWithSize* pub_key,
-         uint32_t withdrawal_epoch_length,  const BufferWithSize* custom_data, const BufferWithSize* constant,
-         const BufferWithSize* cert_vk,     const BufferWithSize* btr_vk,      const BufferWithSize* csw_vk,
-         const BufferWithSize* tx_hash,     uint32_t out_idx);
+         const BufferWithSize* sc_id,      int64_t amount,                    const BufferWithSize* pub_key,
+         uint32_t withdrawal_epoch_length, const BufferWithSize* custom_data, const BufferWithSize* constant,
+         const BufferWithSize* cert_vk,    const BufferWithSize* btr_vk,      const BufferWithSize* csw_vk,
+         const BufferWithSize* tx_hash,    uint32_t out_idx);
+
+    bool zendoo_commitment_tree_add_fwt(commitment_tree_t *ptr,
+         const BufferWithSize* sc_id,   int64_t amount, const BufferWithSize* pub_key,
+         const BufferWithSize* tx_hash, uint32_t out_idx);
+
+    bool zendoo_commitment_tree_add_bwtr(commitment_tree_t *ptr,
+         const BufferWithSize* sc_id,   int64_t amount,   const BufferWithSize* pub_key,
+         const BufferWithSize* tx_hash, uint32_t out_idx, const BufferWithSize* sc_req_data); // TODO move last param in 4th pos
+
+    bool zendoo_commitment_tree_add_cert(commitment_tree_t *ptr,
+         const BufferWithSize* sc_id,                     uint32_t epoch_number,
+         uint64_t quality,                                const BufferWithSize* cert_data_hash,
+         const backward_transfer_t* bt_list,              size_t bt_list_len,
+         const BufferWithSize* custom_fields_merkle_root, const BufferWithSize* end_cum_comm_tree_root);
 
     field_t* zendoo_commitment_tree_get_commitment(commitment_tree_t *ptr);
 
@@ -104,11 +125,6 @@ extern "C" {
 
 
 //SC SNARK related functions
-
-    typedef struct backward_transfer{
-      unsigned char pk_dest[20];
-      uint64_t amount;
-    } backward_transfer_t;
 
     typedef struct sc_proof sc_proof_t;
 

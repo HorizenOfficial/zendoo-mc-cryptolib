@@ -25,7 +25,12 @@ pub type BatchFieldHash = TweedleFrBatchPoseidonHash;
 
 pub const FIELD_SIZE: usize = 32; //Field size in bytes
 pub const SCALAR_FIELD_SIZE: usize = FIELD_SIZE; // 32
-pub const BV_SIZE: usize = 1000000 / 8; //Bit Vector size in bytes
+pub const BV_SIZE: usize = 1048576/8; //Bit Vector size in bytes
+pub const SC_PROOF_SIZE: usize = 1; // TODO dummy: fix it
+pub const SC_VK_SIZE: usize = 1544;
+pub const UINT_256_SIZE: usize = 32; //in bytes
+pub const UINT_160_SIZE: usize = 20; //in bytes
+pub const CUSTOM_DATA_MAX_SIZE: usize = 1024; //in bytes
      
 
 #[derive(Debug, Clone)]
@@ -49,5 +54,3 @@ pub type GingerMHTPath = FieldBasedMHTPath<GingerMerkleTreeParameters>;
 pub type SCProof = Fr;
 pub type SCVk = Fr;
 
-pub const SC_PROOF_SIZE: usize = 1;
-pub const SC_VK_SIZE: usize = 1;
