@@ -80,6 +80,7 @@ pub fn free_pointer<T> (ptr: *mut T) {
 
 //*********** Commitment Tree functions ****************
 use cctp_primitives::commitment_tree::CommitmentTree;
+use cctp_primitives::commitment_tree::hashers::hash_bytes;
 
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_create() -> *mut CommitmentTree {
@@ -277,6 +278,67 @@ pub extern "C" fn zendoo_commitment_tree_add_bwtr(ptr : *mut CommitmentTree,
     ret
 }
 
+/*
+   pub fn add_csw(&mut self,
+                   sc_id: &[u8],
+                   amount: u64,
+                   nullifier: &[u8],
+                   pk_hash: &[u8],
+                   active_cert_data_hash: &[u8])-> bool { }
+*/
+
+#[no_mangle]
+pub extern "C" fn zendoo_commitment_tree_add_csw(ptr : *mut CommitmentTree,
+    sc_id: *mut BufferWithSize,
+    amount: i64,
+    nullifier: *mut BufferWithSize,
+    pk_hash: *mut BufferWithSize,
+    active_cert_data_hash: *mut BufferWithSize,
+    ret_code : &mut CctpErrorCode)-> bool
+{
+    *ret_code = CctpErrorCode::OK;
+    if ptr.is_null() {
+        *ret_code = CctpErrorCode::NullPtr;
+        dbg!(*ret_code);
+        return false;
+    }
+
+    let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
+    let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data, (*sc_id).len)});
+
+    let (is_ok, err) = check_buffer_length(nullifier, FIELD_SIZE);
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
+    let rs_nullifier = &mut (unsafe { slice::from_raw_parts((*nullifier).data, (*nullifier).len)});
+
+    let (is_ok, err) = check_buffer_length(pk_hash, UINT_160_SIZE);
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
+    let rs_pk_hash = &mut (unsafe { slice::from_raw_parts((*pk_hash).data, (*pk_hash).len)});
+
+    let (is_ok, err) = check_buffer_length(active_cert_data_hash, FIELD_SIZE);
+    if !is_ok { *ret_code = err; dbg!(err); return false; }
+    let rs_active_cert_data_hash = &mut (unsafe { slice::from_raw_parts((*active_cert_data_hash).data, (*active_cert_data_hash).len)});
+
+    // TODO change type in api from unsigned to signed
+    if amount < 0 {
+        *ret_code = CctpErrorCode::InvalidValue;
+        dbg!(*ret_code);
+        return false;
+    }
+
+    let rs_amount : u64 = amount as u64;
+
+    let cmt = unsafe { &mut *ptr };
+    let ret = cmt.add_csw(
+        rs_sc_id, rs_amount, rs_nullifier, rs_pk_hash, rs_active_cert_data_hash);
+
+    if !ret {
+        *ret_code = CctpErrorCode::GenericError;
+        dbg!(*ret_code);
+    }
+    ret
+}
+
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_cert(ptr : *mut CommitmentTree,
     sc_id: *mut BufferWithSize,
@@ -380,13 +442,14 @@ use cctp_primitives::bit_vector::merkle_tree::*;
 #[repr(C)]
 pub enum CctpErrorCode {
     OK,
-    GenericError,
     NullPtr,
+    InvalidValue,
     InvalidBufferData,
     InvalidBufferLength,
     CompressError,
     UncompressError,
-    MerkleRootBuildError
+    MerkleRootBuildError,
+    GenericError
 }
 
 // checks that it is a valid buffer with non-zero data
@@ -1102,4 +1165,30 @@ pub extern "C" fn zendoo_sc_vk_assert_eq(
     sc_vk_2: *const SCVk,
 ) -> bool {
     check_equal(sc_vk_1, sc_vk_2)
+}
+
+
+#[no_mangle]
+pub extern "C" fn zendoo_poseidon_hash( buf: *mut BufferWithSize) -> *mut FieldElement {
+
+    let rs_buf : &[u8];
+    let (is_ok, _err) = check_buffer(buf);
+    if is_ok {
+        rs_buf = unsafe {
+            slice::from_raw_parts((*buf).data, (*buf).len)
+        };
+    }
+    else
+    {
+        return null_mut();
+    }
+
+    match hash_bytes(rs_buf) {
+        Err(_) => {
+            return null_mut();
+        }
+        Ok(x) => {
+            Box::into_raw(Box::new(x))
+        }
+    }
 }

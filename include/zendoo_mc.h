@@ -19,7 +19,6 @@ extern "C" {
     typedef uint8_t path_char_t;
 #endif
 
-/* Note: Functions panic if input pointers are NULL.*/
 
     typedef struct backward_transfer{
       unsigned char pk_dest[20];
@@ -27,6 +26,7 @@ extern "C" {
     } backward_transfer_t;
 
 //Field related functions
+/* Note: Functions panic if input pointers are NULL.*/
 
     typedef struct field field_t;
 
@@ -62,13 +62,14 @@ extern "C" {
 
     typedef enum eCctpErrorCode {
         OK,
-        GenericError,
         NullPtr,
+        InvalidValue,
         InvalidBufferData,
         InvalidBufferLength,
         CompressError,
         UncompressError,
-        MerkleRootBuildError
+        MerkleRootBuildError,
+        GenericError
     } CctpErrorCode;
 
     struct BufferWithSize {
@@ -101,7 +102,7 @@ extern "C" {
 
     bool zendoo_commitment_tree_add_bwtr(commitment_tree_t *ptr,
          const BufferWithSize* sc_id,   int64_t sc_fee,                const BufferWithSize* sc_req_data,
-         const BufferWithSize* pub_key, const BufferWithSize* tx_hash, uint32_t out_idx,
+         const BufferWithSize* pk_hash, const BufferWithSize* tx_hash, uint32_t out_idx,
          CctpErrorCode *ret_code);
 
     bool zendoo_commitment_tree_add_cert(commitment_tree_t *ptr,
@@ -109,6 +110,11 @@ extern "C" {
          uint64_t quality,                                const BufferWithSize* cert_data_hash,
          const backward_transfer_t* bt_list,              size_t bt_list_len,
          const BufferWithSize* custom_fields_merkle_root, const BufferWithSize* end_cum_comm_tree_root,
+         CctpErrorCode *ret_code);
+
+    bool zendoo_commitment_tree_add_csw(commitment_tree_t *ptr,
+         const BufferWithSize* sc_id,   int64_t amount, const BufferWithSize* nullifier,
+         const BufferWithSize* pk_hash, const BufferWithSize* active_cert_data_hash, 
          CctpErrorCode *ret_code);
 
     field_t* zendoo_commitment_tree_get_commitment(commitment_tree_t *ptr);
@@ -132,6 +138,8 @@ extern "C" {
 
     void zendoo_free_bit_vector(BufferWithSize* buf);
 
+// experimental 
+    field_t* zendoo_poseidon_hash(const BufferWithSize *buf);
 
 //SC SNARK related functions
 
