@@ -17,8 +17,8 @@ use ginger_calls::*;
 pub mod type_mapping;
 use type_mapping::*;
 
-//#[cfg(test)]
-//pub mod tests;
+#[cfg(test)]
+pub mod tests;
 
 // ***********UTILITY FUNCTIONS*************
 
