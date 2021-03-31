@@ -136,7 +136,6 @@ dependencies = [
 [[package]]
 name = "cctp_primitives"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=crypto_lib_integration#01533ce2215e8a4c457a2881b99dbdda106fb436"
 dependencies = [
  "algebra",
  "bit-vec",
@@ -267,7 +266,7 @@ checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.9",
- "syn 1.0.64",
+ "syn 1.0.67",
 ]
 
 [[package]]
@@ -422,9 +421,9 @@ checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 
 [[package]]
 name = "memoffset"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc14fc54a812b4472b4113facc3e44d099fbc0ea2ce0551fa5c703f8edfbfd38"
+checksum = "f83fb6581e8ed1f85fd45c116db8405483899489e38406156c25eb743554361d"
 dependencies = [
  "autocfg",
 ]
@@ -435,7 +434,7 @@ version = "0.1.1-alpha.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=algebra_ocl#35d5bf65aac2370b3cbfc4027a5f1097949c76bf"
 dependencies = [
  "quote 1.0.9",
- "syn 1.0.64",
+ "syn 1.0.67",
 ]
 
 [[package]]
@@ -689,7 +688,7 @@ checksum = "b093b7a2bb58203b5da3056c05b4ec1fed827dcfdb37347a8841695263b3d06d"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.9",
- "syn 1.0.64",
+ "syn 1.0.67",
 ]
 
 [[package]]
@@ -717,9 +716,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.64"
+version = "1.0.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fd9d1e9976102a03c542daa2eff1b43f9d72306342f3f8b3ed5fb8908195d6f"
+checksum = "6498a9efc342871f91cc2d0d694c674368b4ceb40f62b65a7a08c3792935e702"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.9",
@@ -769,7 +768,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ad948c1cb799b1a70f836077721a92a35ac177d4daddf4c20a633786d4cf618"
 dependencies = [
  "quote 1.0.9",
- "syn 1.0.64",
+ "syn 1.0.67",
 ]
 
 [[package]]

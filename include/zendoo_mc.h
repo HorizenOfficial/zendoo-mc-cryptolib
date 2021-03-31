@@ -4,12 +4,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+static const size_t SC_FIELD_SIZE = 32;
 static const size_t SC_PROOF_SIZE = 771;
 static const size_t SC_VK_SIZE = 1544;
-static const size_t SC_FIELD_SIZE = 32;
-static const size_t BV_SIZE_IN_BITS = 1048576; // 2^20
-static const size_t BV_SIZE_IN_BYTES = BV_SIZE_IN_BITS/8;
-//static const size_t SC_FIELD_SAFE_SIZE = 31;
+static const size_t SC_CUSTOM_DATA_MAX_SIZE = 1024;
+static const size_t SC_BV_SIZE_IN_BITS = 1048576; // 2^20
+static const size_t SC_BV_SIZE_IN_BYTES = SC_BV_SIZE_IN_BITS/8;
 
 extern "C" {
 
@@ -82,6 +82,8 @@ extern "C" {
 
 // Commitment Tree related declarations
 
+    size_t zendoo_get_sc_custom_data_size_in_bytes(void);
+
     typedef struct CommitmentTree commitment_tree_t;
 
     commitment_tree_t *zendoo_commitment_tree_create();
@@ -126,6 +128,8 @@ extern "C" {
         Bzip2,
         Gzip
     } CompressionAlgorithm; 
+
+    size_t zendoo_get_sc_bit_vector_size_in_bytes(void);
 
     BufferWithSize* zendoo_compress_bit_vector(
         const BufferWithSize* buf, CompressionAlgorithm algorithm, CctpErrorCode* ret_code);

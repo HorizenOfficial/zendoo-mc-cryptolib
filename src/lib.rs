@@ -87,9 +87,9 @@ pub extern "C" fn zendoo_commitment_tree_create() -> *mut CommitmentTree {
 
     let cmt = CommitmentTree::create();
     let heap_obj = Box::new(cmt);
-    println!("Ctor: heap_obj {:p}", heap_obj);
+    //println!("Ctor: heap_obj {:p}", heap_obj);
     let raw_obj = Box::into_raw(heap_obj);
-    println!("      raw_obj  {:p}", raw_obj);
+    //println!("      raw_obj  {:p}", raw_obj);
     raw_obj
 }
 
@@ -100,25 +100,31 @@ pub extern "C" fn zendoo_commitment_tree_delete(ptr : *mut CommitmentTree) {
         return;
     }
     unsafe {
-        println!("Dtor: raw_obj  {:p}", ptr);
-        let heap_obj = Box::from_raw(ptr);
-        println!("      heap_obj {:p}", heap_obj);
+        //println!("Dtor: raw_obj  {:p}", ptr);
+        //let heap_obj = Box::from_raw(ptr);
+        //println!("      heap_obj {:p}", heap_obj);
+        drop (Box::from_raw(ptr))
     }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_custom_data_size_in_bytes() -> c_uint {
+    CUSTOM_DATA_MAX_SIZE as u32
 }
 
 
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
-    sc_id: *mut BufferWithSize,
+    sc_id: *const BufferWithSize,
     amount: i64,
-    pub_key: *mut BufferWithSize,
+    pub_key: *const BufferWithSize,
     withdrawal_epoch_length: u32,
-    custom_data: *mut BufferWithSize,
-    constant:    *mut BufferWithSize,
-    cert_vk: *mut BufferWithSize,
-    btr_vk: *mut BufferWithSize,
-    csw_vk: *mut BufferWithSize,
-    tx_hash: *mut BufferWithSize,
+    custom_data: *const BufferWithSize,
+    constant:    *const BufferWithSize,
+    cert_vk: *const BufferWithSize,
+    btr_vk: *const BufferWithSize,
+    csw_vk: *const BufferWithSize,
+    tx_hash: *const BufferWithSize,
     out_idx: u32, 
     ret_code : &mut CctpErrorCode)-> bool
 {
@@ -169,19 +175,19 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
     // mandatory and constant size parameters
     let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)});
+    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)};
 
     let (is_ok, err) = check_buffer_length(pub_key, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_pub_key = &mut (unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)});
+    let rs_pub_key = unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)};
 
     let (is_ok, err) = check_buffer_length(cert_vk, SC_VK_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_cert_vk = &mut (unsafe { slice::from_raw_parts((*cert_vk).data, (*cert_vk).len)});
+    let rs_cert_vk = unsafe { slice::from_raw_parts((*cert_vk).data, (*cert_vk).len)};
 
     let (is_ok, err) = check_buffer_length(tx_hash, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_tx_hash = &mut (unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)});
+    let rs_tx_hash = unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)};
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_scc(
@@ -197,10 +203,10 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
 
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_fwt(ptr : *mut CommitmentTree,
-    sc_id: *mut BufferWithSize,
+    sc_id: *const BufferWithSize,
     amount: i64,
-    pub_key: *mut BufferWithSize,
-    tx_hash: *mut BufferWithSize,
+    pub_key: *const BufferWithSize,
+    tx_hash: *const BufferWithSize,
     out_idx: u32, 
     ret_code : &mut CctpErrorCode)-> bool
 {
@@ -213,15 +219,15 @@ pub extern "C" fn zendoo_commitment_tree_add_fwt(ptr : *mut CommitmentTree,
 
     let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)});
+    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)};
 
     let (is_ok, err) = check_buffer_length(pub_key, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_pub_key = &mut (unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)});
+    let rs_pub_key = unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)};
 
     let (is_ok, err) = check_buffer_length(tx_hash, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_tx_hash     = &mut (unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)});
+    let rs_tx_hash = unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)};
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_fwt(
@@ -236,11 +242,11 @@ pub extern "C" fn zendoo_commitment_tree_add_fwt(ptr : *mut CommitmentTree,
 
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_bwtr(ptr : *mut CommitmentTree,
-    sc_id: *mut BufferWithSize,
+    sc_id: *const BufferWithSize,
     sc_fee: i64,
-    sc_req_data: *mut BufferWithSize, // TODO move after sc_fee
-    pk_hash: *mut BufferWithSize,
-    tx_hash: *mut BufferWithSize,
+    sc_req_data: *const BufferWithSize,
+    pk_hash: *const BufferWithSize,
+    tx_hash: *const BufferWithSize,
     out_idx: u32, 
     ret_code : &mut CctpErrorCode)-> bool
 {
@@ -253,19 +259,19 @@ pub extern "C" fn zendoo_commitment_tree_add_bwtr(ptr : *mut CommitmentTree,
 
     let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)});
+    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)};
 
     let (is_ok, err) = check_buffer_length(pk_hash, UINT_160_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_pk_hash = &mut (unsafe { slice::from_raw_parts((*pk_hash).data, (*pk_hash).len)});
+    let rs_pk_hash = unsafe { slice::from_raw_parts((*pk_hash).data, (*pk_hash).len)};
 
     let (is_ok, err) = check_buffer_length(tx_hash, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_tx_hash = &mut (unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)});
+    let rs_tx_hash = unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)};
 
     let (is_ok, err) = check_buffer_length(sc_req_data, FIELD_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_req_data = &mut (unsafe { slice::from_raw_parts((*sc_req_data).data, (*sc_req_data).len)});
+    let rs_sc_req_data = unsafe { slice::from_raw_parts((*sc_req_data).data, (*sc_req_data).len)};
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_bwtr(
@@ -278,22 +284,13 @@ pub extern "C" fn zendoo_commitment_tree_add_bwtr(ptr : *mut CommitmentTree,
     ret
 }
 
-/*
-   pub fn add_csw(&mut self,
-                   sc_id: &[u8],
-                   amount: u64,
-                   nullifier: &[u8],
-                   pk_hash: &[u8],
-                   active_cert_data_hash: &[u8])-> bool { }
-*/
-
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_csw(ptr : *mut CommitmentTree,
-    sc_id: *mut BufferWithSize,
+    sc_id: *const BufferWithSize,
     amount: i64,
-    nullifier: *mut BufferWithSize,
-    pk_hash: *mut BufferWithSize,
-    active_cert_data_hash: *mut BufferWithSize,
+    nullifier: *const BufferWithSize,
+    pk_hash: *const BufferWithSize,
+    active_cert_data_hash: *const BufferWithSize,
     ret_code : &mut CctpErrorCode)-> bool
 {
     *ret_code = CctpErrorCode::OK;
@@ -305,32 +302,23 @@ pub extern "C" fn zendoo_commitment_tree_add_csw(ptr : *mut CommitmentTree,
 
     let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data, (*sc_id).len)});
+    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data, (*sc_id).len)};
 
     let (is_ok, err) = check_buffer_length(nullifier, FIELD_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_nullifier = &mut (unsafe { slice::from_raw_parts((*nullifier).data, (*nullifier).len)});
+    let rs_nullifier = unsafe { slice::from_raw_parts((*nullifier).data, (*nullifier).len)};
 
     let (is_ok, err) = check_buffer_length(pk_hash, UINT_160_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_pk_hash = &mut (unsafe { slice::from_raw_parts((*pk_hash).data, (*pk_hash).len)});
+    let rs_pk_hash = unsafe { slice::from_raw_parts((*pk_hash).data, (*pk_hash).len)};
 
     let (is_ok, err) = check_buffer_length(active_cert_data_hash, FIELD_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_active_cert_data_hash = &mut (unsafe { slice::from_raw_parts((*active_cert_data_hash).data, (*active_cert_data_hash).len)});
-
-    // TODO change type in api from unsigned to signed
-    if amount < 0 {
-        *ret_code = CctpErrorCode::InvalidValue;
-        dbg!(*ret_code);
-        return false;
-    }
-
-    let rs_amount : u64 = amount as u64;
+    let rs_active_cert_data_hash = unsafe { slice::from_raw_parts((*active_cert_data_hash).data, (*active_cert_data_hash).len)};
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_csw(
-        rs_sc_id, rs_amount, rs_nullifier, rs_pk_hash, rs_active_cert_data_hash);
+        rs_sc_id, amount, rs_nullifier, rs_pk_hash, rs_active_cert_data_hash);
 
     if !ret {
         *ret_code = CctpErrorCode::GenericError;
@@ -341,14 +329,14 @@ pub extern "C" fn zendoo_commitment_tree_add_csw(ptr : *mut CommitmentTree,
 
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_cert(ptr : *mut CommitmentTree,
-    sc_id: *mut BufferWithSize,
+    sc_id: *const BufferWithSize,
     epoch_number: u32,
     quality: u64,
-    cert_data_hash: *mut BufferWithSize,
+    cert_data_hash: *const BufferWithSize,
     bt_list: *const BackwardTransfer,
     bt_list_len: usize,
-    custom_fields_merkle_root: *mut BufferWithSize,
-    end_cum_comm_tree_root: *mut BufferWithSize,
+    custom_fields_merkle_root: *const BufferWithSize,
+    end_cum_comm_tree_root: *const BufferWithSize,
     ret_code : &mut CctpErrorCode)-> bool
 {
     *ret_code = CctpErrorCode::OK;
@@ -360,19 +348,19 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(ptr : *mut CommitmentTree,
 
     let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = &mut (unsafe { slice::from_raw_parts((*sc_id).data, (*sc_id).len)});
+    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data, (*sc_id).len)};
 
     let (is_ok, err) = check_buffer_length(cert_data_hash, FIELD_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_cert_data_hash = &mut (unsafe { slice::from_raw_parts((*cert_data_hash).data, (*cert_data_hash).len)});
+    let rs_cert_data_hash = unsafe { slice::from_raw_parts((*cert_data_hash).data, (*cert_data_hash).len)};
 
     let (is_ok, err) = check_buffer_length(custom_fields_merkle_root, FIELD_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_custom_fields_merkle_root = &mut (unsafe { slice::from_raw_parts((*custom_fields_merkle_root).data, (*custom_fields_merkle_root).len)});
+    let rs_custom_fields_merkle_root = unsafe { slice::from_raw_parts((*custom_fields_merkle_root).data, (*custom_fields_merkle_root).len)};
 
     let (is_ok, err) = check_buffer_length(end_cum_comm_tree_root, FIELD_SIZE);
     if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_end_cum_comm_tree_root = &mut (unsafe { slice::from_raw_parts((*end_cum_comm_tree_root).data, (*end_cum_comm_tree_root).len)});
+    let rs_end_cum_comm_tree_root = unsafe { slice::from_raw_parts((*end_cum_comm_tree_root).data, (*end_cum_comm_tree_root).len)};
 
 
     //Read bt_list
@@ -494,6 +482,11 @@ pub fn check_buffer_length(buffer: *const BufferWithSize, len: usize) -> (bool, 
 pub struct BufferWithSize {
     data: *mut u8,
     len: usize,
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_bit_vector_size_in_bytes() -> c_uint {
+    BV_SIZE as u32
 }
 
 #[no_mangle]
@@ -637,7 +630,7 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(fie
 //********************Sidechain SNARK functions********************
 #[repr(C)]
 pub struct BackwardTransfer {
-    pub pk_dest: [c_uchar; 20],
+    pub pk_dest: [c_uchar; UINT_160_SIZE],
     pub amount: i64,
 }
 
