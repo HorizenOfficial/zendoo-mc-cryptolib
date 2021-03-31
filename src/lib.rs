@@ -82,6 +82,30 @@ pub fn free_pointer<T> (ptr: *mut T) {
 use cctp_primitives::commitment_tree::CommitmentTree;
 use cctp_primitives::commitment_tree::hashers::hash_bytes;
 
+fn get_param_with_size<'a>(in_buffer: *const BufferWithSize, checked_len: usize) -> (Option<&'a [u8]>, CctpErrorCode) {
+    let (is_ok, ret_code) = check_buffer_length(in_buffer, checked_len);
+    if !is_ok {
+        return (None, ret_code);
+    }
+    let optional_data = Some(unsafe { slice::from_raw_parts((*in_buffer).data, (*in_buffer).len)});
+    (optional_data, ret_code)
+}
+
+macro_rules! try_get_param_with_size {
+    ($mand_1:expr, $mand_2:expr, $mand_3:expr) => {{
+        let (optional_data, ret_code) = get_param_with_size($mand_1, $mand_2);
+        *$mand_3 = ret_code;
+        
+        match optional_data {
+            Some(x) => {x}
+            None => {
+                dbg!(ret_code);
+                return false;
+            }
+        }
+    }};
+}
+
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_create() -> *mut CommitmentTree {
 
@@ -173,21 +197,10 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
     }
 
     // mandatory and constant size parameters
-    let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)};
-
-    let (is_ok, err) = check_buffer_length(pub_key, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_pub_key = unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)};
-
-    let (is_ok, err) = check_buffer_length(cert_vk, SC_VK_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_cert_vk = unsafe { slice::from_raw_parts((*cert_vk).data, (*cert_vk).len)};
-
-    let (is_ok, err) = check_buffer_length(tx_hash, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_tx_hash = unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)};
+    let rs_sc_id   = try_get_param_with_size!(sc_id,   UINT_256_SIZE, ret_code);
+    let rs_pub_key = try_get_param_with_size!(pub_key, UINT_256_SIZE, ret_code);
+    let rs_cert_vk = try_get_param_with_size!(cert_vk, SC_VK_SIZE,    ret_code);
+    let rs_tx_hash = try_get_param_with_size!(tx_hash, UINT_256_SIZE, ret_code);
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_scc(
@@ -217,17 +230,9 @@ pub extern "C" fn zendoo_commitment_tree_add_fwt(ptr : *mut CommitmentTree,
         return false;
     }
 
-    let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)};
-
-    let (is_ok, err) = check_buffer_length(pub_key, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_pub_key = unsafe { slice::from_raw_parts((*pub_key).data, (*pub_key).len)};
-
-    let (is_ok, err) = check_buffer_length(tx_hash, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_tx_hash = unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)};
+    let rs_sc_id   = try_get_param_with_size!(sc_id,   UINT_256_SIZE, ret_code);
+    let rs_pub_key = try_get_param_with_size!(pub_key, UINT_256_SIZE, ret_code);
+    let rs_tx_hash = try_get_param_with_size!(tx_hash, UINT_256_SIZE, ret_code);
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_fwt(
@@ -257,21 +262,10 @@ pub extern "C" fn zendoo_commitment_tree_add_bwtr(ptr : *mut CommitmentTree,
         return false;
     }
 
-    let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data,   (*sc_id).len)};
-
-    let (is_ok, err) = check_buffer_length(pk_hash, UINT_160_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_pk_hash = unsafe { slice::from_raw_parts((*pk_hash).data, (*pk_hash).len)};
-
-    let (is_ok, err) = check_buffer_length(tx_hash, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_tx_hash = unsafe { slice::from_raw_parts((*tx_hash).data, (*tx_hash).len)};
-
-    let (is_ok, err) = check_buffer_length(sc_req_data, FIELD_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_req_data = unsafe { slice::from_raw_parts((*sc_req_data).data, (*sc_req_data).len)};
+    let rs_sc_id       = try_get_param_with_size!(sc_id,       UINT_256_SIZE, ret_code);
+    let rs_pk_hash     = try_get_param_with_size!(pk_hash,     UINT_160_SIZE, ret_code);
+    let rs_tx_hash     = try_get_param_with_size!(tx_hash,     UINT_256_SIZE, ret_code);
+    let rs_sc_req_data = try_get_param_with_size!(sc_req_data, FIELD_SIZE,    ret_code);
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_bwtr(
@@ -300,21 +294,10 @@ pub extern "C" fn zendoo_commitment_tree_add_csw(ptr : *mut CommitmentTree,
         return false;
     }
 
-    let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data, (*sc_id).len)};
-
-    let (is_ok, err) = check_buffer_length(nullifier, FIELD_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_nullifier = unsafe { slice::from_raw_parts((*nullifier).data, (*nullifier).len)};
-
-    let (is_ok, err) = check_buffer_length(pk_hash, UINT_160_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_pk_hash = unsafe { slice::from_raw_parts((*pk_hash).data, (*pk_hash).len)};
-
-    let (is_ok, err) = check_buffer_length(active_cert_data_hash, FIELD_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_active_cert_data_hash = unsafe { slice::from_raw_parts((*active_cert_data_hash).data, (*active_cert_data_hash).len)};
+    let rs_sc_id                 = try_get_param_with_size!(sc_id,                 UINT_256_SIZE, ret_code);
+    let rs_nullifier             = try_get_param_with_size!(nullifier,             FIELD_SIZE,    ret_code);
+    let rs_pk_hash               = try_get_param_with_size!(pk_hash,               UINT_160_SIZE, ret_code);
+    let rs_active_cert_data_hash = try_get_param_with_size!(active_cert_data_hash, FIELD_SIZE,    ret_code);
 
     let cmt = unsafe { &mut *ptr };
     let ret = cmt.add_csw(
@@ -346,21 +329,10 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(ptr : *mut CommitmentTree,
         return false;
     }
 
-    let (is_ok, err) = check_buffer_length(sc_id, UINT_256_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_sc_id = unsafe { slice::from_raw_parts((*sc_id).data, (*sc_id).len)};
-
-    let (is_ok, err) = check_buffer_length(cert_data_hash, FIELD_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_cert_data_hash = unsafe { slice::from_raw_parts((*cert_data_hash).data, (*cert_data_hash).len)};
-
-    let (is_ok, err) = check_buffer_length(custom_fields_merkle_root, FIELD_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_custom_fields_merkle_root = unsafe { slice::from_raw_parts((*custom_fields_merkle_root).data, (*custom_fields_merkle_root).len)};
-
-    let (is_ok, err) = check_buffer_length(end_cum_comm_tree_root, FIELD_SIZE);
-    if !is_ok { *ret_code = err; dbg!(err); return false; }
-    let rs_end_cum_comm_tree_root = unsafe { slice::from_raw_parts((*end_cum_comm_tree_root).data, (*end_cum_comm_tree_root).len)};
+    let rs_sc_id                     = try_get_param_with_size!(sc_id,                     UINT_256_SIZE, ret_code);
+    let rs_cert_data_hash            = try_get_param_with_size!(cert_data_hash,            FIELD_SIZE,    ret_code);
+    let rs_custom_fields_merkle_root = try_get_param_with_size!(custom_fields_merkle_root, FIELD_SIZE,    ret_code);
+    let rs_end_cum_comm_tree_root    = try_get_param_with_size!(end_cum_comm_tree_root,    FIELD_SIZE,    ret_code);
 
 
     //Read bt_list
