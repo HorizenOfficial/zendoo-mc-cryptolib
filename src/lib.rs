@@ -82,21 +82,48 @@ pub fn free_pointer<T> (ptr: *mut T) {
 use cctp_primitives::commitment_tree::CommitmentTree;
 use cctp_primitives::commitment_tree::hashers::hash_bytes;
 
+fn get_optional_param_with_size<'a>(in_buffer: *const BufferWithSize, checked_len: usize) -> (Option<&'a [u8]>, CctpErrorCode) {
+    let (is_ok, _ret_code) = check_buffer(in_buffer);
+    if !is_ok {
+        return (None, CctpErrorCode::OK);
+    }
+    let optional_data = Some(unsafe {
+        if (*in_buffer).len != checked_len
+        {
+            return (None, CctpErrorCode::InvalidBufferLength);
+        }
+        slice::from_raw_parts((*in_buffer).data, (*in_buffer).len)
+    });
+    (optional_data, CctpErrorCode::OK)
+}
+
+macro_rules! try_get_optional_param_with_size {
+    ($mand_1:expr, $mand_2:expr, $mand_3:expr) => {{
+        let (optional_data, ret_code) = get_optional_param_with_size($mand_1, $mand_2);
+        *$mand_3 = ret_code;
+        if ret_code != CctpErrorCode::OK {
+            return false;
+        }
+        optional_data
+    }};
+}
+
+
 fn get_param_with_size<'a>(in_buffer: *const BufferWithSize, checked_len: usize) -> (Option<&'a [u8]>, CctpErrorCode) {
     let (is_ok, ret_code) = check_buffer_length(in_buffer, checked_len);
     if !is_ok {
         return (None, ret_code);
     }
-    let optional_data = Some(unsafe { slice::from_raw_parts((*in_buffer).data, (*in_buffer).len)});
-    (optional_data, ret_code)
+    let data = Some(unsafe { slice::from_raw_parts((*in_buffer).data, (*in_buffer).len)});
+    (data, CctpErrorCode::OK)
 }
 
 macro_rules! try_get_param_with_size {
     ($mand_1:expr, $mand_2:expr, $mand_3:expr) => {{
-        let (optional_data, ret_code) = get_param_with_size($mand_1, $mand_2);
+        let (data, ret_code) = get_param_with_size($mand_1, $mand_2);
         *$mand_3 = ret_code;
         
-        match optional_data {
+        match data {
             Some(x) => {x}
             None => {
                 dbg!(ret_code);
@@ -159,42 +186,24 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
         return false;
     }
 
-    // optional or variable size parameters
+    // variable size parameter (no func/macro since we just have this)
     let mut rs_custom_data : &[u8] = &[];
     let (is_ok, _err) = check_buffer(custom_data);
     if is_ok {
         rs_custom_data = unsafe {
-            if (*custom_data).len > CUSTOM_DATA_MAX_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; dbg!(*ret_code); return false; } 
+            if (*custom_data).len > CUSTOM_DATA_MAX_SIZE {
+                *ret_code = CctpErrorCode::InvalidBufferLength;
+                dbg!(*ret_code);
+                return false;
+            } 
             slice::from_raw_parts((*custom_data).data, (*custom_data).len)
         };
     }
 
-    let mut rs_constant : Option<&[u8]> = None;
-    let (is_ok, _err) = check_buffer(constant);
-    if is_ok {
-        rs_constant = Some(unsafe {
-            if (*constant).len != FIELD_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; dbg!(*ret_code); return false; } 
-            slice::from_raw_parts((*constant).data, (*constant).len)
-        });
-    }
-
-    let mut rs_csw_vk : Option<&[u8]> = None;
-    let (is_ok, _err) = check_buffer(csw_vk);
-    if is_ok {
-        rs_csw_vk = Some(unsafe {
-            if (*csw_vk).len != SC_VK_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; dbg!(*ret_code); return false; } 
-            slice::from_raw_parts((*csw_vk).data, (*csw_vk).len)
-        });
-    }
-
-    let mut rs_btr_vk : Option<&[u8]> = None;
-    let (is_ok, _err) = check_buffer(btr_vk);
-    if is_ok {
-        rs_btr_vk = Some(unsafe {
-            if (*btr_vk).len != SC_VK_SIZE { *ret_code = CctpErrorCode::InvalidBufferLength; dbg!(*ret_code); return false; } 
-            slice::from_raw_parts((*btr_vk).data, (*btr_vk).len)
-        });
-    }
+    // optional parameter
+    let rs_constant = try_get_optional_param_with_size!(constant, FIELD_SIZE, ret_code);
+    let rs_csw_vk   = try_get_optional_param_with_size!(csw_vk,   SC_VK_SIZE, ret_code);
+    let rs_btr_vk   = try_get_optional_param_with_size!(btr_vk,   SC_VK_SIZE, ret_code);
 
     // mandatory and constant size parameters
     let rs_sc_id   = try_get_param_with_size!(sc_id,   UINT_256_SIZE, ret_code);
@@ -203,10 +212,12 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(ptr : *mut CommitmentTree,
     let rs_tx_hash = try_get_param_with_size!(tx_hash, UINT_256_SIZE, ret_code);
 
     let cmt = unsafe { &mut *ptr };
+
     let ret = cmt.add_scc(
         rs_sc_id,       amount,      rs_pub_key, withdrawal_epoch_length,
         rs_custom_data, rs_constant, rs_cert_vk, rs_btr_vk,
         rs_csw_vk,      rs_tx_hash,  out_idx);
+
     if !ret {
         *ret_code = CctpErrorCode::GenericError;
         dbg!(*ret_code);
@@ -398,7 +409,7 @@ pub extern "C" fn zendoo_commitment_tree_get_commitment(ptr : *mut CommitmentTre
 use cctp_primitives::bit_vector::compression::*;
 use cctp_primitives::bit_vector::merkle_tree::*;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub enum CctpErrorCode {
     OK,
