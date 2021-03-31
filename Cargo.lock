@@ -136,6 +136,7 @@ dependencies = [
 [[package]]
 name = "cctp_primitives"
 version = "0.1.0"
+source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=crypto_lib_integration#c1516e15ec3d86d6d1963978f1749291f33d8bb1"
 dependencies = [
  "algebra",
  "bit-vec",
