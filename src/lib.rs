@@ -468,11 +468,6 @@ pub struct BufferWithSize {
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_get_sc_bit_vector_size_in_bytes() -> c_uint {
-    BV_SIZE as u32
-}
-
-#[no_mangle]
 pub extern "C" fn zendoo_free_bit_vector(buffer: *mut BufferWithSize) {
     unsafe {
         let buffer = Box::from_raw(buffer);
