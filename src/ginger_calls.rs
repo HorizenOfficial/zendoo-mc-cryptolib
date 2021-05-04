@@ -196,7 +196,10 @@ pub fn get_bt_merkle_root(bt_list: &[BackwardTransfer]) -> Result<FieldElement, 
         bt_mt.finalize_in_place();
         bt_mt.root().ok_or(Error::from("Failed to compute BT Merkle Tree root"))
 
-    } else { Ok(PHANTOM_MERKLE_ROOT) }
+    } else {
+        //TODO: Replace with precomputed empty node
+        Ok(PHANTOM_MERKLE_ROOT)
+    }
 }
 
 pub fn verify_sc_proof(
