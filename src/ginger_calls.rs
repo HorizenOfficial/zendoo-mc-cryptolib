@@ -7,9 +7,22 @@ use algebra::{
 
 use crate::BackwardTransfer;
 use primitives::{
-    crh::{FieldBasedHash, MNT4PoseidonHash as FieldHash},
+    crh::{
+        FieldBasedHash,
+        poseidon::{
+            MNT4PoseidonHash,
+            batched_crh::MNT4BatchPoseidonHash as BatchFieldHash,
+        }
+    },
     merkle_tree::field_based_mht::{
-        FieldBasedMerkleHashTree, FieldBasedMerkleTreeConfig, FieldBasedMerkleTreePath, MNT4753_PHANTOM_MERKLE_ROOT
+        optimized::FieldBasedOptimizedMHT,
+        poseidon::{
+            MNT4753_PHANTOM_MERKLE_ROOT as PHANTOM_MERKLE_ROOT,
+            MNT4753_MHT_POSEIDON_PARAMETERS as MHT_PARAMETERS
+        },
+        FieldBasedMerkleTree, FieldBasedMerkleTreeParameters, BatchFieldBasedMerkleTreeParameters,
+        FieldBasedMerkleTreePrecomputedEmptyConstants,
+        FieldBasedMerkleTreePath, FieldBasedMHTPath,
     },
 };
 use proof_systems::groth16::{prepare_verifying_key, verifier::verify_proof, Proof, VerifyingKey};
@@ -31,7 +44,6 @@ pub const GROTH_PROOF_SIZE: usize = 771;
 pub const VK_SIZE: usize = 1544;
 
 //*******************************Generic I/O functions**********************************************
-// Note: Should decide if panicking or handling IO errors
 
 pub fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8]) ->  IoResult<T> {
     T::read(buffer)
@@ -75,14 +87,36 @@ pub fn read_field_element_from_u64(num: u64) -> FieldElement {
 
 //************************************Poseidon Hash function****************************************
 
+pub type FieldHash = MNT4PoseidonHash;
+
+pub fn init_poseidon_hash(personalization: Option<&[FieldElement]>) -> FieldHash {
+    FieldHash::init(personalization)
+}
+
+pub fn update_poseidon_hash(hash: &mut FieldHash, input: &FieldElement){
+    hash.update(*input);
+}
+
+pub fn finalize_poseidon_hash(hash: &FieldHash) -> FieldElement{
+    hash.finalize()
+}
+
+pub fn reset_poseidon_hash(hash: &mut FieldHash, personalization: Option<&[FieldElement]>) {
+    hash.reset(personalization);
+}
+
+#[deprecated(note = "Use UpdatableFieldHash instead")]
 pub fn compute_poseidon_hash(input: &[FieldElement]) -> Result<FieldElement, Error> {
-    FieldHash::evaluate(input)
+    let mut digest = FieldHash::init(None);
+    for &fe in input.iter() {
+        digest.update(fe);
+    }
+    Ok(digest.finalize())
 }
 
 //*****************************Naive threshold sig circuit related functions************************
 pub type SCProof = Proof<PairingCurve>;
 pub type SCVk = VerifyingKey<PairingCurve>;
-
 
 impl BackwardTransfer {
     pub fn to_field_element(&self) -> IoResult<FieldElement> {
@@ -144,20 +178,28 @@ pub fn create_test_mc_proof(
     Ok(())
 }
 
+const BT_MERKLE_TREE_HEIGHT: usize = 12;
+
 pub fn get_bt_merkle_root(bt_list: &[BackwardTransfer]) -> Result<FieldElement, Error>
 {
-    let bt_root = if bt_list.len() > 0 {
+    if bt_list.len() > 0 {
         let mut bt_as_fes = vec![];
         for bt in bt_list.iter() {
             let bt_as_fe = bt.to_field_element()?;
             bt_as_fes.push(bt_as_fe);
         }
-        //Get Merkle Root of Backward Transfer list
-        let bt_tree = new_ginger_merkle_tree(bt_as_fes.as_slice())?;
-        get_ginger_merkle_root(&bt_tree)
-    } else { MNT4753_PHANTOM_MERKLE_ROOT };
+        let mut bt_mt =
+            GingerMHT::init(BT_MERKLE_TREE_HEIGHT,2usize.pow(BT_MERKLE_TREE_HEIGHT as u32));
+        for &fe in bt_as_fes.iter(){
+            bt_mt.append(fe);
+        }
+        bt_mt.finalize_in_place();
+        bt_mt.root().ok_or(Error::from("Failed to compute BT Merkle Tree root"))
 
-    Ok(bt_root)
+    } else {
+        //TODO: Replace with precomputed empty node
+        Ok(PHANTOM_MERKLE_ROOT)
+    }
 }
 
 pub fn verify_sc_proof(
@@ -181,25 +223,30 @@ pub fn verify_sc_proof(
     let pvk = prepare_verifying_key(&vk);
 
     //Prepare public inputs
-    let mut public_inputs = Vec::new();
 
-    let wcert_sysdata_hash = compute_poseidon_hash(&[
-        quality,
-        bt_root,
-        prev_end_epoch_mc_b_hash,
-        end_epoch_mc_b_hash,
-    ])?;
+    let wcert_sysdata_hash = {
+        let mut digest = init_poseidon_hash(None);
+        digest
+            .update(quality)
+            .update(bt_root)
+            .update(prev_end_epoch_mc_b_hash)
+            .update(end_epoch_mc_b_hash)
+            .finalize()
+    };
+
+    let mut digest = init_poseidon_hash(None);
 
     if constant.is_some(){
-        public_inputs.push(*(constant.unwrap()));
+        digest.update(*(constant.unwrap()));
     }
-    if proofdata.is_some(){
-        public_inputs.push(*(proofdata.unwrap()));
-    }
-    public_inputs.push(wcert_sysdata_hash);
 
-    let aggregated_inputs = compute_poseidon_hash(public_inputs.as_slice())?;
-    drop(public_inputs);
+    if proofdata.is_some(){
+        digest.update(*(proofdata.unwrap()));
+    }
+
+    digest.update(wcert_sysdata_hash);
+
+    let aggregated_inputs = digest.finalize();
 
     //Verify proof
     let is_verified = verify_proof(&pvk, &sc_proof, &[aggregated_inputs])?;
@@ -208,36 +255,58 @@ pub fn verify_sc_proof(
 
 //************Merkle Tree functions******************
 
-pub struct FieldBasedMerkleTreeParams;
+#[derive(Debug, Clone)]
+pub struct GingerMerkleTreeParameters;
 
-impl FieldBasedMerkleTreeConfig for FieldBasedMerkleTreeParams {
-    const HEIGHT: usize = 13;
+impl FieldBasedMerkleTreeParameters for GingerMerkleTreeParameters {
+    type Data = FieldElement;
     type H = FieldHash;
+    const MERKLE_ARITY: usize = 2;
+    const EMPTY_HASH_CST: Option<FieldBasedMerkleTreePrecomputedEmptyConstants<'static, Self::H>> =
+        Some(MHT_PARAMETERS);
 }
 
-pub type GingerMerkleTree = FieldBasedMerkleHashTree<FieldBasedMerkleTreeParams>;
-pub type GingerMerkleTreePath = FieldBasedMerkleTreePath<FieldBasedMerkleTreeParams>;
-
-pub fn new_ginger_merkle_tree(leaves: &[FieldElement]) -> Result<GingerMerkleTree, Error> {
-    GingerMerkleTree::new(leaves)
+impl BatchFieldBasedMerkleTreeParameters for GingerMerkleTreeParameters {
+    type BH = BatchFieldHash;
 }
 
-pub fn get_ginger_merkle_root(tree: &GingerMerkleTree) -> FieldElement {
+pub type GingerMHTPath = FieldBasedMHTPath<GingerMerkleTreeParameters>;
+
+pub fn verify_ginger_merkle_path(
+    path: &GingerMHTPath,
+    height: usize,
+    leaf: &FieldElement,
+    root: &FieldElement
+) -> Result<bool, Error> {
+    path.verify(height, leaf, root)
+}
+
+pub type GingerMHT = FieldBasedOptimizedMHT<GingerMerkleTreeParameters>;
+
+pub fn new_ginger_mht(height: usize, processing_step: usize) -> GingerMHT {
+    GingerMHT::init(height, processing_step)
+}
+
+pub fn append_leaf_to_ginger_mht(tree: &mut GingerMHT, leaf: &FieldElement){
+    tree.append(*leaf);
+}
+
+pub fn finalize_ginger_mht(tree: &GingerMHT) -> GingerMHT {
+    tree.finalize()
+}
+
+pub fn finalize_ginger_mht_in_place(tree: &mut GingerMHT) {
+    tree.finalize_in_place();
+}
+
+pub fn get_ginger_mht_root(tree: &GingerMHT) -> Option<FieldElement> {
     tree.root()
 }
 
-pub fn get_ginger_merkle_path(
-    leaf: &FieldElement,
-    leaf_index: usize,
-    tree: &GingerMerkleTree,
-) -> Result<GingerMerkleTreePath, Error> {
-    tree.generate_proof(leaf_index, leaf)
+pub fn get_ginger_mht_path(tree: &GingerMHT, leaf_index: usize) -> Option<GingerMHTPath> {
+    tree.get_merkle_path(leaf_index)
 }
 
-pub fn verify_ginger_merkle_path(
-    path: &GingerMerkleTreePath,
-    merkle_root: &FieldElement,
-    leaf: &FieldElement,
-) -> Result<bool, Error> {
-    path.verify(merkle_root, leaf)
+pub fn reset_ginger_mht(tree: &mut GingerMHT){
+    tree.reset();
 }

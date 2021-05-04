@@ -1,14 +1,11 @@
 use algebra::{
     bytes::{FromBytes, ToBytes},
     curves::mnt4753::MNT4 as PairingCurve,
-    fields::mnt4753::Fr,
-    to_bytes, UniformRand,
 };
 
 use proof_systems::groth16::Proof;
-use rand::rngs::OsRng;
 
-use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, ginger_mt_new, ginger_mt_get_root, ginger_mt_get_merkle_path, ginger_mt_verify_merkle_path, GingerMerkleTree, ginger_mt_free, ginger_mt_path_free, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_compute_poseidon_hash, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof};
+use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof, zendoo_init_poseidon_hash, zendoo_update_poseidon_hash, zendoo_finalize_poseidon_hash, zendoo_free_poseidon_hash, zendoo_new_ginger_mht, zendoo_append_leaf_to_ginger_mht, zendoo_get_field_from_long, zendoo_finalize_ginger_mht, zendoo_get_ginger_mht_root, zendoo_finalize_ginger_mht_in_place, zendoo_free_ginger_mht, zendoo_get_ginger_merkle_path, zendoo_verify_ginger_merkle_path, zendoo_free_ginger_merkle_path};
 
 use std::{fmt::Debug, fs::File, ptr::null};
 
@@ -54,20 +51,21 @@ fn verify_zkproof_test() {
 
     //Inputs
     let end_epoch_mc_b_hash: [u8; 32] = [
-        204, 105, 194, 216, 9, 69, 112, 49, 125, 186, 124, 147, 158, 2, 146, 250, 127, 197, 209, 248, 215, 186, 225,
-        102, 132, 41, 139, 88, 243, 24, 225, 45
+        157, 219, 85, 159, 75, 56, 146, 21, 107, 239, 76, 31, 208, 213, 230, 24, 44, 74, 250, 66,
+        71, 23, 106, 4, 138, 157, 28, 43, 158, 39, 152, 91
     ];
 
     let prev_end_epoch_mc_b_hash: [u8; 32] = [
-        77, 107, 100, 149, 66, 133, 64, 12, 129, 179, 101, 205, 224, 222, 215, 10, 94, 82, 185, 91, 180, 22, 32, 249,
-        191, 61, 233, 132, 6, 243, 175, 160
+        74, 229, 219, 59, 25, 231, 227, 68, 3, 118, 194, 58, 99, 219, 112, 39, 73, 202, 238, 140,
+        114, 144, 253, 32, 237, 117, 117, 60, 200, 70, 187, 171
     ];
 
     let constant_bytes: [u8; 96] = [
-        216, 139, 118, 158, 134, 237, 170, 166, 34, 216, 197, 252, 233, 45, 222, 30, 137, 228, 171, 146, 94, 23, 111,
-        156, 75, 68, 89, 85, 96, 101, 93, 201, 184, 249, 10, 153, 243, 178, 182, 206, 142, 116, 96, 124, 247, 29, 209,
-        33, 52, 217, 110, 145, 19, 27, 198, 93, 55, 184, 137, 54, 172, 83, 73, 255, 0, 57, 85, 59, 73, 168, 63, 79,
-        143, 194, 252, 188, 20, 253, 178, 233, 138, 226, 93, 204, 3, 113, 38, 52, 212, 214, 204, 247, 87, 2, 0, 0
+        234, 144, 148, 15, 127, 44, 243, 131, 152, 238, 209, 246, 126, 175, 154, 42, 208, 215, 180,
+        233, 20, 153, 7, 10, 180, 78, 89, 9, 9, 160, 1, 42, 91, 202, 221, 104, 241, 231, 8, 59, 174,
+        159, 27, 108, 74, 80, 118, 192, 127, 238, 216, 167, 72, 15, 61, 97, 121, 13, 48, 143, 255,
+        165, 228, 6, 121, 210, 112, 228, 161, 214, 233, 137, 108, 184, 80, 27, 213, 72, 110, 7, 200,
+        194, 23, 95, 102, 236, 181, 230, 139, 215, 104, 22, 214, 70, 0, 0
     ];
 
     let constant = zendoo_deserialize_field(&constant_bytes);
@@ -146,21 +144,21 @@ fn verify_zkproof_no_bwt_test() {
 
     //Inputs
     let end_epoch_mc_b_hash: [u8; 32] = [
-        200, 100, 76, 16, 225, 149, 155, 252, 61, 173, 237, 209, 206, 10, 20, 247, 200, 41, 133, 21,
-        126, 58, 115, 243, 185, 125, 66, 26, 226, 4, 24, 22
+        8, 57, 79, 205, 58, 30, 190, 170, 144, 137, 231, 236, 172, 54, 173, 50, 69, 208, 163, 134,
+        201, 131, 129, 223, 143, 76, 119, 48, 95, 6, 141, 17
     ];
 
     let prev_end_epoch_mc_b_hash: [u8; 32] = [
-        3, 125, 99, 155, 58, 194, 83, 62, 30, 80, 251, 250, 115, 65, 252, 10, 183, 32, 164, 159,
-        238, 237, 100, 96, 227, 163, 108, 249, 193, 81, 182, 77
+        172, 64, 135, 162, 30, 208, 207, 7, 107, 205, 4, 141, 230, 6, 119, 131, 112, 98, 170, 234,
+        70, 66, 95, 11, 159, 178, 50, 37, 95, 187, 147, 1
     ];
 
     let constant_bytes: [u8; 96] = [
-        50, 121, 119, 120, 18, 130, 90, 56, 28, 219, 172, 115, 102, 55, 207, 79, 69, 68, 3, 24, 114,
-        85, 25, 114, 134, 126, 63, 218, 34, 21, 131, 160, 107, 89, 19, 120, 24, 233, 246, 74, 96, 225,
-        137, 228, 197, 136, 159, 214, 8, 240, 129, 182, 122, 173, 115, 152, 193, 27, 63, 95, 231, 2,
-        128, 224, 63, 184, 130, 233, 147, 254, 252, 151, 210, 191, 227, 0, 46, 38, 123, 35, 56, 231,
-        178, 44, 143, 98, 192, 3, 108, 7, 192, 182, 100, 148, 1, 0
+        53, 15, 18, 36, 121, 179, 90, 14, 215, 218, 231, 181, 9, 186, 122, 78, 227, 142, 190, 43,
+        134, 218, 178, 160, 251, 246, 207, 130, 247, 53, 246, 68, 251, 126, 22, 250, 0, 135, 243,
+        13, 97, 76, 166, 142, 143, 19, 69, 66, 225, 142, 210, 176, 253, 197, 145, 68, 142, 4, 96,
+        91, 23, 39, 56, 43, 96, 115, 57, 59, 34, 62, 156, 221, 27, 174, 134, 170, 26, 86, 112, 176,
+        126, 207, 29, 213, 99, 3, 183, 43, 191, 43, 211, 110, 177, 152, 0, 0
     ];
 
     let constant = zendoo_deserialize_field(&constant_bytes);
@@ -218,6 +216,7 @@ fn create_verify_mc_test_proof(){
         zendoo_generate_mc_test_params, zendoo_get_random_field, zendoo_create_mc_test_proof,
         zendoo_deserialize_sc_proof_from_file,
     };
+    use rand::rngs::OsRng;
     use rand::Rng;
 
     let mut rng = OsRng::default();
@@ -310,60 +309,58 @@ fn create_verify_mc_test_proof(){
 
 #[test]
 fn merkle_tree_test() {
-    let mut rng = OsRng::default();
+    let height = 5;
+    let expected_root_bytes: [u8; 96] = [
+        192, 138, 102, 85, 151, 8, 139, 184, 209, 249, 171, 182, 227, 80, 52, 215, 32, 37, 145, 166,
+        74, 136, 40, 200, 213, 72, 124, 101, 91, 235, 114, 0, 147, 61, 180, 29, 183, 111, 247, 2,
+        169, 12, 179, 173, 87, 88, 187, 229, 26, 139, 80, 228, 125, 246, 145, 141, 43, 19, 148, 94,
+        190, 140, 20, 123, 208, 132, 48, 243, 14, 2, 48, 106, 100, 13, 41, 254, 129, 225, 168, 23,
+        72, 215, 207, 255, 98, 156, 102, 215, 201, 158, 10, 123, 107, 238, 0, 0
+    ];
+    let expected_root = zendoo_deserialize_field(&expected_root_bytes);
 
-    //Generate random field elements
-    let mut fes = vec![];
-    for _ in 0..16 {
-        fes.push(Fr::rand(&mut rng));
+    // Generate leaves
+    let leaves_len = 32;
+    let mut leaves = vec![];
+    for i in 0..leaves_len {
+        leaves.push(zendoo_get_field_from_long(i as u64));
     }
 
-    //Get native Merkle Tree
-    let native_tree = GingerMerkleTree::new(fes.as_slice()).unwrap();
+    // Create tree
+    let tree = zendoo_new_ginger_mht(height, leaves_len);
 
-    //Get Merkle Tree from lib
-    let mut fes_ptr = vec![];
-    let fes_b = to_bytes!(fes).unwrap();
-    for i in 0..16 {
-        let mut fe = [0u8; 96];
-        fes_b[(i * 96)..((i + 1) * 96)]
-            .to_vec()
-            .write(&mut fe[..])
-            .unwrap();
-        fes_ptr.push(zendoo_deserialize_field(&fe) as *const Fr)
-    }
-    let tree = ginger_mt_new(fes_ptr.as_ptr(), 16);
-
-    //Get root and compare the two trees
-    let root = ginger_mt_get_root(tree);
-
-    assert_eq!(unsafe { *root }, native_tree.root());
-
-    for i in 0..16 {
-        //Get native Merkle Path for a leaf
-        let native_mp = native_tree.generate_proof(i, &fes[i]).unwrap();
-
-        //Get Merkle Path from lib
-        let path = ginger_mt_get_merkle_path(fes_ptr[i], i, tree);
-
-        for (native_path, path) in native_mp.path.iter().zip(unsafe { &*path }.path.iter()) {
-            assert_eq!(native_path, path);
-        }
-
-        //Verify that both merkle paths are correct
-        assert!(native_mp.verify(&native_tree.root(), &fes[i]).unwrap());
-        assert!(ginger_mt_verify_merkle_path(fes_ptr[i], root, path));
-
-        //Free path
-        ginger_mt_path_free(path);
+    // Add leaves to tree
+    for &leaf in leaves.iter(){
+        zendoo_append_leaf_to_ginger_mht(leaf, tree);
     }
 
-    //Free memory
-    ginger_mt_free(tree);
+    // Finalize tree and assert root equality
+    zendoo_finalize_ginger_mht_in_place(tree);
+    let root = zendoo_get_ginger_mht_root(tree);
+    assert!(zendoo_field_assert_eq(root, expected_root));
+
+    // It is the same by calling zendoo_finalize_ginger_mht
+    let tree_copy = zendoo_finalize_ginger_mht(tree);
+    let root_copy = zendoo_get_ginger_mht_root(tree_copy);
+    assert!(zendoo_field_assert_eq(root, root_copy));
+
+    //Test merkle paths
+    for (i, leaf) in leaves.clone().into_iter().skip(500).enumerate() {
+        let path = zendoo_get_ginger_merkle_path(tree, i);
+        assert!(zendoo_verify_ginger_merkle_path(path, height, leaf, root));
+        zendoo_free_ginger_merkle_path(path);
+    }
+
+    // Free memory
+    zendoo_field_free(expected_root);
+    for leaf in leaves.into_iter(){
+        zendoo_field_free(leaf);
+    }
+    zendoo_free_ginger_mht(tree);
     zendoo_field_free(root);
-    for i in 0..16 {
-        zendoo_field_free(fes_ptr[i] as *mut Fr);
-    }
+
+    zendoo_free_ginger_mht(tree_copy);
+    zendoo_field_free(root_copy);
 }
 
 #[test]
@@ -402,13 +399,26 @@ fn poseidon_hash_test() {
     assert_slice_equals(&lhs, &lhs_serialized);
     drop(lhs_serialized);
 
-    let hash_input = &[lhs_field as *const Fr, rhs_field as *const Fr];
-    let actual_hash = zendoo_compute_poseidon_hash(hash_input.as_ptr(), 2);
+    let uh = zendoo_init_poseidon_hash(null(), 0);
 
-    assert!(zendoo_field_assert_eq(expected_hash, actual_hash));
+    // Call to finalize keeps the state untouched
+    zendoo_update_poseidon_hash(lhs_field, uh);
+    let temp_hash = zendoo_finalize_poseidon_hash(uh);
+    zendoo_update_poseidon_hash(rhs_field, uh);
+
+    let actual_hash = zendoo_finalize_poseidon_hash(uh);
+    assert!(zendoo_field_assert_eq(actual_hash, expected_hash));
+    zendoo_field_free(actual_hash);
+
+    // finalize() is idempotent
+    let actual_hash_2 = zendoo_finalize_poseidon_hash(uh);
+    assert!(zendoo_field_assert_eq(actual_hash_2, expected_hash));
+    zendoo_field_free(actual_hash_2);
+
+    zendoo_free_poseidon_hash(uh);
+    zendoo_field_free(expected_hash);
+    zendoo_field_free(temp_hash);
 
     zendoo_field_free(lhs_field);
     zendoo_field_free(rhs_field);
-    zendoo_field_free(expected_hash);
-    zendoo_field_free(actual_hash);
 }
