@@ -1,4 +1,4 @@
-use algebra::{FromBytes, ToBytes, UniformRand};
+use algebra::{FromBytes, FromBytesChecked, ToBytes, UniformRand};
 use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
 use std::{
@@ -58,7 +58,23 @@ fn read_double_raw_pointer<T: Copy>(
 }
 
 fn deserialize_to_raw_pointer<T: FromBytes>(buffer: &[u8]) -> *mut T {
+
     match deserialize_from_buffer(buffer) {
+        Ok(t) => Box::into_raw(Box::new(t)),
+        Err(_) => {
+            let e = IoError::new(
+                ErrorKind::InvalidData,
+                format!("unable to read {} from buffer", type_name::<T>()),
+            );
+            set_last_error(Box::new(e), IO_ERROR);
+            return null_mut();
+        }
+    }
+}
+
+fn deserialize_to_raw_pointer_checked<T: FromBytesChecked>(buffer: &[u8]) -> *mut T {
+
+    match deserialize_from_buffer_checked(buffer) {
         Ok(t) => Box::into_raw(Box::new(t)),
         Err(_) => {
             let e = IoError::new(
@@ -80,9 +96,29 @@ fn serialize_from_raw_pointer<T: ToBytes>(
 }
 
 fn deserialize_from_file<T: FromBytes>(
-    file_path: &Path,
+    file_path: &Path
 ) -> Option<T> {
     match read_from_file(file_path) {
+        Ok(t) => Some(t),
+        Err(e) => {
+            let e = IoError::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "unable to deserialize {} from file: {}",
+                    type_name::<T>(),
+                    e.to_string()
+                ),
+            );
+            set_last_error(Box::new(e), IO_ERROR);
+            None
+        }
+    }
+}
+
+fn deserialize_from_file_checked<T: FromBytesChecked>(
+    file_path: &Path
+) -> Option<T> {
+    match read_from_file_checked(file_path) {
         Ok(t) => Some(t),
         Err(e) => {
             let e = IoError::new(
@@ -157,8 +193,13 @@ pub extern "C" fn zendoo_serialize_sc_proof(
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_proof(
     sc_proof_bytes: *const [c_uchar; GROTH_PROOF_SIZE],
+    enforce_membership: bool,
 ) -> *mut SCProof {
-    deserialize_to_raw_pointer(&(unsafe { &*sc_proof_bytes })[..])
+    if enforce_membership {
+        deserialize_to_raw_pointer_checked(&(unsafe { &*sc_proof_bytes })[..])
+    }else {
+        deserialize_to_raw_pointer(&(unsafe { &*sc_proof_bytes })[..])
+    }
 }
 
 #[no_mangle]
@@ -179,6 +220,7 @@ pub extern "C" fn zendoo_get_sc_vk_size_in_bytes() -> c_uint {
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     vk_path: *const u8,
     vk_path_len: usize,
+    enforce_membership: bool,
 ) -> *mut SCVk
 {
     // Read file path
@@ -186,7 +228,13 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
         slice::from_raw_parts(vk_path, vk_path_len)
     }));
 
-    match deserialize_from_file(vk_path){
+    let result = if enforce_membership {
+        deserialize_from_file_checked(vk_path)
+    } else {
+        deserialize_from_file(vk_path)
+    };
+
+    match result{
         Some(vk) => Box::into_raw(Box::new(vk)),
         None => null_mut(),
     }
@@ -197,6 +245,7 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     vk_path: *const u16,
     vk_path_len: usize,
+    enforce_membership: bool,
 ) -> *mut SCVk
 {
     // Read file path
@@ -205,7 +254,13 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     });
     let vk_path = Path::new(&path_str);
 
-    match deserialize_from_file(vk_path){
+    let result = if enforce_membership {
+        deserialize_from_file_checked(vk_path)
+    } else {
+        deserialize_from_file(vk_path)
+    };
+
+    match result{
         Some(vk) => Box::into_raw(Box::new(vk)),
         None => null_mut(),
     }
@@ -214,8 +269,13 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk(
     sc_vk_bytes: *const [c_uchar; VK_SIZE],
+    enforce_membership: bool,
 ) -> *mut SCVk {
-    deserialize_to_raw_pointer(&(unsafe { &*sc_vk_bytes })[..])
+    if enforce_membership {
+        deserialize_to_raw_pointer_checked(&(unsafe { &*sc_vk_bytes })[..])
+    }else {
+        deserialize_to_raw_pointer(&(unsafe { &*sc_vk_bytes })[..])
+    }
 }
 
 #[no_mangle]
