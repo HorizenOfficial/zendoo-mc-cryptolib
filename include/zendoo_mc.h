@@ -76,9 +76,13 @@ extern "C" {
     /*
      * Deserialize a sc_proof from `sc_proof_bytes` and return an opaque pointer to it.
      * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
-     * returned by `zendoo_get_sc_proof_size_in_bytes`. Panic if deserialization fails.
+     * returned by `zendoo_get_sc_proof_size_in_bytes`. If `enforce_membership` flag is set, group membership
+     * test for curve points will be performed. Panic if deserialization fails or validity checks fail.
      */
-    sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes);
+    sc_proof_t* zendoo_deserialize_sc_proof(
+        const unsigned char* sc_proof_bytes,
+        bool enforce_membership
+    );
 
     /*
      * Free the memory from the sc_proof pointed by `sc_proof`. It's caller responsibility
@@ -93,19 +97,25 @@ extern "C" {
     size_t zendoo_get_sc_vk_size_in_bytes(void);
 
     /* Deserialize a sc_vk from a file at path `vk_path` and return an opaque pointer to it.
-     * Return NULL if the file doesn't exist, or if deserialization from it fails.
+     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
+     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
      */
     sc_vk_t* zendoo_deserialize_sc_vk_from_file(
         const path_char_t* vk_path,
-        size_t vk_path_len
+        size_t vk_path_len,
+        bool enforce_membership
     );
 
     /*
      * Deserialize a sc_vk from `sc_vk_bytes` and return an opaque pointer to it.
      * It's caller's responsibility to ensure that `sc_vk_bytes` size is equal to the one
-     * returned by `zendoo_get_sc_vk_size_in_bytes`. Panic if deserialization fails.
+     * returned by `zendoo_get_sc_vk_size_in_bytes`. If `enforce_membership` flag is set, group membership
+     * test for curve points will be performed. Panic if deserialization fails or validity checks fail.
      */
-    sc_vk_t* zendoo_deserialize_sc_vk(const unsigned char* sc_vk_bytes);
+    sc_vk_t* zendoo_deserialize_sc_vk(
+        const unsigned char* sc_vk_bytes,
+        bool enforce_membership
+    );
 
     /*
      * Free the memory from the sc_vk pointed by `sc_vk`. It's caller responsibility
@@ -367,11 +377,13 @@ extern "C" {
 //Test functions
 
     /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
-     * Return NULL if the file doesn't exist, or if deserialization from it fails.
+     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
+     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
      */
     sc_proof_t* zendoo_deserialize_sc_proof_from_file(
         const path_char_t* proof_path,
-        size_t proof_path_len
+        size_t proof_path_len,
+        bool enforce_membership
     );
 
     /* Generates and saves at specified path params_dir the proving key and verification key for MCTestCircuit */

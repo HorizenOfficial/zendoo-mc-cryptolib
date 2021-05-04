@@ -41,7 +41,7 @@ fn verify_zkproof_test() {
 
     //Get zkp raw pointer
     proof.write(&mut zkp[..]).unwrap();
-    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp);
+    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp, true);
     let mut zkp_serialized = [0u8; 771];
 
     //Test proof serialization/deserialization
@@ -87,6 +87,7 @@ fn verify_zkproof_test() {
     let vk = zendoo_deserialize_sc_vk_from_file(
         path_as_ptr("./test_files/sample_vk"),
         22,
+        true
     );
 
     assert!(zendoo_verify_sc_proof(
@@ -133,7 +134,7 @@ fn verify_zkproof_no_bwt_test() {
 
     //Get zkp raw pointer
     proof.write(&mut zkp[..]).unwrap();
-    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp);
+    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp, true);
     let mut zkp_serialized = [0u8; 771];
 
     //Test proof serialization/deserialization
@@ -172,6 +173,7 @@ fn verify_zkproof_no_bwt_test() {
     let vk = zendoo_deserialize_sc_vk_from_file(
         path_as_ptr("./test_files/sample_vk_no_bwt"),
         29,
+        true
     );
 
     assert!(zendoo_verify_sc_proof(
@@ -269,6 +271,7 @@ fn create_verify_mc_test_proof(){
     let vk = zendoo_deserialize_sc_vk_from_file(
         path_as_ptr("./test_files/test_mc_vk"),
         23,
+        true,
     );
 
     //Get proof

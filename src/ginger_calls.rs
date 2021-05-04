@@ -1,7 +1,8 @@
 use algebra::{
     curves::mnt4753::MNT4 as PairingCurve,
     fields::{mnt4753::Fr, PrimeField},
-    BigInteger768, FromBytes, ToBytes,
+    BigInteger768, FromBytes, FromBytesChecked,
+    ToBytes,
 };
 
 use crate::BackwardTransfer;
@@ -44,18 +45,26 @@ pub const VK_SIZE: usize = 1544;
 
 //*******************************Generic I/O functions**********************************************
 
-pub fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8]) -> IoResult<T> {
+pub fn deserialize_from_buffer<T: FromBytes>(buffer: &[u8]) ->  IoResult<T> {
     T::read(buffer)
+}
+
+pub fn deserialize_from_buffer_checked<T: FromBytesChecked>(buffer: &[u8]) ->  IoResult<T> {
+    T::read_checked(buffer)
 }
 
 pub fn serialize_to_buffer<T: ToBytes>(to_write: &T, buffer: &mut [u8]) -> IoResult<()> {
     to_write.write(buffer)
 }
 
-pub fn read_from_file<T: FromBytes>(file_path: &Path) -> IoResult<T> {
+pub fn read_from_file<T: FromBytes>(file_path: &Path) -> IoResult<T>{
     let mut fs = File::open(file_path)?;
-    let t = T::read(&mut fs)?;
-    Ok(t)
+    T::read(&mut fs)
+}
+
+pub fn read_from_file_checked<T: FromBytesChecked>(file_path: &Path) -> IoResult<T>{
+    let mut fs = File::open(file_path)?;
+    T::read_checked(&mut fs)
 }
 
 //Will return error if buffer.len > FIELD_SIZE. If buffer.len < FIELD_SIZE, padding 0s will be added
