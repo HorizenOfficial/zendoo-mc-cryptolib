@@ -10,8 +10,13 @@ path = "src/lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-#algebra = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "algebra_ocl", rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a", features = ["tweedle"]}
-#primitives = {version = "0.1.0", features = ["merkle_tree", "tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "algebra_ocl", rev = "942f6780b1072911dcd03eeb260cb283b7c34a8a"}
+algebra = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp"}
+primitives = {version = "0.1.0", features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp"}
+cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "darlin" }
+
+r1cs-crypto = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
+r1cs-core = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
+r1cs-std = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
 
 maybe-uninit = "=2.0.0"
 rand = "0.7.3"
@@ -20,24 +25,22 @@ lazy_static = "=1.4.0"
 libc = "=0.2.70"
 cfg-if = "= 0.1.2"
 
-[dependencies.algebra]
-git = "https://github.com/HorizenOfficial/ginger-lib.git"
-branch = "algebra_ocl"
-features = ["tweedle"]
-version = "0.1.0"
-
-[dependencies.primitives]
-git = "https://github.com/HorizenOfficial/ginger-lib.git"
-branch = "algebra_ocl"
-features = ["merkle_tree", "tweedle"]
-version = "0.1.0"
-
-[dependencies.cctp_primitives]
-git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git"
-branch = "crypto_lib_integration"
-version = "0.1.0"
+[features]
+mc-test-circuit = ["r1cs-crypto", "r1cs-core", "r1cs-std"]
 
 [profile.release]
 #lto = true
 #panic = 'abort'
 codegen-units = 1
+
+# Uncomment these lines for local development paths
+
+#[patch.'https://github.com/HorizenOfficial/ginger-lib.git']
+#algebra = { path = '../ginger-lib/algebra' }
+#primitives = { path = '../ginger-lib/primitives' }
+#r1cs-core = { path = '../ginger-lib/r1cs/core' }
+#r1cs-crypto = { path = '../ginger-lib/r1cs/gadgets/crypto' }
+#r1cs-std = { path = '../ginger-lib/r1cs/gadgets/std' }
+#
+[patch.'https://github.com/HorizenOfficial/zendoo-cctp-lib.git']
+cctp_primitives = { path = '../zendoo-cctp-lib/cctp_primitives' }

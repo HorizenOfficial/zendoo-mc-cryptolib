@@ -113,7 +113,7 @@ fn verify_zkproof_test() {
 
     //Get zkp raw pointer
     proof.write(&mut zkp[..]).unwrap();
-    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp);
+    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp, true);
     let mut zkp_serialized = [0u8; 771];
 
     //Test proof serialization/deserialization
@@ -123,21 +123,20 @@ fn verify_zkproof_test() {
 
     //Inputs
     let end_epoch_mc_b_hash: [u8; 32] = [
-        157, 219, 85, 159, 75, 56, 146, 21, 107, 239, 76, 31, 208, 213, 230, 24, 44, 74, 250, 66,
-        71, 23, 106, 4, 138, 157, 28, 43, 158, 39, 152, 91
+        204, 105, 194, 216, 9, 69, 112, 49, 125, 186, 124, 147, 158, 2, 146, 250, 127, 197, 209, 248, 215, 186, 225,
+        102, 132, 41, 139, 88, 243, 24, 225, 45
     ];
 
     let prev_end_epoch_mc_b_hash: [u8; 32] = [
-        74, 229, 219, 59, 25, 231, 227, 68, 3, 118, 194, 58, 99, 219, 112, 39, 73, 202, 238, 140,
-        114, 144, 253, 32, 237, 117, 117, 60, 200, 70, 187, 171
+        77, 107, 100, 149, 66, 133, 64, 12, 129, 179, 101, 205, 224, 222, 215, 10, 94, 82, 185, 91, 180, 22, 32, 249,
+        191, 61, 233, 132, 6, 243, 175, 160
     ];
 
     let constant_bytes: [u8; 96] = [
-        234, 144, 148, 15, 127, 44, 243, 131, 152, 238, 209, 246, 126, 175, 154, 42, 208, 215, 180,
-        233, 20, 153, 7, 10, 180, 78, 89, 9, 9, 160, 1, 42, 91, 202, 221, 104, 241, 231, 8, 59, 174,
-        159, 27, 108, 74, 80, 118, 192, 127, 238, 216, 167, 72, 15, 61, 97, 121, 13, 48, 143, 255,
-        165, 228, 6, 121, 210, 112, 228, 161, 214, 233, 137, 108, 184, 80, 27, 213, 72, 110, 7, 200,
-        194, 23, 95, 102, 236, 181, 230, 139, 215, 104, 22, 214, 70, 0, 0
+        216, 139, 118, 158, 134, 237, 170, 166, 34, 216, 197, 252, 233, 45, 222, 30, 137, 228, 171, 146, 94, 23, 111,
+        156, 75, 68, 89, 85, 96, 101, 93, 201, 184, 249, 10, 153, 243, 178, 182, 206, 142, 116, 96, 124, 247, 29, 209,
+        33, 52, 217, 110, 145, 19, 27, 198, 93, 55, 184, 137, 54, 172, 83, 73, 255, 0, 57, 85, 59, 73, 168, 63, 79,
+        143, 194, 252, 188, 20, 253, 178, 233, 138, 226, 93, 204, 3, 113, 38, 52, 212, 214, 204, 247, 87, 2, 0, 0
     ];
 
     let constant = zendoo_deserialize_field(&constant_bytes);
@@ -159,6 +158,7 @@ fn verify_zkproof_test() {
     let vk = zendoo_deserialize_sc_vk_from_file(
         path_as_ptr("./test_files/sample_vk"),
         22,
+        true
     );
 
     assert!(zendoo_verify_sc_proof(
@@ -205,7 +205,7 @@ fn verify_zkproof_no_bwt_test() {
 
     //Get zkp raw pointer
     proof.write(&mut zkp[..]).unwrap();
-    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp);
+    let zkp_ptr = zendoo_deserialize_sc_proof(&zkp, true);
     let mut zkp_serialized = [0u8; 771];
 
     //Test proof serialization/deserialization
@@ -244,6 +244,7 @@ fn verify_zkproof_no_bwt_test() {
     let vk = zendoo_deserialize_sc_vk_from_file(
         path_as_ptr("./test_files/sample_vk_no_bwt"),
         29,
+        true
     );
 
     assert!(zendoo_verify_sc_proof(
@@ -341,6 +342,7 @@ fn create_verify_mc_test_proof(){
     let vk = zendoo_deserialize_sc_vk_from_file(
         path_as_ptr("./test_files/test_mc_vk"),
         23,
+        true,
     );
 
     //Get proof

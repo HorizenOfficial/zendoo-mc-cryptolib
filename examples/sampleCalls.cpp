@@ -208,7 +208,7 @@ void proof_test() {
     is.close();
 
     //Deserialize proof
-    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes);
+    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes, true);
     if(proof == NULL){
         print_error("error");
         abort();
@@ -260,7 +260,7 @@ void proof_test() {
     is1.close();
 
     //Deserialize vk
-    auto vk_from_buffer = zendoo_deserialize_sc_vk((unsigned char*)vk_bytes);
+    auto vk_from_buffer = zendoo_deserialize_sc_vk((unsigned char*)vk_bytes, true);
     if(vk_from_buffer == NULL){
         print_error("error");
         abort();
@@ -271,7 +271,8 @@ void proof_test() {
     //Deserialize vk directly from file
     sc_vk_t* vk_from_file = zendoo_deserialize_sc_vk_from_file(
         (path_char_t*)"../test_files/sample_vk",
-        23
+        23,
+        true
     );
 
     //Check equality
@@ -337,7 +338,7 @@ void proof_test_no_bwt() {
     is.close();
 
     //Deserialize proof
-    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes);
+    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes, true);
     if(proof == NULL){
         print_error("error");
         abort();
@@ -376,8 +377,11 @@ void proof_test_no_bwt() {
 
     //Read vk from file
     sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
+        // NOTE: The circuit is the same as the previous one but we regenerate the params for this test
+        // for convenience
         (path_char_t*)"../test_files/sample_vk_no_bwt",
-        30
+        30,
+        true
     );
 
     //Verify zkproof
