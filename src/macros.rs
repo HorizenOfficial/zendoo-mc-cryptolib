@@ -1,10 +1,6 @@
-use std::{
-    io::{Error as IoError, ErrorKind},
-    ptr::null_mut,
-    any::type_name,
-    slice,
-    convert::TryInto
-};
+use algebra::{CanonicalSerialize, CanonicalDeserialize, SemanticallyValid};
+use cctp_primitives::utils::serialization::{deserialize_from_buffer_checked, deserialize_from_buffer};
+use std::slice;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
@@ -22,8 +18,8 @@ pub enum CctpErrorCode {
 
 #[repr(C)]
 pub struct BufferWithSize {
-    data: *mut u8,
-    len: usize,
+    pub data: *mut u8,
+    pub len: usize,
 }
 
 /// Check that `buffer` it's a valid buffer with non-zero data
@@ -205,6 +201,7 @@ macro_rules! try_get_obj_list {
     }};
 }
 
+#[allow(dead_code)]
 /// Convert a *const T to a &[T] considering that `in_list` might be null.
 pub(crate) fn get_optional_obj_list<'a, T>(in_list: *const T, in_list_size: usize) -> (Option<&'a [T]>, CctpErrorCode) {
     if in_list.is_null() {
@@ -214,6 +211,7 @@ pub(crate) fn get_optional_obj_list<'a, T>(in_list: *const T, in_list_size: usiz
     (data, CctpErrorCode::OK)
 }
 
+#[allow(unused_macros)]
 macro_rules! try_get_optional_obj_list {
     ($in_list:expr, $in_list_size:expr, $ret_code: expr, $err_ret: expr) => {{
         let (optional_data, ret_code) = get_obj_list($in_list, $in_list_size);
@@ -233,8 +231,6 @@ pub(crate) fn get_constant_length_buffers_list<'a>(
     single_buff_checked_size: usize,
 ) -> (Option<Vec<&'a [u8]>>, CctpErrorCode)
 {
-    let ret_code = CctpErrorCode::OK;
-
     // First read a list of BufferWithSize structs
     let (bws_list, ret_code) = get_obj_list(buff_list, buff_list_size);
     if ret_code != CctpErrorCode::OK {
@@ -268,7 +264,9 @@ macro_rules! try_get_constant_length_buffers_list {
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x}
+            Some(x) => {
+                x.into_iter().map(|x| x.try_into().unwrap()).collect()
+            }
             None => {
                 dbg!(ret_code);
                 return $err_ret;
@@ -283,8 +281,6 @@ pub(crate) fn get_optional_constant_length_buffers_list<'a>(
     single_buff_checked_size: usize,
 ) -> (Option<Vec<&'a [u8]>>, CctpErrorCode)
 {
-    let ret_code = CctpErrorCode::OK;
-
     // First read a list of BufferWithSize structs
     let (bws_list, ret_code) = get_optional_obj_list(buff_list, buff_list_size);
 
@@ -324,10 +320,16 @@ macro_rules! try_get_optional_constant_length_buffers_list {
             dbg!(ret_code);
             return $err_ret;
         }
-        optional_data
+
+        if optional_data.is_some() {
+            Some(optional_data.unwrap().into_iter().map(|data| data.try_into().unwrap()).collect())
+        } else {
+            None
+        }
     }};
 }
 
+#[allow(dead_code)]
 pub(crate) fn read_raw_pointer<'a, T>(input: *const T) -> (Option<&'a T>, CctpErrorCode) {
     if input.is_null() {
         return (None, CctpErrorCode::NullPtr);
@@ -335,6 +337,7 @@ pub(crate) fn read_raw_pointer<'a, T>(input: *const T) -> (Option<&'a T>, CctpEr
     (Some(unsafe { &*input }), CctpErrorCode::OK)
 }
 
+#[allow(unused_macros)]
 macro_rules! try_read_raw_pointer {
     ($input:expr, $ret_code:expr, $err_ret:expr) => {{
         let (data, ret_code) = read_raw_pointer($input);
@@ -360,6 +363,74 @@ pub(crate) fn read_mut_raw_pointer<'a, T>(input: *mut T) -> (Option<&'a mut T>, 
 macro_rules! try_read_mut_raw_pointer {
     ($input:expr, $ret_code:expr, $err_ret:expr) => {{
         let (data, ret_code) = read_mut_raw_pointer($input);
+        *$ret_code = ret_code;
+
+        match data {
+            Some(x) => {x}
+            None => {
+                dbg!(ret_code);
+                return $err_ret;
+            }
+        }
+    }};
+}
+
+#[allow(dead_code)]
+pub(crate) fn serialize_from_raw_pointer<T: CanonicalSerialize>(
+    to_write: *const T,
+    buffer: &mut [u8],
+) -> CctpErrorCode
+{
+    // Read &T from raw_pointer `to_write`
+    let (to_write, ret_code) = read_raw_pointer(to_write);
+    if to_write.is_none() {
+        return ret_code;
+    }
+
+    // Serialize to `buffer`
+    let to_write = to_write.unwrap();
+    if CanonicalSerialize::serialize(to_write, buffer).is_err() {
+        return CctpErrorCode::InvalidValue;
+    }
+
+    CctpErrorCode::OK
+}
+
+#[allow(unused_macros)]
+macro_rules! try_serialize_from_raw_pointer {
+    ($to_write:expr, $buffer:expr, $ret_code:expr, $err_ret:expr) => {{
+        let ret_code = serialize_from_raw_pointer($to_write, $buffer);
+        *$ret_code = ret_code;
+
+        if ret_code != CctpErrorCode::OK {
+            dbg!(ret_code);
+            return $err_ret;
+        }
+    }};
+}
+
+#[allow(dead_code)]
+pub(crate) fn deserialize_to_raw_pointer<T: CanonicalDeserialize + SemanticallyValid>(
+    buffer: &[u8],
+    checked: bool
+) -> (Option<*mut T>, CctpErrorCode)
+{
+    match if checked {
+        deserialize_from_buffer_checked(buffer)
+    } else {
+        deserialize_from_buffer(buffer)
+    }{
+        Ok(t) => (Some(Box::into_raw(Box::new(t))), CctpErrorCode::OK),
+        Err(_) => {
+            (None, CctpErrorCode::InvalidBufferData)
+        }
+    }
+}
+
+#[allow(unused_macros)]
+macro_rules! try_deserialize_to_raw_pointer {
+    ($buffer:expr, $checked:expr, $ret_code:expr, $err_ret:expr) => {{
+        let (data, ret_code) = deserialize_to_raw_pointer($buffer, $checked);
         *$ret_code = ret_code;
 
         match data {
