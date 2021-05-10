@@ -10,6 +10,8 @@ pub enum CctpErrorCode {
     InvalidValue,
     InvalidBufferData,
     InvalidBufferLength,
+    HashingError,
+    MerkleTreeError,
     CompressError,
     UncompressError,
     MerkleRootBuildError,
@@ -87,11 +89,11 @@ pub(crate) fn get_optional_buffer_constant_size<'a>(in_buffer: *const BufferWith
 }
 
 macro_rules! try_get_optional_buffer_constant_size {
-    ($in_buffer:expr, $checked_len:expr, $ret_code:expr, $err_ret:expr) => {{
+    ($param_name: expr, $in_buffer:expr, $checked_len:expr, $ret_code:expr, $err_ret:expr) => {{
         let (optional_data, ret_code) = get_optional_buffer_constant_size($in_buffer, $checked_len);
         *$ret_code = ret_code;
         if ret_code != CctpErrorCode::OK {
-            dbg!(ret_code);
+            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
             return $err_ret;
         }
         match optional_data {
@@ -113,14 +115,14 @@ pub(crate) fn get_buffer_constant_size<'a>(in_buffer: *const BufferWithSize, che
 }
 
 macro_rules! try_get_buffer_constant_size {
-    ($in_buffer:expr, $checked_len:expr, $ret_code:expr, $err_ret:expr) => {{
+    ($param_name: expr, $in_buffer:expr, $checked_len:expr, $ret_code:expr, $err_ret:expr) => {{
         let (data, ret_code) = get_buffer_constant_size($in_buffer, $checked_len);
         *$ret_code = ret_code;
 
         match data {
             Some(x) => {x.try_into().unwrap()}
             None => {
-                dbg!(ret_code);
+                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
                 return $err_ret;
             }
         }
@@ -138,14 +140,14 @@ pub(crate) fn get_buffer_variable_size<'a>(in_buffer: *const BufferWithSize) -> 
 }
 
 macro_rules! try_get_buffer_variable_size {
-    ($in_buffer:expr, $ret_code:expr, $err_ret:expr) => {{
+    ($param_name:expr, $in_buffer:expr, $ret_code:expr, $err_ret:expr) => {{
         let (data, ret_code) = get_buffer_variable_size($in_buffer);
         *$ret_code = ret_code;
 
         match data {
             Some(x) => {x}
             None => {
-                dbg!(ret_code);
+                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
                 return $err_ret;
             }
         }
@@ -165,11 +167,11 @@ pub(crate) fn get_optional_buffer_variable_size<'a>(in_buffer: *const BufferWith
 }
 
 macro_rules! try_get_optional_buffer_variable_size {
-    ($in_buffer:expr, $ret_code:expr, $err_ret:expr) => {{
+    ($param_name: expr, $in_buffer:expr, $ret_code:expr, $err_ret:expr) => {{
         let (optional_data, ret_code) = get_optional_buffer_variable_size($in_buffer);
         *$ret_code = ret_code;
         if ret_code != CctpErrorCode::OK {
-            dbg!(ret_code);
+            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
             return $err_ret;
         }
         optional_data
@@ -187,14 +189,14 @@ pub(crate) fn get_obj_list<'a, T>(in_list: *const T, in_list_size: usize) -> (Op
 }
 
 macro_rules! try_get_obj_list {
-    ($in_list:expr, $in_list_size:expr, $ret_code: expr, $err_ret:expr) => {{
+    ($param_name: expr, $in_list:expr, $in_list_size:expr, $ret_code: expr, $err_ret:expr) => {{
         let (data, ret_code) = get_obj_list($in_list, $in_list_size);
         *$ret_code = ret_code;
 
         match data {
             Some(x) => {x}
             None => {
-                dbg!(ret_code);
+                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
                 return $err_ret;
             }
         }
@@ -213,12 +215,12 @@ pub(crate) fn get_optional_obj_list<'a, T>(in_list: *const T, in_list_size: usiz
 
 #[allow(unused_macros)]
 macro_rules! try_get_optional_obj_list {
-    ($in_list:expr, $in_list_size:expr, $ret_code: expr, $err_ret: expr) => {{
+    ($param_name: expr, $in_list:expr, $in_list_size:expr, $ret_code: expr, $err_ret: expr) => {{
         let (optional_data, ret_code) = get_obj_list($in_list, $in_list_size);
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            dbg!(ret_code);
+            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
             return $err_ret;
         }
         optional_data
@@ -259,7 +261,7 @@ pub(crate) fn get_constant_length_buffers_list<'a>(
 }
 
 macro_rules! try_get_constant_length_buffers_list {
-    ($buff_list:expr, $buff_list_size:expr, $single_buff_checked_size: expr, $ret_code: expr, $err_ret: expr) => {{
+    ($param_name: expr, $buff_list:expr, $buff_list_size:expr, $single_buff_checked_size: expr, $ret_code: expr, $err_ret: expr) => {{
         let (data, ret_code) = get_constant_length_buffers_list($buff_list, $buff_list_size, $single_buff_checked_size);
         *$ret_code = ret_code;
 
@@ -268,7 +270,7 @@ macro_rules! try_get_constant_length_buffers_list {
                 x.into_iter().map(|x| x.try_into().unwrap()).collect()
             }
             None => {
-                dbg!(ret_code);
+                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
                 return $err_ret;
             }
         }
@@ -312,12 +314,12 @@ pub(crate) fn get_optional_constant_length_buffers_list<'a>(
 }
 
 macro_rules! try_get_optional_constant_length_buffers_list {
-    ($buff_list:expr, $buff_list_size:expr, $single_buff_checked_size: expr, $ret_code:expr, $err_ret:expr) => {{
+    ($param_name: expr, $buff_list:expr, $buff_list_size:expr, $single_buff_checked_size: expr, $ret_code:expr, $err_ret:expr) => {{
         let (optional_data, ret_code) = get_optional_constant_length_buffers_list($buff_list, $buff_list_size, $single_buff_checked_size);
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            dbg!(ret_code);
+            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
             return $err_ret;
         }
 
@@ -339,14 +341,14 @@ pub(crate) fn read_raw_pointer<'a, T>(input: *const T) -> (Option<&'a T>, CctpEr
 
 #[allow(unused_macros)]
 macro_rules! try_read_raw_pointer {
-    ($input:expr, $ret_code:expr, $err_ret:expr) => {{
+    ($param_name: expr, $input:expr, $ret_code:expr, $err_ret:expr) => {{
         let (data, ret_code) = read_raw_pointer($input);
         *$ret_code = ret_code;
 
         match data {
             Some(x) => {x}
             None => {
-                dbg!(ret_code);
+                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
                 return $err_ret;
             }
         }
@@ -361,21 +363,20 @@ pub(crate) fn read_mut_raw_pointer<'a, T>(input: *mut T) -> (Option<&'a mut T>, 
 }
 
 macro_rules! try_read_mut_raw_pointer {
-    ($input:expr, $ret_code:expr, $err_ret:expr) => {{
+    ($param_name: expr, $input:expr, $ret_code:expr, $err_ret:expr) => {{
         let (data, ret_code) = read_mut_raw_pointer($input);
         *$ret_code = ret_code;
 
         match data {
             Some(x) => {x}
             None => {
-                dbg!(ret_code);
+                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
                 return $err_ret;
             }
         }
     }};
 }
 
-#[allow(dead_code)]
 pub(crate) fn serialize_from_raw_pointer<T: CanonicalSerialize>(
     to_write: *const T,
     buffer: &mut [u8],
@@ -396,20 +397,18 @@ pub(crate) fn serialize_from_raw_pointer<T: CanonicalSerialize>(
     CctpErrorCode::OK
 }
 
-#[allow(unused_macros)]
 macro_rules! try_serialize_from_raw_pointer {
-    ($to_write:expr, $buffer:expr, $ret_code:expr, $err_ret:expr) => {{
+    ($param_name: expr, $to_write:expr, $buffer:expr, $ret_code:expr, $err_ret:expr) => {{
         let ret_code = serialize_from_raw_pointer($to_write, $buffer);
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            dbg!(ret_code);
+            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
             return $err_ret;
         }
     }};
 }
 
-#[allow(dead_code)]
 pub(crate) fn deserialize_to_raw_pointer<T: CanonicalDeserialize + SemanticallyValid>(
     buffer: &[u8],
     checked: bool
@@ -427,16 +426,53 @@ pub(crate) fn deserialize_to_raw_pointer<T: CanonicalDeserialize + SemanticallyV
     }
 }
 
-#[allow(unused_macros)]
 macro_rules! try_deserialize_to_raw_pointer {
-    ($buffer:expr, $checked:expr, $ret_code:expr, $err_ret:expr) => {{
+    ($param_name: expr, $buffer:expr, $checked:expr, $ret_code:expr, $err_ret:expr) => {{
         let (data, ret_code) = deserialize_to_raw_pointer($buffer, $checked);
         *$ret_code = ret_code;
 
         match data {
             Some(x) => {x}
             None => {
-                dbg!(ret_code);
+                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+                return $err_ret;
+            }
+        }
+    }};
+}
+
+pub(crate) fn read_double_raw_pointer<T: Copy>(
+    input: *const *const T,
+    input_len: usize,
+) -> (Option<Vec<T>>, CctpErrorCode) {
+
+    //Read *const T from *const *const T
+    if input.is_null() {
+        return (None, CctpErrorCode::NullPtr);
+    }
+    let input_raw = unsafe { slice::from_raw_parts(input, input_len) };
+
+    //Read T from *const T
+    let mut input = vec![];
+    for &ptr in input_raw.iter() {
+        if ptr.is_null() {
+            return (None, CctpErrorCode::NullPtr);
+        }
+        input.push(unsafe { *ptr });
+    }
+
+    (Some(input), CctpErrorCode::OK)
+}
+
+macro_rules! try_read_double_raw_pointer {
+    ($param_name: expr, $input:expr, $input_len:expr, $ret_code:expr, $err_ret:expr) => {{
+        let (data, ret_code) = read_double_raw_pointer($input, $input_len);
+        *$ret_code = ret_code;
+
+        match data {
+            Some(x) => {x}
+            None => {
+                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
                 return $err_ret;
             }
         }

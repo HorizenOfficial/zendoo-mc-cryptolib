@@ -1,6 +1,5 @@
 #include "zendoo_mc.h"
-#include "error.h"
-#include <stdio.h>
+/*#include <stdio.h>
 #include <iostream>
 #include <fstream>
 #include <cstring>
@@ -430,4 +429,4 @@ int main() {
     merkle_test();
     proof_test();
     proof_test_no_bwt();
-}
+}*/

@@ -5,26 +5,37 @@
 #include <stdlib.h>
 
 static const size_t SC_FIELD_SIZE = 32;
-static const size_t SC_PROOF_SIZE = 771;
-static const size_t SC_VK_SIZE = 1544;
 static const size_t SC_CUSTOM_DATA_MAX_SIZE = 1024;
 
 extern "C" {
 
-#ifdef WIN32
-    typedef uint16_t path_char_t;
-#else
-    typedef uint8_t path_char_t;
-#endif
-
+    #ifdef WIN32
+        typedef uint16_t path_char_t;
+    #else
+        typedef uint8_t path_char_t;
+    #endif
 
     typedef struct backward_transfer{
-      unsigned char pk_dest[20];
-      int64_t amount;
+        unsigned char pk_dest[20];
+        uint64_t amount;
     } backward_transfer_t;
 
-//Field related functions
-/* Note: Functions panic if input pointers are NULL.*/
+    typedef enum eCctpErrorCode {
+            OK,
+            NullPtr,
+            InvalidValue,
+            InvalidBufferData,
+            InvalidBufferLength,
+            HashingError,
+            MerkleTreeError,
+            CompressError,
+            UncompressError,
+            MerkleRootBuildError,
+            GenericError
+    } CctpErrorCode;
+
+    //Field related functions
+    /* Note: Functions panic if input pointers are NULL.*/
 
     typedef struct field field_t;
 
@@ -34,12 +45,13 @@ extern "C" {
     /*
      * Serialize a field into `field_bytes` given an opaque pointer `field` to it.
      * It's caller's responsibility to ensure that `field_bytes` size is equal to the one
-     * returned by `zendoo_get_field_size_in_bytes`. Panic if serialization was
-     * unsuccessful.
+     * returned by `zendoo_get_field_size_in_bytes`.
+     * Return true if the operation was successfull, false otherwise.
      */
-    void zendoo_serialize_field(
+    bool zendoo_serialize_field(
         const field_t*  field,
-        unsigned char*  field_bytes
+        unsigned char*  field_bytes,
+        CctpErrorCode*  ret_code
     );
 
     /*
@@ -47,7 +59,7 @@ extern "C" {
      * It's caller's responsibility to ensure that `field_bytes` size is equal to the one
      * returned by `zendoo_get_field_size_in_bytes`. Return NULL if deserialization fails.
      */
-    field_t* zendoo_deserialize_field(const unsigned char* field_bytes);
+    field_t* zendoo_deserialize_field(const unsigned char* field_bytes, CctpErrorCode* ret_code);
 
     /*
      * Free the memory from the field pointed by `field`. It's caller responsibility
@@ -56,19 +68,6 @@ extern "C" {
      */
     void zendoo_field_free(field_t* field);
 
-// CCTP lib
-
-    typedef enum eCctpErrorCode {
-        OK,
-        NullPtr,
-        InvalidValue,
-        InvalidBufferData,
-        InvalidBufferLength,
-        CompressError,
-        UncompressError,
-        MerkleRootBuildError,
-        GenericError
-    } CctpErrorCode;
 
     struct BufferWithSize {
         const unsigned char* data;
@@ -78,7 +77,18 @@ extern "C" {
         BufferWithSize(const unsigned char* dataIn, size_t lenIn): data(dataIn), len(lenIn) {}
     };
 
-// Commitment Tree related declarations
+    // Commitment Tree related declarations
+
+    typedef enum ProvingSystem {
+        Undefined,
+        Darlin,
+        CoboundaryMarlin
+    } ProvingSystem;
+
+    struct BitVectorElementsConfig {
+        uint32_t bit_vector_size_bits;
+        uint32_t max_compressed_byte_size;
+    };
 
     size_t zendoo_get_sc_custom_data_size_in_bytes(void);
 
@@ -88,38 +98,79 @@ extern "C" {
 
     void zendoo_commitment_tree_delete(commitment_tree_t *ptr);
 
-    bool zendoo_commitment_tree_add_scc(commitment_tree_t *ptr,
-         const BufferWithSize* sc_id,      uint64_t amount,                   const BufferWithSize* pub_key,
-         uint32_t withdrawal_epoch_length, const BufferWithSize* custom_data, const BufferWithSize* constant,
-         const BufferWithSize* cert_vk,    const BufferWithSize* btr_vk,      const BufferWithSize* csw_vk,
-         const BufferWithSize* tx_hash,    uint32_t out_idx,
-         CctpErrorCode *ret_code);
+    bool zendoo_commitment_tree_add_scc(
+        commitment_tree_t *ptr,
+        const BufferWithSize* sc_id,
+        uint64_t amount,
+        const BufferWithSize* pub_key,
+        const BufferWithSize* tx_hash,
+        uint32_t out_idx,
+        uint32_t withdrawal_epoch_length,
+        ProvingSystem cert_proving_system,
+        ProvingSystem csw_proving_system,
+        uint8_t mc_btr_request_data_length,
+        const BufferWithSize* custom_field_elements_config,
+        const BitVectorElementsConfig* custom_bv_elements_config,
+        size_t custom_bv_elements_config_len,
+        uint64_t btr_fee,
+        uint64_t ft_min_amount,
+        const BufferWithSize* cert_vk,
+        const BufferWithSize* csw_vk,
+        CctpErrorCode* ret_code
+    );
 
-    bool zendoo_commitment_tree_add_fwt(commitment_tree_t *ptr,
-         const BufferWithSize* sc_id,   int64_t amount, const BufferWithSize* pub_key,
-         const BufferWithSize* tx_hash, uint32_t out_idx,
-         CctpErrorCode *ret_code);
+    bool zendoo_commitment_tree_add_fwt(
+        commitment_tree_t *ptr,
+        const BufferWithSize* sc_id,
+        uint64_t amount,
+        const BufferWithSize* pub_key,
+        const BufferWithSize* tx_hash,
+        uint32_t out_idx,
+        CctpErrorCode* ret_code
+    );
 
-    bool zendoo_commitment_tree_add_bwtr(commitment_tree_t *ptr,
-         const BufferWithSize* sc_id,   int64_t sc_fee,                const BufferWithSize* sc_req_data,
-         const BufferWithSize* pk_hash, const BufferWithSize* tx_hash, uint32_t out_idx,
-         CctpErrorCode *ret_code);
+    bool zendoo_commitment_tree_add_bwtr(
+        commitment_tree_t *ptr,
+        const BufferWithSize* sc_id,
+        uint64_t sc_fee,
+        const BufferWithSize* sc_req_data,
+        size_t sc_req_data_len,
+        const BufferWithSize* mc_dest_addr,
+        const BufferWithSize* tx_hash,
+        uint32_t out_idx,
+        CctpErrorCode *ret_code
+    );
 
-    bool zendoo_commitment_tree_add_cert(commitment_tree_t *ptr,
-         const BufferWithSize* sc_id,                     uint32_t epoch_number,
-         uint64_t quality,                                const BufferWithSize* cert_data_hash,
-         const backward_transfer_t* bt_list,              size_t bt_list_len,
-         const BufferWithSize* custom_fields_merkle_root, const BufferWithSize* end_cum_comm_tree_root,
-         CctpErrorCode *ret_code);
+    bool zendoo_commitment_tree_add_csw(
+        commitment_tree_t *ptr,
+        const BufferWithSize* sc_id,
+        uint64_t amount,
+        const BufferWithSize* nullifier,
+        const BufferWithSize* pk_hash,
+        CctpErrorCode *ret_code
+    );
 
-    bool zendoo_commitment_tree_add_csw(commitment_tree_t *ptr,
-         const BufferWithSize* sc_id,   int64_t amount, const BufferWithSize* nullifier,
-         const BufferWithSize* pk_hash, const BufferWithSize* active_cert_data_hash, 
-         CctpErrorCode *ret_code);
+    bool zendoo_commitment_tree_add_cert(
+        commitment_tree_t *ptr,
+        const BufferWithSize* sc_id,
+        uint32_t epoch_number,
+        uint64_t quality,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
+        const BufferWithSize* custom_fields,
+        size_t custom_fields_len,
+        const BufferWithSize* end_cum_comm_tree_root,
+        uint64_t btr_fee,
+        uint64_t ft_min_amount,
+        CctpErrorCode* ret_code
+    );
 
-    field_t* zendoo_commitment_tree_get_commitment(commitment_tree_t *ptr);
+    field_t* zendoo_commitment_tree_get_commitment(
+        commitment_tree_t *ptr,
+        CctpErrorCode* ret_code
+    );
 
-// Bit Vectors related declarations
+    // Bit Vectors related declarations
 
     typedef enum eCompressionAlgorithm {
         Uncompressed,
@@ -128,141 +179,92 @@ extern "C" {
     } CompressionAlgorithm; 
 
     BufferWithSize* zendoo_compress_bit_vector(
-        const BufferWithSize* buf, CompressionAlgorithm algorithm, CctpErrorCode* ret_code);
+        const BufferWithSize* buf,
+        CompressionAlgorithm algorithm,
+        CctpErrorCode* ret_code
+    );
 
     BufferWithSize* zendoo_decompress_bit_vector(
-        const BufferWithSize* buf, size_t expected_decomp_len, CctpErrorCode* ret_code);
+        const BufferWithSize* buf,
+        size_t expected_decomp_len,
+        CctpErrorCode* ret_code
+    );
 
     field_t* zendoo_merkle_root_from_compressed_bytes(
-        const BufferWithSize* compressed_data, size_t expected_decomp_len, CctpErrorCode* ret_code);
+        const BufferWithSize* compressed_data,
+        size_t expected_decomp_len,
+        CctpErrorCode* ret_code
+    );
 
     void zendoo_free_bit_vector(BufferWithSize* buf);
 
-// experimental 
-    field_t* zendoo_poseidon_hash(const BufferWithSize *buf);
-
-//SC SNARK related functions
-
-    typedef struct sc_proof sc_proof_t;
-
-    /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
-    size_t zendoo_get_sc_proof_size_in_bytes(void);
-
-    /*
-     * Serialize a sc_proof into `sc_proof_bytes` given an opaque pointer `sc_proof` to it.
-     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
-     * returned by `zendoo_get_sc_proof_size_in_bytes`. Panic if serialization was unsuccessful
-     */
-    void zendoo_serialize_sc_proof(
-        const sc_proof_t* sc_proof,
-        unsigned char* sc_proof_bytes
-    );
-
-    /*
-     * Deserialize a sc_proof from `sc_proof_bytes` and return an opaque pointer to it.
-     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
-     * returned by `zendoo_get_sc_proof_size_in_bytes`. If `enforce_membership` flag is set, group membership
-     * test for curve points will be performed. Panic if deserialization fails or validity checks fail.
-     */
-    sc_proof_t* zendoo_deserialize_sc_proof(
-        const unsigned char* sc_proof_bytes,
-        bool enforce_membership
-    );
-
-    /*
-     * Free the memory from the sc_proof pointed by `sc_proof`. It's caller responsibility
-     * to set `sc_proof` to NULL afterwards. If `sc_proof` was already NULL, the function does
-     * nothing.
-     */
-    void zendoo_sc_proof_free(sc_proof_t* sc_proof);
-
-    typedef struct sc_vk sc_vk_t;
-
-    /* Get the number of bytes needed to serialize/deserialize a sc_vk. */
-    size_t zendoo_get_sc_vk_size_in_bytes(void);
-
-    /* Deserialize a sc_vk from a file at path `vk_path` and return an opaque pointer to it.
-     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
-     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
-     */
-    sc_vk_t* zendoo_deserialize_sc_vk_from_file(
-        const path_char_t* vk_path,
-        size_t vk_path_len,
-        bool enforce_membership
-    );
-
-    /*
-     * Deserialize a sc_vk from `sc_vk_bytes` and return an opaque pointer to it.
-     * It's caller's responsibility to ensure that `sc_vk_bytes` size is equal to the one
-     * returned by `zendoo_get_sc_vk_size_in_bytes`. If `enforce_membership` flag is set, group membership
-     * test for curve points will be performed. Panic if deserialization fails or validity checks fail.
-     */
-    sc_vk_t* zendoo_deserialize_sc_vk(
-        const unsigned char* sc_vk_bytes,
-        bool enforce_membership
-    );
-
-    /*
-     * Free the memory from the sc_vk pointed by `sc_vk`. It's caller responsibility
-     * to set `sc_vk` to NULL afterwards. If `sc_vk` was already null, the function does
-     * nothing.
-     */
-    void zendoo_sc_vk_free(sc_vk_t* sc_vk);
-
-
-    /*  Verify a sc_proof given an opaque pointer `sc_proof` to it, an opaque pointer
-     *  to the verification key `sc_vk` and all the data needed to construct
-     *  proof's public inputs. Returns `true` if proof verification was
-     *  successful, false otherwise, panic if some error occured. NOTE: `constant`,
-     *  `proofdata` and 'bt_list' can be NULL.
-     */
-    bool zendoo_verify_sc_proof(
-        const unsigned char* end_epoch_mc_b_hash,
-        const unsigned char* prev_end_epoch_mc_b_hash,
-        const backward_transfer_t* bt_list,
-        size_t bt_list_len,
-        uint64_t quality,
-        const field_t* constant,
-        const field_t* proofdata,
-        const sc_proof_t* sc_proof,
-        const sc_vk_t* sc_vk
-    );
-
-//Poseidon hash related functions
+    //Poseidon hash related functions
 
     typedef struct poseidon_hash poseidon_hash_t;
 
     /*
-     * Gets a new instance of poseidon_hash. It's possible to customize the initial Poseidon state
-     * given a vector of field elements as `personalization`; this is not mandatory and `personalization` can
-     * be NULL.
+     * Gets a new constant input length instance of poseidon_hash, specifying the exact input_size.
+     * It's possible to customize the initial Poseidon state given a vector of field elements
+     * as `personalization`; this is not mandatory and `personalization` can be NULL.
      */
-    poseidon_hash_t* zendoo_init_poseidon_hash(
+    poseidon_hash_t* zendoo_init_poseidon_hash_constant_length(
+        size_t input_size,
         const field_t** personalization,
-        size_t personalization_len
+        size_t personalization_len,
+        CctpErrorCode* ret_code
     );
 
     /*
-     * Updates `digest` with a new field element `fe`.
+     * Gets a new variable input length instance of poseidon_hash, specifying (if known a priori)
+     * if the input length will be mod rate of the hash function or not.
+     * It's possible to customize the initial Poseidon state given a vector of field elements
+     * as `personalization`; this is not mandatory and `personalization` can be NULL.
+     */
+    poseidon_hash_t* zendoo_init_poseidon_hash_variable_length(
+        bool mod_rate,
+        const field_t** personalization,
+        size_t personalization_len,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Updates `digest` with a new field element `fe` given an opaque pointer to it.
+     * Return true if the operation was successfull, false otherwise.
      * NOTE: The function will perform a copy of the FieldElement pointed by `fe` in order to store
      * it as its internal state, therefore it's possible to free `fe` immediately afterwards.
      */
-    void zendoo_update_poseidon_hash(const field_t* fe, poseidon_hash_t* digest);
+    bool zendoo_update_poseidon_hash(const field_t* fe, poseidon_hash_t* digest, CctpErrorCode* ret_code);
+
+
+    /*
+     * Updates `digest` with a new field element `fe` given a byte array from which deserializing it.
+     * Return true if the operation was successfull, false otherwise.
+     * NOTE: The function will deserialize a FieldElement out of BufferWithSize and store it in its
+     *       internal state, therefore it's possibile to destroy `fe` immediately after having called
+     *       this function.
+     */
+    bool zendoo_update_poseidon_hash_from_raw(const BufferWithSize* fe, poseidon_hash_t* digest, CctpErrorCode* ret_code);
 
     /*
      * Returns the final digest.
      * NOTE: This method is idempotent, and calling it multiple times will give the same result.
-     * It's also possible to `update` with more inputs in between.
+     * If `digest` instance is constant length, this function will return error if `digest` was
+     * not updated with the specified number of field elements;
+     * If `digest` instance is variable length and `mod_rate` was set to true, this function
+     * will return error if digest was not updated with a number of field elements that is
+     * multiple of its rate.
      */
-    field_t* zendoo_finalize_poseidon_hash(const poseidon_hash_t* digest);
+    field_t* zendoo_finalize_poseidon_hash(const poseidon_hash_t* digest, CctpErrorCode* ret_code);
 
     /*
      * Restore digest to its initial state, allowing to change `personalization` too if needed.
+     * Return true if operation was successfull, false otherwise.
      */
-    void zendoo_reset_poseidon_hash(
+    bool zendoo_reset_poseidon_hash(
         poseidon_hash_t* digest,
         const field_t** personalization,
-        size_t personalization_len
+        size_t personalization_len,
+        CctpErrorCode* ret_code
     );
 
     /*
@@ -281,24 +283,22 @@ extern "C" {
     struct ZendooPoseidonHash {
         poseidon_hash_t* digest;
 
-        ZendooPoseidonHash(){
-            digest = zendoo_init_poseidon_hash(NULL, 0);
+        ZendooPoseidonHash(poseidon_hash_t* digest): digest(digest) {}
+
+        bool update(const BufferWithSize* fe, CctpErrorCode* ret_code) {
+            return zendoo_update_poseidon_hash_from_raw(fe, digest, ret_code);
         }
 
-        ZendooPoseidonHash(const field_t** personalization, size_t personalization_len){
-            digest = zendoo_init_poseidon_hash(personalization, personalization_len);
+        bool update(field_t* fe, CctpErrorCode* ret_code) {
+            return zendoo_update_poseidon_hash(fe, digest, ret_code);
         }
 
-        void update(const field_t* fe) {
-            zendoo_update_poseidon_hash(fe, digest);
+        field_t* finalize(CctpErrorCode* ret_code){
+            return zendoo_finalize_poseidon_hash(digest, ret_code);
         }
 
-        field_t* finalize(){
-            return zendoo_finalize_poseidon_hash(digest);
-        }
-
-        void reset(const field_t** personalization, size_t personalization_len) {
-            zendoo_reset_poseidon_hash(digest, personalization, personalization_len);
+        bool reset(const field_t** personalization, size_t personalization_len, CctpErrorCode* ret_code) {
+            return zendoo_reset_poseidon_hash(digest, personalization, personalization_len, ret_code);
         }
 
         ~ZendooPoseidonHash() {
@@ -307,27 +307,51 @@ extern "C" {
     };
 
     /*
-     * Compute the Poseidon Hash of a list of field elements `input` of len `input_len`,
-     * passed as a list of opaque pointers. Returns an opaque pointer to the hash output
-     * or NULL if some error occurred.
+     * Specialization for constant length instances of PoseidonHash.
+     * The constructor requires to pass the input size.
+     * When finalizing the hash, a error will be thrown if this instance has
+     * not been updated with exactly the same number of inputs specified at
+     * creation time.
      */
-    field_t* zendoo_compute_poseidon_hash(
-        const field_t** input,
-        size_t input_len
-    )__attribute__((deprecated("Use ZendooPoseidonHash instead")));
+    struct ZendooPoseidonHashConstantLength: ZendooPoseidonHash {
 
-// Merkle Path related functions
+        ZendooPoseidonHashConstantLength(size_t input_size, CctpErrorCode* ret_code):
+            ZendooPoseidonHash(zendoo_init_poseidon_hash_constant_length(input_size, NULL, 0, ret_code)) {}
+
+        ZendooPoseidonHashConstantLength(size_t input_size, const field_t** personalization, size_t personalization_len, CctpErrorCode* ret_code):
+            ZendooPoseidonHash(zendoo_init_poseidon_hash_constant_length(input_size, personalization, personalization_len, ret_code)) {}
+    };
+
+    /*
+     * Specialization for variable length instances of PoseidonHash.
+     * The constructor requires to know (if known a priori), whether the input
+     * size will be modulus the rate of the hash function or not.
+     * When finalizing the hash, a error will be thrown if this instance was
+     * created with mod_rate = true but it has not been updated with a number
+     * of inputs which is effectively multiple of the rate.
+     */
+    struct ZendooPoseidonHashVariableLength: ZendooPoseidonHash {
+
+        ZendooPoseidonHashVariableLength(bool mod_rate, CctpErrorCode* ret_code):
+            ZendooPoseidonHash(zendoo_init_poseidon_hash_variable_length(mod_rate, NULL, 0, ret_code)) {}
+
+        ZendooPoseidonHashVariableLength(bool mod_rate, const field_t** personalization, size_t personalization_len, CctpErrorCode* ret_code):
+            ZendooPoseidonHash(zendoo_init_poseidon_hash_variable_length(mod_rate, personalization, personalization_len, ret_code)) {}
+    };
+
+    // Merkle Path related functions
 
     typedef struct ginger_merkle_path ginger_merkle_path_t;
 
     /*
-     * Verify the Merkle Path `path` from `leaf' to `root` for a Merkle Tree of height `height`
+     * Verify the Merkle Path `path` from `leaf' to `root` for a Merkle Tree of height `height`.
      */
     bool zendoo_verify_ginger_merkle_path(
         const ginger_merkle_path_t* path,
         size_t height,
-        const field_t* leaf,
-        const field_t* root
+        const BufferWithSize* leaf,
+        const BufferWithSize* root,
+        CctpErrorCode* ret_code
     );
 
     /*
@@ -338,59 +362,62 @@ extern "C" {
     void zendoo_free_ginger_merkle_path(ginger_merkle_path_t* path);
 
 
-//Poseidon-based Merkle Tree related functions
+    //Poseidon-based Merkle Tree related functions
 
     typedef struct ginger_mht ginger_mht_t;
 
     /*
      * Gets a new instance of a Ginger Merkle Tree, of height `height`.
      * `processing_step` is used to tune the memory usage of the tree.
-     * In particular, `processing_step` defines the number of leaves to
-     * store before triggering the computation of the root.
-     * Decreasing `processing_step` leads to less memory consumption but
-     * significantly worsen performances, as the computation of the root is
-     * triggered more often; conversely, increasing `processing_step` increases
-     * the memory usage too but improves performances.
-     * Meaningful values for `processing_step` are between 1 (i.e. update the root
-     * at each leaf), leading to best memory efficiency but worse performances, and
-     * the maximum number of leaves (or the mean number of leaves you plan to add),
-     * leading to worse memory efficiency but best performances (root is computed
-     * just once, but all the leaves must be kept in memory).
      */
     ginger_mht_t* zendoo_new_ginger_mht(size_t height, size_t processing_step);
 
     /*
-     * Appends `leaf` to `tree`.
+     * Appends `leaf` to `tree` given an opaque FieldElement pointer to it.
+     * Return true if the operation was successfull, false otherwise.
      * NOTE: The function will perform a copy of the FieldElement pointed by `leaf` in order to store
      * it as its internal state, therefore it's possible to free `leaf` immediately afterwards.
      */
-    void zendoo_append_leaf_to_ginger_mht(const field_t* leaf, ginger_mht_t* tree);
+    bool zendoo_append_leaf_to_ginger_mht(const field_t* leaf, ginger_mht_t* tree, CctpErrorCode* ret_code);
+
+    /*
+     * Appends `leaf` to `tree` given a byte array from which deserializing a FieldElement.
+     * Return true if the operation was successfull, false otherwise.
+     * NOTE: The function will deserialize a FieldElement out of BufferWithSize and store it in its
+     *       internal state, therefore it's possibile to destroy `fe` immediately after having called
+     *       this function.
+     */
+    bool zendoo_append_leaf_to_ginger_mht_from_raw(const BufferWithSize* leaf, ginger_mht_t* tree, CctpErrorCode* ret_code);
 
     /*
      * This function finalizes the computation of the Merkle tree and returns an updated
      * copy of it. This method is idempotent, and calling it multiple times will
      * give the same result. It's also possible to `update` with more inputs in between.
      */
-    ginger_mht_t* zendoo_finalize_ginger_mht(const ginger_mht_t* tree);
+    ginger_mht_t* zendoo_finalize_ginger_mht(const ginger_mht_t* tree, CctpErrorCode* ret_code);
 
     /*
      * This function finalizes the computation of the Merkle tree
      * Once this function is called, it is not possible to further update the tree.
+     * Return true if the operation was successfull, false otherwise.
      */
-    void zendoo_finalize_ginger_mht_in_place(ginger_mht_t* tree);
+    bool zendoo_finalize_ginger_mht_in_place(ginger_mht_t* tree, CctpErrorCode* ret_code);
 
     /*
      * Returns the root of the Merkle Tree. This function must be called on a finalized tree.
      * If not, the function returns null.
      */
-    field_t* zendoo_get_ginger_mht_root(const ginger_mht_t* tree);
+    field_t* zendoo_get_ginger_mht_root(const ginger_mht_t* tree, CctpErrorCode* ret_code);
 
     /*
      * Returns the path from the leaf at `leaf_index` to the root of `tree`.
+     * This function must be called on a finalized tree.
+     * If not, the function returns null.
      */
     ginger_merkle_path_t* zendoo_get_ginger_merkle_path(
         const ginger_mht_t* tree,
-        size_t leaf_index
+        size_t leaf_index,
+        CctpErrorCode* ret_code
     );
 
     /*
@@ -402,7 +429,7 @@ extern "C" {
     /*
      * Restores the tree to its initial state.
      */
-    void zendoo_reset_ginger_mht(ginger_mht_t* tree);
+    bool zendoo_reset_ginger_mht(ginger_mht_t* tree, CctpErrorCode* ret_code);
 
     /*
      * Free the memory from the Ginger Random Access Merkle Tree pointed by `tree`.
@@ -426,28 +453,32 @@ extern "C" {
             tree = zendoo_new_ginger_mht(height, processing_step);
         }
 
-        void append(const field_t* leaf) {
-            zendoo_append_leaf_to_ginger_mht(leaf, tree);
+        bool append(const field_t* leaf, CctpErrorCode* ret_code) {
+            return zendoo_append_leaf_to_ginger_mht(leaf, tree, ret_code);
         }
 
-        ZendooGingerMerkleTree finalize(){
-            return ZendooGingerMerkleTree(zendoo_finalize_ginger_mht(tree));
+        bool append(const BufferWithSize* leaf, CctpErrorCode* ret_code) {
+            return zendoo_append_leaf_to_ginger_mht_from_raw(leaf, tree, ret_code);
         }
 
-        void finalize_in_place(){
-            zendoo_finalize_ginger_mht_in_place(tree);
+        ginger_mht_t* finalize(CctpErrorCode* ret_code){
+            return zendoo_finalize_ginger_mht(tree, ret_code);
         }
 
-        field_t* root(){
-            return zendoo_get_ginger_mht_root(tree);
+        bool finalize_in_place(CctpErrorCode* ret_code){
+            return zendoo_finalize_ginger_mht_in_place(tree, ret_code);
         }
 
-        ginger_merkle_path_t* get_merkle_path(size_t leaf_index) {
-            return zendoo_get_ginger_merkle_path(tree, leaf_index);
+        field_t* root(CctpErrorCode* ret_code){
+            return zendoo_get_ginger_mht_root(tree, ret_code);
         }
 
-        void reset(){
-            zendoo_reset_ginger_mht(tree);
+        ginger_merkle_path_t* get_merkle_path(size_t leaf_index, CctpErrorCode* ret_code) {
+            return zendoo_get_ginger_merkle_path(tree, leaf_index, ret_code);
+        }
+
+        bool reset(CctpErrorCode* ret_code){
+            return zendoo_reset_ginger_mht(tree, ret_code);
         }
 
         static field_t* get_empty_node(size_t height) {
@@ -458,38 +489,6 @@ extern "C" {
             zendoo_free_ginger_mht(tree);
         }
     };
-
-//Test functions
-
-    /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
-     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
-     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
-     */
-    sc_proof_t* zendoo_deserialize_sc_proof_from_file(
-        const path_char_t* proof_path,
-        size_t proof_path_len,
-        bool enforce_membership
-    );
-
-    /* Generates and saves at specified path params_dir the proving key and verification key for MCTestCircuit */
-    bool zendoo_generate_mc_test_params(
-        const path_char_t* params_dir,
-        size_t params_dir_len
-    );
-
-    /* Generates, given the required witnesses and the proving key, a MCTestCircuit proof, and saves it at specified path */
-    bool zendoo_create_mc_test_proof(
-        const unsigned char* end_epoch_mc_b_hash,
-        const unsigned char* prev_end_epoch_mc_b_hash,
-        const backward_transfer_t* bt_list,
-        size_t bt_list_len,
-        uint64_t quality,
-        const field_t* constant,
-        const path_char_t* pk_path,
-        size_t pk_path_len,
-        const path_char_t* proof_path,
-        size_t proof_path_len
-    );
 
     /* Get an opaque pointer to a random field element */
     field_t* zendoo_get_random_field(void);
@@ -505,13 +504,137 @@ extern "C" {
         const field_t* field_2
     );
 
-    /* Return `true` if the vks pointed by `sc_vk_1` and `sc_vk_2` are
-     * equal, and `false` otherwise.
-     */
-    bool zendoo_sc_vk_assert_eq(
-        const sc_vk_t* sc_vk_1,
-        const sc_vk_t* sc_vk_2
-    );
+//    // experimental
+//    field_t* zendoo_poseidon_hash(const BufferWithSize *buf);
+//
+//    //SC SNARK related functions
+//
+//    typedef struct sc_proof sc_proof_t;
+//
+//    /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
+//    size_t zendoo_get_sc_proof_size_in_bytes(void);
+//
+//    /*
+//     * Serialize a sc_proof into `sc_proof_bytes` given an opaque pointer `sc_proof` to it.
+//     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
+//     * returned by `zendoo_get_sc_proof_size_in_bytes`. Panic if serialization was unsuccessful
+//     */
+//    void zendoo_serialize_sc_proof(
+//        const sc_proof_t* sc_proof,
+//        unsigned char* sc_proof_bytes
+//    );
+//
+//    /*
+//     * Deserialize a sc_proof from `sc_proof_bytes` and return an opaque pointer to it.
+//     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
+//     * returned by `zendoo_get_sc_proof_size_in_bytes`. If `enforce_membership` flag is set, group membership
+//     * test for curve points will be performed. Panic if deserialization fails or validity checks fail.
+//     */
+//    sc_proof_t* zendoo_deserialize_sc_proof(
+//        const unsigned char* sc_proof_bytes,
+//        bool enforce_membership
+//    );
+//
+//    /*
+//     * Free the memory from the sc_proof pointed by `sc_proof`. It's caller responsibility
+//     * to set `sc_proof` to NULL afterwards. If `sc_proof` was already NULL, the function does
+//     * nothing.
+//     */
+//    void zendoo_sc_proof_free(sc_proof_t* sc_proof);
+//
+//    typedef struct sc_vk sc_vk_t;
+//
+//    /* Get the number of bytes needed to serialize/deserialize a sc_vk. */
+//    size_t zendoo_get_sc_vk_size_in_bytes(void);
+//
+//    /* Deserialize a sc_vk from a file at path `vk_path` and return an opaque pointer to it.
+//     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
+//     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
+//     */
+//    sc_vk_t* zendoo_deserialize_sc_vk_from_file(
+//        const path_char_t* vk_path,
+//        size_t vk_path_len,
+//        bool enforce_membership
+//    );
+//
+//    /*
+//     * Deserialize a sc_vk from `sc_vk_bytes` and return an opaque pointer to it.
+//     * It's caller's responsibility to ensure that `sc_vk_bytes` size is equal to the one
+//     * returned by `zendoo_get_sc_vk_size_in_bytes`. If `enforce_membership` flag is set, group membership
+//     * test for curve points will be performed. Panic if deserialization fails or validity checks fail.
+//     */
+//    sc_vk_t* zendoo_deserialize_sc_vk(
+//        const unsigned char* sc_vk_bytes,
+//        bool enforce_membership
+//    );
+//
+//    /*
+//     * Free the memory from the sc_vk pointed by `sc_vk`. It's caller responsibility
+//     * to set `sc_vk` to NULL afterwards. If `sc_vk` was already null, the function does
+//     * nothing.
+//     */
+//    void zendoo_sc_vk_free(sc_vk_t* sc_vk);
+//
+//
+//    /*  Verify a sc_proof given an opaque pointer `sc_proof` to it, an opaque pointer
+//     *  to the verification key `sc_vk` and all the data needed to construct
+//     *  proof's public inputs. Returns `true` if proof verification was
+//     *  successful, false otherwise, panic if some error occured. NOTE: `constant`,
+//     *  `proofdata` and 'bt_list' can be NULL.
+//     */
+//    bool zendoo_verify_sc_proof(
+//        const unsigned char* end_epoch_mc_b_hash,
+//        const unsigned char* prev_end_epoch_mc_b_hash,
+//        const backward_transfer_t* bt_list,
+//        size_t bt_list_len,
+//        uint64_t quality,
+//        const field_t* constant,
+//        const field_t* proofdata,
+//        const sc_proof_t* sc_proof,
+//        const sc_vk_t* sc_vk
+//    );
+//
+//
+//    //Test functions
+//
+//    /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
+//     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
+//     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
+//     */
+//    sc_proof_t* zendoo_deserialize_sc_proof_from_file(
+//        const path_char_t* proof_path,
+//        size_t proof_path_len,
+//        bool enforce_membership
+//    );
+//
+//    /* Generates and saves at specified path params_dir the proving key and verification key for MCTestCircuit */
+//    bool zendoo_generate_mc_test_params(
+//        const path_char_t* params_dir,
+//        size_t params_dir_len
+//    );
+//
+//    /* Generates, given the required witnesses and the proving key, a MCTestCircuit proof, and saves it at specified path */
+//    bool zendoo_create_mc_test_proof(
+//        const unsigned char* end_epoch_mc_b_hash,
+//        const unsigned char* prev_end_epoch_mc_b_hash,
+//        const backward_transfer_t* bt_list,
+//        size_t bt_list_len,
+//        uint64_t quality,
+//        const field_t* constant,
+//        const path_char_t* pk_path,
+//        size_t pk_path_len,
+//        const path_char_t* proof_path,
+//        size_t proof_path_len
+//    );
+//
+//     /* Return `true` if the vks pointed by `sc_vk_1` and `sc_vk_2` are
+//       * equal, and `false` otherwise.
+//       */
+//      bool zendoo_sc_vk_assert_eq(
+//          const sc_vk_t* sc_vk_1,
+//          const sc_vk_t* sc_vk_2
+//      );
+//
 }
 
 #endif // ZENDOO_MC_INCLUDE_H_

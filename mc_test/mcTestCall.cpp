@@ -46,7 +46,7 @@ void create_verify(int argc, char** argv)
     assert(constant_f != NULL);
 
     // Create bt_list
-    // Inputs must be (pk_dest, amount) pairs from which construct backward_transfer objects
+    // Inputs must be (pk_dest, amount) pairs from which construct backward_transfer_t objects
     assert((argc - arg) % 2 == 0);
     int bt_list_length = (argc - arg)/2;
     assert(bt_list_length >= 0);

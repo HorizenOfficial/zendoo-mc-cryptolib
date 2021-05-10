@@ -5,7 +5,7 @@ use crate::{
     zendoo_serialize_field,
     //zendoo_sc_proof_free,
     zendoo_field_free,
-    //BackwardTransfer,
+    //backward_transfer_t,
     zendoo_field_assert_eq,
     //zendoo_deserialize_sc_vk_from_file,
     //zendoo_sc_vk_free,
@@ -148,7 +148,7 @@ fn verify_zkproof_test() {
     let bt_num = 10;
     let mut bt_list = vec![];
     for _ in 0..bt_num {
-        bt_list.push(BackwardTransfer {
+        bt_list.push(backward_transfer_t {
             pk_dest: [0u8; 20],
             amount: 0,
         });
@@ -311,7 +311,7 @@ fn create_verify_mc_test_proof(){
     let bt_num: usize = rng.gen_range(0, 11);
     let mut bt_list = vec![];
     for _ in 0..bt_num {
-        bt_list.push(BackwardTransfer {
+        bt_list.push(backward_transfer_t {
             pk_dest: [0u8; 20],
             amount: 0,
         });
