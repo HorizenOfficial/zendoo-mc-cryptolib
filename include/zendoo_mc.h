@@ -4,9 +4,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-static const size_t SC_FIELD_SIZE = 32;
-static const size_t SC_CUSTOM_DATA_MAX_SIZE = 1024;
-
 extern "C" {
 
     #ifdef WIN32
@@ -26,8 +23,12 @@ extern "C" {
             InvalidValue,
             InvalidBufferData,
             InvalidBufferLength,
+            InvalidFile,
             HashingError,
             MerkleTreeError,
+            ProofVerificationFailure,
+            BatchVerifierFailure,
+            FailedBatchProofVerification,
             CompressError,
             UncompressError,
             MerkleRootBuildError,
@@ -114,6 +115,8 @@ extern "C" {
         size_t custom_bv_elements_config_len,
         uint64_t btr_fee,
         uint64_t ft_min_amount,
+        const BufferWithSize* custom_creation_data,
+        const field_t* constant,
         const BufferWithSize* cert_vk,
         const BufferWithSize* csw_vk,
         CctpErrorCode* ret_code
@@ -133,7 +136,7 @@ extern "C" {
         commitment_tree_t *ptr,
         const BufferWithSize* sc_id,
         uint64_t sc_fee,
-        const BufferWithSize* sc_req_data,
+        const field_t** sc_req_data,
         size_t sc_req_data_len,
         const BufferWithSize* mc_dest_addr,
         const BufferWithSize* tx_hash,
@@ -145,8 +148,8 @@ extern "C" {
         commitment_tree_t *ptr,
         const BufferWithSize* sc_id,
         uint64_t amount,
-        const BufferWithSize* nullifier,
-        const BufferWithSize* pk_hash,
+        const field_t* nullifier,
+        const BufferWithSize* mc_pk_hash,
         CctpErrorCode *ret_code
     );
 
@@ -157,9 +160,9 @@ extern "C" {
         uint64_t quality,
         const backward_transfer_t* bt_list,
         size_t bt_list_len,
-        const BufferWithSize* custom_fields,
+        const field_t** custom_fields,
         size_t custom_fields_len,
-        const BufferWithSize* end_cum_comm_tree_root,
+        const field_t* end_cum_comm_tree_root,
         uint64_t btr_fee,
         uint64_t ft_min_amount,
         CctpErrorCode* ret_code
@@ -504,95 +507,259 @@ extern "C" {
         const field_t* field_2
     );
 
-//    // experimental
-//    field_t* zendoo_poseidon_hash(const BufferWithSize *buf);
-//
-//    //SC SNARK related functions
-//
-//    typedef struct sc_proof sc_proof_t;
-//
-//    /* Get the number of bytes needed to serialize/deserialize a sc_proof. */
-//    size_t zendoo_get_sc_proof_size_in_bytes(void);
-//
-//    /*
-//     * Serialize a sc_proof into `sc_proof_bytes` given an opaque pointer `sc_proof` to it.
-//     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
-//     * returned by `zendoo_get_sc_proof_size_in_bytes`. Panic if serialization was unsuccessful
-//     */
-//    void zendoo_serialize_sc_proof(
-//        const sc_proof_t* sc_proof,
-//        unsigned char* sc_proof_bytes
-//    );
-//
-//    /*
-//     * Deserialize a sc_proof from `sc_proof_bytes` and return an opaque pointer to it.
-//     * It's caller's responsibility to ensure that `sc_proof_bytes` size is equal to the one
-//     * returned by `zendoo_get_sc_proof_size_in_bytes`. If `enforce_membership` flag is set, group membership
-//     * test for curve points will be performed. Panic if deserialization fails or validity checks fail.
-//     */
-//    sc_proof_t* zendoo_deserialize_sc_proof(
-//        const unsigned char* sc_proof_bytes,
-//        bool enforce_membership
-//    );
-//
-//    /*
-//     * Free the memory from the sc_proof pointed by `sc_proof`. It's caller responsibility
-//     * to set `sc_proof` to NULL afterwards. If `sc_proof` was already NULL, the function does
-//     * nothing.
-//     */
-//    void zendoo_sc_proof_free(sc_proof_t* sc_proof);
-//
-//    typedef struct sc_vk sc_vk_t;
-//
-//    /* Get the number of bytes needed to serialize/deserialize a sc_vk. */
-//    size_t zendoo_get_sc_vk_size_in_bytes(void);
-//
-//    /* Deserialize a sc_vk from a file at path `vk_path` and return an opaque pointer to it.
-//     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
-//     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
-//     */
-//    sc_vk_t* zendoo_deserialize_sc_vk_from_file(
-//        const path_char_t* vk_path,
-//        size_t vk_path_len,
-//        bool enforce_membership
-//    );
-//
-//    /*
-//     * Deserialize a sc_vk from `sc_vk_bytes` and return an opaque pointer to it.
-//     * It's caller's responsibility to ensure that `sc_vk_bytes` size is equal to the one
-//     * returned by `zendoo_get_sc_vk_size_in_bytes`. If `enforce_membership` flag is set, group membership
-//     * test for curve points will be performed. Panic if deserialization fails or validity checks fail.
-//     */
-//    sc_vk_t* zendoo_deserialize_sc_vk(
-//        const unsigned char* sc_vk_bytes,
-//        bool enforce_membership
-//    );
-//
-//    /*
-//     * Free the memory from the sc_vk pointed by `sc_vk`. It's caller responsibility
-//     * to set `sc_vk` to NULL afterwards. If `sc_vk` was already null, the function does
-//     * nothing.
-//     */
-//    void zendoo_sc_vk_free(sc_vk_t* sc_vk);
-//
-//
-//    /*  Verify a sc_proof given an opaque pointer `sc_proof` to it, an opaque pointer
-//     *  to the verification key `sc_vk` and all the data needed to construct
-//     *  proof's public inputs. Returns `true` if proof verification was
-//     *  successful, false otherwise, panic if some error occured. NOTE: `constant`,
-//     *  `proofdata` and 'bt_list' can be NULL.
-//     */
-//    bool zendoo_verify_sc_proof(
-//        const unsigned char* end_epoch_mc_b_hash,
-//        const unsigned char* prev_end_epoch_mc_b_hash,
-//        const backward_transfer_t* bt_list,
-//        size_t bt_list_len,
-//        uint64_t quality,
-//        const field_t* constant,
-//        const field_t* proofdata,
-//        const sc_proof_t* sc_proof,
-//        const sc_vk_t* sc_vk
-//    );
+    //SC SNARK related functions
+
+    typedef struct sc_proof sc_proof_t;
+
+    /*
+     * Serialize a proof given an opaque pointer `sc_proof` to it.
+     * Instantiate and return a BufferWithSize containing the proof bytes.
+     */
+    BufferWithSize* zendoo_serialize_sc_proof(
+        const sc_proof_t* proof,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Deserialize a proof from `sc_proof_bytes` and return an opaque pointer to it.
+     * If `semantic_checks` flag is set, semantic checks on the proof will be performed.
+     */
+    sc_proof_t* zendoo_deserialize_sc_proof(
+        const BufferWithSize* sc_proof_bytes,
+        bool semantic_checks,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Free the memory from the sc_proof pointed by `sc_proof`. It's caller responsibility
+     * to set `sc_proof` to NULL afterwards. If `sc_proof` was already NULL, the function does
+     * nothing.
+     */
+    void zendoo_sc_proof_free(sc_proof_t* proof);
+
+    typedef struct sc_vk sc_vk_t;
+
+    /* Deserialize a sc_vk from a file at path `vk_path` and return an opaque pointer to it.
+     * If `semantic_checks` flag is set, semantic checks on vk will be performed.
+     */
+    sc_vk_t* zendoo_deserialize_sc_vk_from_file(
+        const path_char_t* vk_path,
+        size_t vk_path_len,
+        bool semantic_checks,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Deserialize a sc_vk from `sc_vk_bytes` and return an opaque pointer to it.
+     * If `semantic_checks` flag is set, semantic checks on vk will be performed.
+     */
+    sc_vk_t* zendoo_deserialize_sc_vk(
+        const BufferWithSize* sc_vk_bytes,
+        bool semantic_checks,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Free the memory from the sc_vk pointed by `sc_vk`. It's caller responsibility
+     * to set `sc_vk` to NULL afterwards. If `sc_vk` was already null, the function does
+     * nothing.
+     */
+    void zendoo_sc_vk_free(sc_vk_t* vk);
+
+    /*  Verify a certificate proof sc_proof `sc_proof` given its corresponding sc_vk `sc_vk`
+     *  and all the data needed to construct proof's public inputs. Return true if
+     *  proof verification was successful, false otherwise.
+     *  NOTE: `constant`, `custom_fields` and 'bt_list' can be NULL.
+     */
+    bool zendoo_verify_certificate_proof(
+        const field_t* constant,
+        uint32_t epoch_number,
+        uint64_t quality,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
+        const field_t** custom_fields,
+        size_t custom_fields_len,
+        const field_t* end_cum_comm_tree_root,
+        uint64_t btr_fee,
+        uint64_t ft_min_amount,
+        sc_proof_t* sc_proof,
+        sc_vk_t*    sc_vk,
+        CctpErrorCode* ret_code
+    );
+
+    /*  Verify a CSW proof sc_proof `sc_proof` given its corresponding sc_vk `sc_vk`
+     *  and all the data needed to construct proof's public inputs. Return true if
+     *  proof verification was successful, false otherwise.
+     */
+    bool zendoo_verify_csw_proof(
+        uint64_t amount,
+        const BufferWithSize* sc_id,
+        const BufferWithSize* mc_pk_hash,
+        const field_t* cert_data_hash,
+        const field_t* end_cum_comm_tree_root,
+        sc_proof_t* sc_proof,
+        sc_vk_t*    sc_vk,
+        CctpErrorCode* ret_code
+    );
+
+    typedef struct sc_batch_proof_verifier sc_batch_proof_verifier_t;
+
+    /*
+     * Return an instance of sc_batch_proof_verifier
+     */
+    sc_batch_proof_verifier_t* zendoo_create_batch_proof_verifier();
+
+    /* Add a certificate proof to the batch of proofs to be verified, given
+     * all the data required to reconstruct the public inputs, the proof
+     * `sc_proof` and the verification key `sc_vk`.
+     *  NOTE:
+     *      - `constant`, `custom_fields` and 'bt_list' can be NULL;
+     *      -  proof, vk and the public input derived from the other data
+     *         will be copied in order to store them in `batch_verifier`
+     *         state, so they can be immediately freed afterwards.
+     */
+    bool zendoo_add_certificate_proof_to_batch_verifier(
+        sc_batch_proof_verifier_t* batch_verifier,
+        uint32_t proof_id,
+        const field_t* constant,
+        uint32_t epoch_number,
+        uint64_t quality,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
+        const field_t** custom_fields,
+        size_t custom_fields_len,
+        const field_t* end_cum_comm_tree_root,
+        uint64_t btr_fee,
+        uint64_t ft_min_amount,
+        sc_proof_t* sc_proof,
+        sc_vk_t*    sc_vk,
+        CctpErrorCode* ret_code
+    );
+
+    /*  Verify a CSW proof sc_proof `sc_proof` given its corresponding sc_vk `sc_vk`
+     *  and all the data needed to construct proof's public inputs. Return true if
+     *  proof verification was successful, false otherwise.
+     *  NOTE: proof, vk and the public input derived from the other data will be
+     *        copied in order to store them in `batch_verifier` state, so they
+     *        can be immediately freed afterwards.
+     */
+    bool zendoo_add_csw_proof_to_batch_verifier(
+        sc_batch_proof_verifier_t* batch_verifier,
+        uint32_t proof_id,
+        uint64_t amount,
+        const BufferWithSize* sc_id,
+        const BufferWithSize* mc_pk_hash,
+        const field_t* cert_data_hash,
+        const field_t* end_cum_comm_tree_root,
+        sc_proof_t* sc_proof,
+        sc_vk_t*    sc_vk,
+        CctpErrorCode* ret_code
+    );
+
+    /* Wraps the result of a batch verification.
+     * If result == true, failing_proof should be set to -1;
+     * If result == false, failing proof should be set to the id of the failing proof,
+     * if it's possibile to estabilish it, to -1 otherwise.
+     */
+    struct ZendooBatchProofVerifierResult {
+        bool result;
+        int64_t failing_proof;
+    };
+
+    /*
+     * Perform batch verification of all the proofs added to `batch_verifier`.
+     */
+    ZendooBatchProofVerifierResult zendoo_batch_verify_all_proofs(
+        const sc_batch_proof_verifier_t* batch_verifier,
+        CctpErrorCode* ret_code,
+    );
+
+    /*
+     * Perform batch verification of the proofs added to `batch_verifier` whose id is contained in `ids_list`.
+     */
+    ZendooBatchProofVerifierResult zendoo_batch_verify_proofs_by_id(
+        const sc_batch_proof_verifier_t* batch_verifier,
+        const uint32_t* ids_list,
+        size_t ids_list_len,
+        CctpErrorCode* ret_code,
+    );
+
+    /*
+     * Free the memory pointed by `batch_verifier`,
+    */
+    void zendoo_free_batch_proof_verifier(sc_batch_proof_verifier_t* batch_verifier)
+
+
+    /*
+     *   Support struct to enhance and make easier the usage of sc_batch_proof_verifier, by
+     *   making batch_verifier a member of the struct and wrapping the functions
+     *   above. Note the definition of the destructor: when an instance of this struct
+     *   will go out of scope, the memory Rust-side will be automatically freed.
+     */
+    struct ZendooBatchProofVerifier {
+        sc_batch_proof_verifier_t* batch_verifier;
+
+        ZendooBatchProofVerifier(sc_batch_proof_verifier_t* batch_verifier): batch_verifier(batch_verifier) {}
+
+        ZendooBatchProofVerifier() {
+            batch_verifier = zendoo_create_batch_proof_verifier();
+        }
+
+        bool add_certificate_proof(
+            uint32_t proof_id,
+            const BufferWithSize* constant,
+            const BufferWithSize* custom_fields,
+            uint32_t epoch_number,
+            const BufferWithSize* end_cum_comm_tree_root,
+            uint64_t btr_fee,
+            uint64_t ft_min_amount,
+            const backward_transfer_t* bt_list,
+            size_t bt_list_len,
+            uint64_t quality,
+            sc_proof_t* sc_proof,
+            sc_vk_t*    sc_vk,
+            CctpErrorCode* ret_code,
+        )
+        {
+            return zendoo_add_certificate_proof_to_batch_verifier(
+                batch_verifier, proof_id, constant, custom_fields, custom_fields_len,
+                epoch_number, end_cum_comm_tree_root, btr_fee, ft_min_amount, bt_list,
+                bt_list_len, quality, sc_proof, sc_vk, ret_code
+            );
+        }
+
+        bool zendoo_add_csw_proof_to_batch_verifier(
+            uint32_t proof_id,
+            uint64_t amount,
+            const BufferWithSize* sc_id,
+            const BufferWithSize* mc_pk_hash,
+            const field_t* cert_data_hash,
+            const field_t* end_cum_comm_tree_root,
+            sc_proof_t* sc_proof,
+            sc_vk_t*    sc_vk,
+            CctpErrorCode* ret_code
+        )
+        {
+            return zendoo_add_csw_proof_to_batch_verifier(
+                batch_verifier, proof_id, amount, sc_id, mc_pk_hash,
+                cert_data_hash, end_cum_comm_tree_root, sc_proof,
+                sc_vk, ret_code
+            );
+        }
+
+        ZendooBatchProofVerifierResult batch_verify_all(CctpErrorCode* ret_code) {
+            return zendoo_batch_verify_all_proofs(batch_verifier, ret_code);
+        }
+
+        ZendooBatchProofVerifierResult batch_verify_subset(const uint32_t* ids_list, size_t ids_list_len, CctpErrorCode* ret_code) {
+            return zendoo_batch_verify_proofs_by_id(batch_verifier, ids_list, ids_list_len, ret_code);
+        }
+        
+        ~ZendooBatchProofVerifier() {
+            zendoo_free_batch_proof_verifier(batch_verifier);
+        }
+    }
+
 //
 //
 //    //Test functions

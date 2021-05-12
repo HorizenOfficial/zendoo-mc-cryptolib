@@ -1,7 +1,29 @@
+use algebra::UniformRand;
 use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
-use std::ptr::null_mut;
-use std::convert::TryInto;
+use std::{
+    convert::TryInto,
+    ptr::null_mut,
+    path::Path,
+    slice
+};
+
+use cctp_primitives::{
+    bit_vector::{compression::*, merkle_tree::*},
+    commitment_tree::CommitmentTree,
+    proving_system::{
+        *, error::ProvingSystemError,
+        verifier::{
+            certificate::CertificateProofUserInputs,
+            verify_zendoo_proof, batch_verifier::ZendooBatchVerifier,
+            ceased_sidechain_withdrawal::CSWProofUserInputs,
+        }
+    },
+    utils::{
+        data_structures::{BitVectorElementsConfig, BackwardTransfer},
+        poseidon_hash::*, mht::*, serialization::{deserialize_from_buffer, serialize_to_buffer}
+    }
+};
 
 pub mod type_mapping;
 use type_mapping::*;
@@ -9,6 +31,11 @@ use type_mapping::*;
 #[macro_use]
 pub mod macros;
 use macros::*;
+
+#[cfg(feature = "mc-test-circuit")]
+pub mod mc_test_circuits;
+#[cfg(feature = "mc-test-circuit")]
+use mc_test_circuits::*;
 
 #[cfg(test)]
 pub mod tests;
@@ -21,13 +48,6 @@ pub(crate) fn free_pointer<T> (ptr: *mut T) {
 }
 
 //*********** Commitment Tree functions ****************
-use cctp_primitives::{
-    commitment_tree::CommitmentTree,
-    utils::{
-        data_structures::{ProvingSystem, BitVectorElementsConfig, BackwardTransfer},
-        poseidon_hash::*, mht::*
-    }
-};
 
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_create() -> *mut CommitmentTree {
@@ -62,7 +82,7 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
     btr_fee:                        u64,
     ft_min_amount:                  u64,
     ccd:                            *const BufferWithSize,
-    constant:                       *const BufferWithSize,
+    constant:                       *const FieldElement,
     cert_vk:                        *const BufferWithSize,
     csw_vk:                         *const BufferWithSize,
     ret_code:                       &mut CctpErrorCode
@@ -91,7 +111,7 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
     let rs_cert_vk =        try_get_buffer_variable_size!("cert_vk",                      cert_vk,                      ret_code, false);
 
     // optional parameters
-    let rs_constant     = try_get_optional_buffer_constant_size!("constant", constant, FIELD_SIZE, ret_code, false);
+    let rs_constant     = try_read_optional_raw_pointer!("constant", constant, ret_code, false);
     let rs_csw_vk       = try_get_optional_buffer_variable_size!("csw_vk", csw_vk, ret_code, false);
     let csw_proving_system = match csw_proving_system {
         ProvingSystem::Undefined => None,
@@ -149,7 +169,7 @@ pub extern "C" fn zendoo_commitment_tree_add_bwtr(
     ptr:                    *mut CommitmentTree,
     sc_id:                  *const BufferWithSize,
     sc_fee:                 u64,
-    sc_req_data:            *const BufferWithSize,
+    sc_req_data:            *const *const FieldElement,
     sc_req_data_len:        usize,
     mc_dest_addr:           *const BufferWithSize,
     tx_hash:                *const BufferWithSize,
@@ -168,7 +188,7 @@ pub extern "C" fn zendoo_commitment_tree_add_bwtr(
     let rs_tx_hash      = try_get_buffer_constant_size!("tx_hash",      tx_hash,      UINT_256_SIZE, ret_code, false);
 
     // Read sc_req_data_list
-    let rs_sc_req_data = try_get_constant_length_buffers_list!("sc_req_data", sc_req_data, sc_req_data_len, FIELD_SIZE, ret_code, false);
+    let rs_sc_req_data = try_read_double_raw_pointer!("sc_req_data", sc_req_data, sc_req_data_len, ret_code, false);
 
     let ret = cmt.add_bwtr(
         rs_sc_id, sc_fee, rs_sc_req_data, rs_mc_dest_addr, rs_tx_hash, out_idx);
@@ -185,7 +205,7 @@ pub extern "C" fn zendoo_commitment_tree_add_csw(
     ptr :       *mut CommitmentTree,
     sc_id:      *const BufferWithSize,
     amount:     u64,
-    nullifier:  *const BufferWithSize,
+    nullifier:  *const FieldElement,
     pk_hash:    *const BufferWithSize,
     ret_code:   &mut CctpErrorCode
 )-> bool
@@ -196,8 +216,8 @@ pub extern "C" fn zendoo_commitment_tree_add_csw(
     let cmt = try_read_mut_raw_pointer!("commitment_tree", ptr, ret_code, false);
 
     let rs_sc_id     = try_get_buffer_constant_size!("sc_id",     sc_id,     UINT_256_SIZE, ret_code, false);
-    let rs_nullifier = try_get_buffer_constant_size!("nullifier", nullifier, FIELD_SIZE,    ret_code, false);
     let rs_pk_hash   = try_get_buffer_constant_size!("pk_hash",   pk_hash,   UINT_160_SIZE, ret_code, false);
+    let rs_nullifier = try_read_raw_pointer!("nullifier", nullifier, ret_code, false);
 
     let ret = cmt.add_csw(rs_sc_id, amount, rs_nullifier, rs_pk_hash);
 
@@ -216,9 +236,9 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(
     quality:                u64,
     bt_list:                *const BackwardTransfer,
     bt_list_len:            usize,
-    custom_fields:          *const BufferWithSize,
+    custom_fields:          *const *const FieldElement,
     custom_fields_len:      usize,
-    end_cum_comm_tree_root: *const BufferWithSize,
+    end_cum_comm_tree_root: *const FieldElement,
     btr_fee:                u64,
     ft_min_amount:          u64,
     ret_code :              &mut CctpErrorCode
@@ -230,15 +250,15 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(
     let cmt = try_read_mut_raw_pointer!("commitment_tree", ptr, ret_code, false);
 
     // Read mandatory, constant size data
-    let rs_sc_id                  = try_get_buffer_constant_size!("sc_id",                  sc_id,                  UINT_256_SIZE, ret_code, false);
-    let rs_end_cum_comm_tree_root = try_get_buffer_constant_size!("end_cum_comm_tree_root", end_cum_comm_tree_root, FIELD_SIZE,    ret_code, false);
+    let rs_sc_id                  = try_get_buffer_constant_size!("sc_id", sc_id, UINT_256_SIZE, ret_code, false);
+    let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root,    ret_code, false);
 
     // Read bt_list
     let rs_bt_list = try_get_obj_list!("bt_list", bt_list, bt_list_len, ret_code, false);
 
     // Read custom fields list (if present)
-    let rs_custom_fields = try_get_optional_constant_length_buffers_list!(
-        "custom_fields", custom_fields, custom_fields_len, FIELD_SIZE, ret_code, false
+    let rs_custom_fields = try_read_optional_double_raw_pointer!(
+        "custom_fields", custom_fields, custom_fields_len, ret_code, false
     );
 
     // Add certificate to ScCommitmentTree
@@ -276,10 +296,6 @@ pub extern "C" fn zendoo_commitment_tree_get_commitment(
 }
 
 //***********Bit Vector functions****************
-use cctp_primitives::bit_vector::compression::*;
-use cctp_primitives::bit_vector::merkle_tree::*;
-use cctp_primitives::utils::serialization::deserialize_from_buffer;
-use algebra::UniformRand;
 
 
 #[no_mangle]
@@ -415,117 +431,426 @@ pub extern "C" fn zendoo_deserialize_field(
 pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(field) }
 
 ////********************Sidechain SNARK functions********************
-//
-//#[no_mangle]
-//pub extern "C" fn zendoo_get_sc_proof_size_in_bytes() -> c_uint {
-//    SC_PROOF_SIZE as u32
-//}
-//
-//#[no_mangle]
-//pub extern "C" fn zendoo_serialize_sc_proof(
-//    _sc_proof: *const SCProof,
-//    _sc_proof_bytes: *mut [c_uchar; SC_PROOF_SIZE],
-//){}
-//
-//#[no_mangle]
-//pub extern "C" fn zendoo_deserialize_sc_proof(
-//    sc_proof_bytes: *const [c_uchar; GROTH_PROOF_SIZE],
-//    enforce_membership: bool,
-//) -> *mut SCProof {
-//    if enforce_membership {
-//        deserialize_to_raw_pointer_checked(&(unsafe { &*sc_proof_bytes })[..])
-//    } else {
-//        deserialize_to_raw_pointer(&(unsafe { &*sc_proof_bytes })[..])
-//    }
-//}
-//
-//#[no_mangle]
-//pub extern "C" fn zendoo_sc_proof_free(_sc_proof: *mut SCProof) {  }
-//
-//#[no_mangle]
-//pub extern "C" fn zendoo_get_sc_vk_size_in_bytes() -> c_uint {
-//    SC_VK_SIZE as u32
-//}
-//
-//#[cfg(not(target_os = "windows"))]
-//#[no_mangle]
-//pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
-//    vk_path: *const u8,
-//    vk_path_len: usize,
-//    enforce_membership: bool,
-//) -> *mut SCVk
-//{
-//    // Read file path
-//    let vk_path = Path::new(OsStr::from_bytes(unsafe {
-//        slice::from_raw_parts(vk_path, vk_path_len)
-//    }));
-//
-//    let result = if enforce_membership {
-//        deserialize_from_file_checked(vk_path)
-//    } else {
-//        deserialize_from_file(vk_path)
-//    };
-//
-//    match result{
-//        Some(vk) => Box::into_raw(Box::new(vk)),
-//        None => null_mut(),
-//    }
-//}
-//
-//#[cfg(target_os = "windows")]
-//#[no_mangle]
-//pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
-//    vk_path: *const u16,
-//    vk_path_len: usize,
-//    enforce_membership: bool,
-//) -> *mut SCVk
-//{
-//    // Read file path
-//    let path_str = OsString::from_wide(unsafe {
-//        slice::from_raw_parts(vk_path, vk_path_len)
-//    });
-//    let vk_path = Path::new(&path_str);
-//
-//    let result = if enforce_membership {
-//        deserialize_from_file_checked(vk_path)
-//    } else {
-//        deserialize_from_file(vk_path)
-//    };
-//
-//    match result{
-//        Some(vk) => Box::into_raw(Box::new(vk)),
-//        None => null_mut(),
-//    }
-//}
-//
-//#[no_mangle]
-//pub extern "C" fn zendoo_deserialize_sc_vk(
-//    sc_vk_bytes: *const [c_uchar; VK_SIZE],
-//    enforce_membership: bool,
-//) -> *mut SCVk {
-//    if enforce_membership {
-//        deserialize_to_raw_pointer_checked(&(unsafe { &*sc_vk_bytes })[..])
-//    } else {
-//        deserialize_to_raw_pointer(&(unsafe { &*sc_vk_bytes })[..])
-//    }
-//}
-//
-//#[no_mangle]
-//pub extern "C" fn zendoo_sc_vk_free(_sc_vk: *mut SCVk) { }
-//
-//#[no_mangle]
-//pub extern "C" fn zendoo_verify_sc_proof(
-//    _end_epoch_mc_b_hash: *const [c_uchar; 32],
-//    _prev_end_epoch_mc_b_hash: *const [c_uchar; 32],
-//    _bt_list: *const backward_transfer_t,
-//    _bt_list_len: usize,
-//    _quality: u64,
-//    _constant: *const FieldElement,
-//    _proofdata: *const FieldElement,
-//    _sc_proof: *const SCProof,
-//    _vk:       *const SCVk,
-//) -> bool { true }
-//
+
+#[no_mangle]
+pub extern "C" fn zendoo_serialize_sc_proof(
+    sc_proof: *const ZendooProof,
+    ret_code: &mut CctpErrorCode,
+) -> *mut BufferWithSize
+{
+    let sc_proof = try_read_raw_pointer!("proof", sc_proof, ret_code, null_mut());
+    match serialize_to_buffer(sc_proof) {
+        Ok(mut sc_proof_bytes) => {
+            *ret_code = CctpErrorCode::OK;
+            let data = sc_proof_bytes.as_mut_ptr();
+            let len = sc_proof_bytes.len();
+            std::mem::forget(sc_proof_bytes);
+            Box::into_raw(Box::new(BufferWithSize { data, len }))
+        },
+        Err(e) => {
+            dbg!(format!("Error serializing proof {:?}", e));
+            *ret_code = CctpErrorCode::InvalidValue;
+            null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_proof(
+    sc_proof_bytes:  *const BufferWithSize,
+    semantic_checks: bool,
+    ret_code:        &mut CctpErrorCode,
+) -> *mut ZendooProof
+{
+    let sc_proof_bytes = try_get_buffer_variable_size!("sc_proof_buffer", sc_proof_bytes, ret_code, null_mut());
+    try_deserialize_to_raw_pointer!("sc_proof_bytes", sc_proof_bytes, semantic_checks, ret_code, null_mut())
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_sc_proof_free(proof: *mut ZendooProof) {
+    free_pointer(proof)
+}
+
+#[cfg(not(target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
+    vk_path: *const u8,
+    vk_path_len: usize,
+    semantic_checks: bool,
+    ret_code: &mut CctpErrorCode
+) -> *mut ZendooVerifierKey
+{
+    use std::{
+        ffi::OsStr,
+        os::unix::ffi::OsStrExt,
+    };
+
+    // Read file path
+    let vk_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(vk_path, vk_path_len)
+    }));
+
+    // Deserialize vk
+    try_deserialize_to_raw_pointer_from_file!("vk", vk_path, semantic_checks, ret_code, null_mut())
+}
+
+#[cfg(target_os = "windows")]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
+    vk_path: *const u16,
+    vk_path_len: usize,
+    semantic_checks: bool,
+) -> *mut ZendooVerifierKey
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(vk_path, vk_path_len)
+    });
+    let vk_path = Path::new(&path_str);
+
+    try_deserialize_to_raw_pointer_from_file!("vk", vk_path, semantic_checks, ret_code, null_mut())
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_vk(
+    sc_vk_bytes:     *const BufferWithSize,
+    semantic_checks: bool,
+    ret_code:        &mut CctpErrorCode,
+) -> *mut ZendooVerifierKey {
+    let sc_vk_bytes = try_get_buffer_variable_size!("sc_vk_buffer", sc_vk_bytes, ret_code, null_mut());
+    try_deserialize_to_raw_pointer!("sc_vk_bytes", sc_vk_bytes, semantic_checks, ret_code, null_mut())
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut ZendooVerifierKey) {
+    free_pointer(sc_vk)
+}
+
+fn get_cert_proof_usr_ins<'a>(
+    constant:               *const FieldElement,
+    epoch_number:           u32,
+    quality:                u64,
+    bt_list:                *const BackwardTransfer,
+    bt_list_len:            usize,
+    custom_fields:          *const *const FieldElement,
+    custom_fields_len:      usize,
+    end_cum_comm_tree_root: *const FieldElement,
+    btr_fee:                u64,
+    ft_min_amount:          u64,
+    ret_code:               &mut CctpErrorCode
+) -> Option<CertificateProofUserInputs<'a>>
+{
+    // Read bt_list
+    let rs_bt_list = try_get_obj_list!("bt_list", bt_list, bt_list_len, ret_code, None);
+
+    // Read mandatory, constant size data
+    let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, None);
+
+    // Read optional data
+    let rs_custom_fields = try_read_optional_double_raw_pointer!(
+        "custom_fields", custom_fields, custom_fields_len, ret_code, None
+    );
+    let rs_constant     = try_read_optional_raw_pointer!("constant", constant, ret_code, None);
+
+    // Create and return inputs
+    Some(CertificateProofUserInputs {
+        constant: rs_constant,
+        epoch_number,
+        quality,
+        bt_list: rs_bt_list,
+        custom_fields: rs_custom_fields,
+        end_cumulative_sc_tx_commitment_tree_root: rs_end_cum_comm_tree_root,
+        btr_fee,
+        ft_min_amount
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_verify_certificate_proof(
+    constant:               *const FieldElement,
+    epoch_number:           u32,
+    quality:                u64,
+    bt_list:                *const BackwardTransfer,
+    bt_list_len:            usize,
+    custom_fields:          *const *const FieldElement,
+    custom_fields_len:      usize,
+    end_cum_comm_tree_root: *const FieldElement,
+    btr_fee:                u64,
+    ft_min_amount:          u64,
+    sc_proof:               *const ZendooProof,
+    sc_vk:                  *const ZendooVerifierKey,
+    ret_code:               &mut CctpErrorCode
+) -> bool
+{
+    // Get usr_ins
+    let usr_ins = get_cert_proof_usr_ins(
+        constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        end_cum_comm_tree_root, btr_fee, ft_min_amount, ret_code
+    );
+    if usr_ins.is_none() { return false; }
+
+    // Read proof and vk
+    let sc_proof = try_read_raw_pointer!("sc_proof", sc_proof, ret_code, false);
+    let sc_vk =    try_read_raw_pointer!("sc_vk",    sc_vk,    ret_code, false);
+
+    // Verify proof
+    match verify_zendoo_proof(usr_ins.unwrap(), sc_proof, sc_vk, Some(&mut OsRng::default())) {
+        Ok(res) => res,
+        Err(e) => {
+            dbg!(format!("Proof verification failure {:?}", e));
+            *ret_code = CctpErrorCode::ProofVerificationFailure;
+            false
+        }
+    }
+}
+
+fn get_csw_proof_usr_ins<'a>(
+    amount:                 u64,
+    sc_id:                  *const BufferWithSize,
+    mc_pk_hash:             *const BufferWithSize,
+    cert_data_hash:         *const FieldElement,
+    end_cum_comm_tree_root: *const FieldElement,
+    ret_code:               &mut CctpErrorCode
+) -> Option<CSWProofUserInputs<'a>>
+{
+    // Read constant size data
+    let rs_sc_id =      try_get_buffer_constant_size!("sc_id",      sc_id,      UINT_256_SIZE, ret_code, None);
+    let rs_mc_pk_hash = try_get_buffer_constant_size!("mc_pk_hash", mc_pk_hash, UINT_160_SIZE, ret_code, None);
+
+    // Read field element
+    let rs_cert_data_hash =         try_read_raw_pointer!("cert_data_hash",         cert_data_hash,         ret_code, None);
+    let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, None);
+
+    // Create and return usr ins
+    Some(CSWProofUserInputs{
+        amount,
+        sc_id: rs_sc_id,
+        pub_key_hash: rs_mc_pk_hash,
+        cert_data_hash: rs_cert_data_hash,
+        end_cumulative_sc_tx_commitment_tree_root: rs_end_cum_comm_tree_root
+    })
+
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_verify_csw_proof(
+    amount:                 u64,
+    sc_id:                  *const BufferWithSize,
+    mc_pk_hash:             *const BufferWithSize,
+    cert_data_hash:         *const FieldElement,
+    end_cum_comm_tree_root: *const FieldElement,
+    sc_proof:               *const ZendooProof,
+    sc_vk:                  *const ZendooVerifierKey,
+    ret_code:               &mut CctpErrorCode
+) -> bool
+{
+    // Get usr_ins
+    let usr_ins = get_csw_proof_usr_ins(
+        amount, sc_id, mc_pk_hash, cert_data_hash,
+        end_cum_comm_tree_root, ret_code
+    );
+    if usr_ins.is_none() { return false; }
+
+    // Read proof and vk
+    let sc_proof = try_read_raw_pointer!("sc_proof", sc_proof, ret_code, false);
+    let sc_vk =    try_read_raw_pointer!("sc_vk",    sc_vk,    ret_code, false);
+
+    // Verify proof
+    match verify_zendoo_proof(usr_ins.unwrap(), sc_proof, sc_vk, Some(&mut OsRng::default())) {
+        Ok(res) => res,
+        Err(e) => {
+            dbg!(format!("Proof verification failure {:?}", e));
+            *ret_code = CctpErrorCode::ProofVerificationFailure;
+            false
+        }
+    }
+}
+
+//********************Batch verifier functions*******************
+
+#[repr(C)]
+pub struct ZendooBatchProofVerifierResult {
+    pub result:         bool,
+    pub failing_proof:  i64,
+}
+
+impl Default for ZendooBatchProofVerifierResult {
+    fn default() -> Self {
+        Self { result: false, failing_proof: -1 }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_create_batch_proof_verifier() -> *mut ZendooBatchVerifier {
+    Box::into_raw(Box::new(ZendooBatchVerifier::create()))
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_add_certificate_proof_to_batch_verifier(
+    batch_verifier:         *mut ZendooBatchVerifier,
+    proof_id:               u32,
+    constant:               *const FieldElement,
+    epoch_number:           u32,
+    quality:                u64,
+    bt_list:                *const BackwardTransfer,
+    bt_list_len:            usize,
+    custom_fields:          *const *const FieldElement,
+    custom_fields_len:      usize,
+    end_cum_comm_tree_root: *const FieldElement,
+    btr_fee:                u64,
+    ft_min_amount:          u64,
+    sc_proof:               *const ZendooProof,
+    sc_vk:                  *const ZendooVerifierKey,
+    ret_code:               &mut CctpErrorCode
+) -> bool
+{
+    // Get usr_ins
+    let usr_ins = get_cert_proof_usr_ins(
+        constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        end_cum_comm_tree_root, btr_fee, ft_min_amount, ret_code
+    );
+    if usr_ins.is_none() { return false; }
+
+    // Read batch_verifier
+    let rs_batch_verifier = try_read_mut_raw_pointer!("batch_verifier", batch_verifier, ret_code, false);
+
+    // Read proof and vk
+    let sc_proof = try_read_raw_pointer!("sc_proof", sc_proof, ret_code, false);
+    let sc_vk =    try_read_raw_pointer!("sc_vk",    sc_vk,    ret_code, false);
+
+    // Add proof to the batch
+    match rs_batch_verifier.add_zendoo_proof_verifier_data(
+        proof_id, usr_ins.unwrap(), sc_proof.clone(), sc_vk.clone()
+    ) {
+        Ok(()) => true,
+        Err(e) => {
+            dbg!(format!("Error adding proof to the batch: {:?}", e));
+            *ret_code = CctpErrorCode::BatchVerifierFailure;
+            false
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_add_csw_proof_to_batch_verifier(
+    batch_verifier:         *mut ZendooBatchVerifier,
+    proof_id:               u32,
+    amount:                 u64,
+    sc_id:                  *const BufferWithSize,
+    mc_pk_hash:             *const BufferWithSize,
+    cert_data_hash:         *const FieldElement,
+    end_cum_comm_tree_root: *const FieldElement,
+    sc_proof:               *const ZendooProof,
+    sc_vk:                  *const ZendooVerifierKey,
+    ret_code:               &mut CctpErrorCode
+) -> bool
+{
+    // Get usr_ins
+    let usr_ins = get_csw_proof_usr_ins(
+        amount, sc_id, mc_pk_hash, cert_data_hash,
+        end_cum_comm_tree_root, ret_code
+    );
+    if usr_ins.is_none() { return false; }
+
+    // Read batch_verifier
+    let rs_batch_verifier = try_read_mut_raw_pointer!("batch_verifier", batch_verifier, ret_code, false);
+
+    // Read proof and vk
+    let sc_proof = try_read_raw_pointer!("sc_proof", sc_proof, ret_code, false);
+    let sc_vk =    try_read_raw_pointer!("sc_vk",    sc_vk,    ret_code, false);
+
+    // Add proof to the batch
+    match rs_batch_verifier.add_zendoo_proof_verifier_data(
+        proof_id, usr_ins.unwrap(), sc_proof.clone(), sc_vk.clone()
+    ) {
+        Ok(()) => true,
+        Err(e) => {
+            dbg!(format!("Error adding proof to the batch: {:?}", e));
+            *ret_code = CctpErrorCode::BatchVerifierFailure;
+            false
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_batch_verify_all_proofs(
+    batch_verifier: *const ZendooBatchVerifier,
+    ret_code: &mut CctpErrorCode
+) -> ZendooBatchProofVerifierResult
+{
+    // Read batch verifier
+    let rs_batch_verifier = try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, ZendooBatchProofVerifierResult::default());
+
+    // Trigger batch verification
+    match rs_batch_verifier.batch_verify_all(&mut OsRng::default()) {
+
+        // If success, return the result (of course there will be no failing_proof so set the value to -1)
+        Ok(result) => ZendooBatchProofVerifierResult { result, failing_proof: -1 },
+
+        // Otherwise, return the index of the failing proof if it's possible to estabilish it.
+        Err(e) => {
+            dbg!(format!("Batch proof verification failure: {:?}", e));
+            *ret_code = CctpErrorCode::FailedBatchProofVerification;
+            let mut result = ZendooBatchProofVerifierResult { result: false, failing_proof: -1 };
+
+            match e {
+                ProvingSystemError::FailedBatchVerification(maybe_id) => {
+                    *ret_code = CctpErrorCode::FailedBatchProofVerification;
+                    if maybe_id.is_some() {
+                        result.failing_proof = maybe_id.unwrap() as i64;
+                    }
+                },
+                _ => *ret_code = CctpErrorCode::BatchVerifierFailure
+            }
+            result
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_batch_verify_proofs_by_id(
+    batch_verifier: *const ZendooBatchVerifier,
+    ids_list: *const u32,
+    ids_list_len: usize,
+    ret_code: &mut CctpErrorCode
+) -> ZendooBatchProofVerifierResult
+{
+    // Read batch verifier
+    let rs_batch_verifier = try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, ZendooBatchProofVerifierResult::default());
+
+    // Get ids_list
+    let rs_ids_list = try_get_obj_list!("ids_list", ids_list, ids_list_len, ret_code, ZendooBatchProofVerifierResult::default());
+
+    // Trigger batch verification of the proofs with specified id
+    match rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default()) {
+
+        // If success, return the result (of course there will be no failing_proof so set the value to -1)
+        Ok(result) => ZendooBatchProofVerifierResult { result, failing_proof: -1 },
+
+        // Otherwise, return the index of the failing proof if it's possible to estabilish it.
+        Err(e) => {
+            dbg!(format!("Batch proof verification failure: {:?}", e));
+            let mut result = ZendooBatchProofVerifierResult { result: false, failing_proof: -1 };
+
+            match e {
+                ProvingSystemError::FailedBatchVerification(maybe_id) => {
+                    *ret_code = CctpErrorCode::FailedBatchProofVerification;
+                    if maybe_id.is_some() {
+                        result.failing_proof = maybe_id.unwrap() as i64;
+                    }
+                },
+                _ => *ret_code = CctpErrorCode::BatchVerifierFailure
+            }
+            result
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_free_batch_proof_verifier(batch_verifier: *mut ZendooBatchVerifier) {
+    free_pointer(batch_verifier)
+}
+
 //********************Poseidon hash functions********************
 
 #[no_mangle]
@@ -536,12 +861,8 @@ pub extern "C" fn zendoo_init_poseidon_hash_constant_length(
     ret_code: &mut CctpErrorCode
 ) -> *mut FieldHash {
 
-    if !personalization.is_null(){
-        let personalization = try_read_double_raw_pointer!("personalization", personalization, personalization_len, ret_code, null_mut());
-        Box::into_raw(Box::new(get_poseidon_hash_constant_length(input_size, Some(personalization.as_slice()))))
-    } else {
-        Box::into_raw(Box::new(get_poseidon_hash_constant_length(input_size, None)))
-    }
+    let personalization = try_read_optional_double_raw_pointer!("personalization", personalization, personalization_len, ret_code, null_mut());
+    Box::into_raw(Box::new(get_poseidon_hash_constant_length(input_size, personalization)))
 }
 
 #[no_mangle]
@@ -552,12 +873,8 @@ pub extern "C" fn zendoo_init_poseidon_hash_variable_length(
     ret_code: &mut CctpErrorCode
 ) -> *mut FieldHash
 {
-    if !personalization.is_null(){
-        let personalization = try_read_double_raw_pointer!("personalization", personalization, personalization_len, ret_code, null_mut());
-        Box::into_raw(Box::new(get_poseidon_hash_variable_length(mod_rate, Some(personalization.as_slice()))))
-    } else {
-        Box::into_raw(Box::new(get_poseidon_hash_variable_length(mod_rate, None)))
-    }
+    let personalization = try_read_optional_double_raw_pointer!("personalization", personalization, personalization_len, ret_code, null_mut());
+    Box::into_raw(Box::new(get_poseidon_hash_variable_length(mod_rate, personalization)))
 }
 
 #[no_mangle]
@@ -628,14 +945,8 @@ pub extern "C" fn zendoo_reset_poseidon_hash(
 ) -> bool
 {
     let digest = try_read_mut_raw_pointer!("digest", digest, ret_code, false);
-
-    if !personalization.is_null(){
-        let personalization = try_read_double_raw_pointer!("personalization", personalization, personalization_len, ret_code, false);
-        reset_poseidon_hash(digest, Some(personalization.as_slice()));
-    } else {
-        reset_poseidon_hash(digest, None);
-    }
-
+    let personalization = try_read_optional_double_raw_pointer!("personalization", personalization, personalization_len, ret_code, false);
+    reset_poseidon_hash(digest, personalization);
     true
 }
 

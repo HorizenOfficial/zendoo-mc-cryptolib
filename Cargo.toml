@@ -14,6 +14,7 @@ algebra = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/
 primitives = {version = "0.1.0", features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp"}
 cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "darlin" }
 
+proof-systems = {version = "0.1.0", features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
 r1cs-crypto = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
 r1cs-core = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
 r1cs-std = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
@@ -26,7 +27,7 @@ libc = "=0.2.70"
 cfg-if = "= 0.1.2"
 
 [features]
-mc-test-circuit = ["r1cs-crypto", "r1cs-core", "r1cs-std"]
+mc-test-circuit = ["proof-systems", "r1cs-crypto", "r1cs-core", "r1cs-std"]
 
 [profile.release]
 #lto = true
@@ -42,5 +43,5 @@ codegen-units = 1
 #r1cs-crypto = { path = '../ginger-lib/r1cs/gadgets/crypto' }
 #r1cs-std = { path = '../ginger-lib/r1cs/gadgets/std' }
 #
-[patch.'https://github.com/HorizenOfficial/zendoo-cctp-lib.git']
-cctp_primitives = { path = '../zendoo-cctp-lib/cctp_primitives' }
+#[patch.'https://github.com/HorizenOfficial/zendoo-cctp-lib.git']
+#cctp_primitives = { path = '../zendoo-cctp-lib/cctp_primitives' }
