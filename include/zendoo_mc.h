@@ -99,9 +99,15 @@ extern "C" {
 
     void zendoo_commitment_tree_delete(commitment_tree_t *ptr);
 
+    field_t* zendoo_compute_sc_id(
+        const BufferWithSize* tx_hash,
+        uint32_t pos,
+        CctpErrorCode* ret_code
+    );
+
     bool zendoo_commitment_tree_add_scc(
         commitment_tree_t *ptr,
-        const BufferWithSize* sc_id,
+        const field_t* sc_id,
         uint64_t amount,
         const BufferWithSize* pub_key,
         const BufferWithSize* tx_hash,
@@ -124,7 +130,7 @@ extern "C" {
 
     bool zendoo_commitment_tree_add_fwt(
         commitment_tree_t *ptr,
-        const BufferWithSize* sc_id,
+        const field_t* sc_id,
         uint64_t amount,
         const BufferWithSize* pub_key,
         const BufferWithSize* tx_hash,
@@ -134,7 +140,7 @@ extern "C" {
 
     bool zendoo_commitment_tree_add_bwtr(
         commitment_tree_t *ptr,
-        const BufferWithSize* sc_id,
+        const field_t* sc_id,
         uint64_t sc_fee,
         const field_t** sc_req_data,
         size_t sc_req_data_len,
@@ -146,7 +152,7 @@ extern "C" {
 
     bool zendoo_commitment_tree_add_csw(
         commitment_tree_t *ptr,
-        const BufferWithSize* sc_id,
+        const field_t* sc_id,
         uint64_t amount,
         const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
@@ -155,7 +161,7 @@ extern "C" {
 
     bool zendoo_commitment_tree_add_cert(
         commitment_tree_t *ptr,
-        const BufferWithSize* sc_id,
+        const field_t* sc_id,
         uint32_t epoch_number,
         uint64_t quality,
         const backward_transfer_t* bt_list,
@@ -525,6 +531,7 @@ extern "C" {
      * If `semantic_checks` flag is set, semantic checks on the proof will be performed.
      */
     sc_proof_t* zendoo_deserialize_sc_proof(
+        ProvingSystem psType,
         const BufferWithSize* sc_proof_bytes,
         bool semantic_checks,
         CctpErrorCode* ret_code
@@ -543,6 +550,7 @@ extern "C" {
      * If `semantic_checks` flag is set, semantic checks on vk will be performed.
      */
     sc_vk_t* zendoo_deserialize_sc_vk_from_file(
+        ProvingSystem psType,
         const path_char_t* vk_path,
         size_t vk_path_len,
         bool semantic_checks,
@@ -554,6 +562,7 @@ extern "C" {
      * If `semantic_checks` flag is set, semantic checks on vk will be performed.
      */
     sc_vk_t* zendoo_deserialize_sc_vk(
+        ProvingSystem psType,
         const BufferWithSize* sc_vk_bytes,
         bool semantic_checks,
         CctpErrorCode* ret_code
@@ -593,7 +602,7 @@ extern "C" {
      */
     bool zendoo_verify_csw_proof(
         uint64_t amount,
-        const BufferWithSize* sc_id,
+        const field_t* sc_id,
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
@@ -647,7 +656,7 @@ extern "C" {
         sc_batch_proof_verifier_t* batch_verifier,
         uint32_t proof_id,
         uint64_t amount,
-        const BufferWithSize* sc_id,
+        const field_t* sc_id,
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
@@ -731,7 +740,7 @@ extern "C" {
         bool zendoo_add_csw_proof_to_batch_verifier(
             uint32_t proof_id,
             uint64_t amount,
-            const BufferWithSize* sc_id,
+            const field_t* sc_id,
             const BufferWithSize* mc_pk_hash,
             const field_t* cert_data_hash,
             const field_t* end_cum_comm_tree_root,

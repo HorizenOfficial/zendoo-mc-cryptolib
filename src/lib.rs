@@ -21,7 +21,8 @@ use cctp_primitives::{
     },
     utils::{
         data_structures::{BitVectorElementsConfig, BackwardTransfer},
-        poseidon_hash::*, mht::*, serialization::{deserialize_from_buffer, serialize_to_buffer}
+        poseidon_hash::*, mht::*, serialization::{deserialize_from_buffer, serialize_to_buffer},
+        serialization::read_from_file, compute_sc_id
     }
 };
 
@@ -65,9 +66,27 @@ pub extern "C" fn zendoo_get_sc_custom_data_size_in_bytes() -> c_uint {
 }
 
 #[no_mangle]
+pub extern "C" fn zendoo_compute_sc_id(
+    tx_hash:    *const BufferWithSize,
+    pos:        u32,
+    ret_code:   &mut CctpErrorCode,
+) -> *mut FieldElement
+{
+    let rs_tx_hash = try_get_buffer_constant_size!("tx_hash", tx_hash, UINT_256_SIZE, ret_code, null_mut());
+    match compute_sc_id(rs_tx_hash, pos) {
+        Ok(sc_id) => Box::into_raw(Box::new(sc_id)),
+        Err(e) => {
+            *ret_code = CctpErrorCode::HashingError;
+            dbg!(format!("Error computing sc_id: {:?}", e));
+            null_mut()
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_scc(
     ptr :                           *mut CommitmentTree,
-    sc_id:                          *const BufferWithSize,
+    sc_id:                          *const FieldElement,
     amount:                         u64,
     pub_key:                        *const BufferWithSize,
     tx_hash:                        *const BufferWithSize,
@@ -88,13 +107,12 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
     ret_code:                       &mut CctpErrorCode
 )-> bool
 {
-    *ret_code = CctpErrorCode::OK;
 
     // Get commitment tree pointer
     let cmt = try_read_mut_raw_pointer!("commitment_tree", ptr, ret_code, false);
 
     // Mandatory and constant size parameters
-    let rs_sc_id        = try_get_buffer_constant_size!("sc_id",   sc_id,   UINT_256_SIZE, ret_code, false);
+    let rs_sc_id        = try_read_raw_pointer!("sc_id", sc_id, ret_code, false);
     let rs_pub_key      = try_get_buffer_constant_size!("pub_key", pub_key, UINT_256_SIZE, ret_code, false);
     let rs_tx_hash      = try_get_buffer_constant_size!("tx_hash", tx_hash, UINT_256_SIZE, ret_code, false);
 
@@ -136,7 +154,7 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_fwt(
     ptr :       *mut CommitmentTree,
-    sc_id:      *const BufferWithSize,
+    sc_id:      *const FieldElement,
     amount:     u64,
     pub_key:    *const BufferWithSize,
     tx_hash:    *const BufferWithSize,
@@ -144,13 +162,12 @@ pub extern "C" fn zendoo_commitment_tree_add_fwt(
     ret_code:   &mut CctpErrorCode
 )-> bool
 {
-    *ret_code = CctpErrorCode::OK;
 
     // Get commitment tree pointer
     let cmt = try_read_mut_raw_pointer!("commitment_tree", ptr, ret_code, false);
 
     // Mandatory and constant size parameters
-    let rs_sc_id   = try_get_buffer_constant_size!("sc_id",   sc_id,   UINT_256_SIZE, ret_code, false);
+    let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, false);
     let rs_pub_key = try_get_buffer_constant_size!("pub_key", pub_key, UINT_256_SIZE, ret_code, false);
     let rs_tx_hash = try_get_buffer_constant_size!("tx_hash", tx_hash, UINT_256_SIZE, ret_code, false);
 
@@ -167,7 +184,7 @@ pub extern "C" fn zendoo_commitment_tree_add_fwt(
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_bwtr(
     ptr:                    *mut CommitmentTree,
-    sc_id:                  *const BufferWithSize,
+    sc_id:                  *const FieldElement,
     sc_fee:                 u64,
     sc_req_data:            *const *const FieldElement,
     sc_req_data_len:        usize,
@@ -177,13 +194,12 @@ pub extern "C" fn zendoo_commitment_tree_add_bwtr(
     ret_code:               &mut CctpErrorCode
 )-> bool
 {
-    *ret_code = CctpErrorCode::OK;
 
     // Get commitment tree pointer
     let cmt = try_read_mut_raw_pointer!("commitment tree", ptr, ret_code, false);
 
     // Mandatory and constant size parameters
-    let rs_sc_id        = try_get_buffer_constant_size!("sc_id",        sc_id,        UINT_256_SIZE, ret_code, false);
+    let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, false);
     let rs_mc_dest_addr = try_get_buffer_constant_size!("mc_dest_addr", mc_dest_addr, UINT_160_SIZE, ret_code, false);
     let rs_tx_hash      = try_get_buffer_constant_size!("tx_hash",      tx_hash,      UINT_256_SIZE, ret_code, false);
 
@@ -203,19 +219,18 @@ pub extern "C" fn zendoo_commitment_tree_add_bwtr(
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_csw(
     ptr :       *mut CommitmentTree,
-    sc_id:      *const BufferWithSize,
+    sc_id:      *const FieldElement,
     amount:     u64,
     nullifier:  *const FieldElement,
     pk_hash:    *const BufferWithSize,
     ret_code:   &mut CctpErrorCode
 )-> bool
 {
-    *ret_code = CctpErrorCode::OK;
 
     // Get commitment tree pointer
     let cmt = try_read_mut_raw_pointer!("commitment_tree", ptr, ret_code, false);
 
-    let rs_sc_id     = try_get_buffer_constant_size!("sc_id",     sc_id,     UINT_256_SIZE, ret_code, false);
+    let rs_sc_id     = try_read_raw_pointer!("sc_id", sc_id, ret_code, false);
     let rs_pk_hash   = try_get_buffer_constant_size!("pk_hash",   pk_hash,   UINT_160_SIZE, ret_code, false);
     let rs_nullifier = try_read_raw_pointer!("nullifier", nullifier, ret_code, false);
 
@@ -231,7 +246,7 @@ pub extern "C" fn zendoo_commitment_tree_add_csw(
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_cert(
     ptr :                   *mut CommitmentTree,
-    sc_id:                  *const BufferWithSize,
+    sc_id:                  *const FieldElement,
     epoch_number:           u32,
     quality:                u64,
     bt_list:                *const BackwardTransfer,
@@ -244,13 +259,12 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(
     ret_code :              &mut CctpErrorCode
 )-> bool
 {
-    *ret_code = CctpErrorCode::OK;
 
     // Get commitment tree pointer
     let cmt = try_read_mut_raw_pointer!("commitment_tree", ptr, ret_code, false);
 
     // Read mandatory, constant size data
-    let rs_sc_id                  = try_get_buffer_constant_size!("sc_id", sc_id, UINT_256_SIZE, ret_code, false);
+    let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, false);
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root,    ret_code, false);
 
     // Read bt_list
@@ -280,7 +294,6 @@ pub extern "C" fn zendoo_commitment_tree_get_commitment(
     ret_code: &mut CctpErrorCode,
 ) -> *mut FieldElement
 {
-    *ret_code = CctpErrorCode::OK;
 
     // Get commitment tree pointer
     let cmt = try_read_mut_raw_pointer!("commitment_tree", ptr, ret_code, null_mut());
@@ -310,7 +323,7 @@ pub extern "C" fn zendoo_compress_bit_vector(
     ret_code:  &mut CctpErrorCode
 ) -> *mut BufferWithSize
 {
-    *ret_code = CctpErrorCode::OK;
+
     let bit_vector = try_get_buffer_variable_size!("bit_vector", buffer, ret_code, null_mut());
 
     match compress_bit_vector(bit_vector, algorithm) {
@@ -320,7 +333,7 @@ pub extern "C" fn zendoo_compress_bit_vector(
             assert_eq!(len, compressed_bit_vector.capacity());
             std::mem::forget(compressed_bit_vector);
             let bit_vector_buffer = BufferWithSize {data, len};
-            *ret_code = CctpErrorCode::OK;
+
             Box::into_raw(Box::new(bit_vector_buffer))
         },
         Err(_) => {
@@ -346,7 +359,7 @@ pub extern "C" fn zendoo_decompress_bit_vector(
             let len = decompressed_bit_vector.len();
             std::mem::forget(decompressed_bit_vector);
             let bit_vector_buffer = BufferWithSize {data, len};
-            *ret_code = CctpErrorCode::OK;
+
             Box::into_raw(Box::new(bit_vector_buffer))
         },
         Err(e) => {
@@ -369,7 +382,7 @@ pub extern "C" fn zendoo_merkle_root_from_compressed_bytes(
     match merkle_root_from_compressed_bytes(compressed_slice, expected_uncompressed_size)
         {
             Ok(x) =>  {
-                *ret_code = CctpErrorCode::OK;
+
                 Box::into_raw(Box::new(x))
             },
             Err(e) => {
@@ -441,7 +454,7 @@ pub extern "C" fn zendoo_serialize_sc_proof(
     let sc_proof = try_read_raw_pointer!("proof", sc_proof, ret_code, null_mut());
     match serialize_to_buffer(sc_proof) {
         Ok(mut sc_proof_bytes) => {
-            *ret_code = CctpErrorCode::OK;
+
             let data = sc_proof_bytes.as_mut_ptr();
             let len = sc_proof_bytes.len();
             std::mem::forget(sc_proof_bytes);
@@ -457,12 +470,28 @@ pub extern "C" fn zendoo_serialize_sc_proof(
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_proof(
+    ps_type:         ProvingSystem,
     sc_proof_bytes:  *const BufferWithSize,
     semantic_checks: bool,
     ret_code:        &mut CctpErrorCode,
 ) -> *mut ZendooProof
 {
     let sc_proof_bytes = try_get_buffer_variable_size!("sc_proof_buffer", sc_proof_bytes, ret_code, null_mut());
+
+    // Check sc_proof is of expected type before deserializing it.
+    match deserialize_from_buffer::<ProvingSystem>(&sc_proof_bytes[..1]) {
+        Ok(proof_ps_type) => if proof_ps_type != ps_type {
+            *ret_code = CctpErrorCode::InvalidValue;
+            dbg!(format!("ProvingSystem mismatch: expected {:?}, found {:?}.", ps_type, proof_ps_type));
+            return null_mut();
+        },
+        Err(e) => {
+            *ret_code = CctpErrorCode::InvalidBufferData;
+            dbg!(format!("Error reading buffer: {:?}", e));
+            return null_mut();
+        }
+    }
+
     try_deserialize_to_raw_pointer!("sc_proof_bytes", sc_proof_bytes, semantic_checks, ret_code, null_mut())
 }
 
@@ -474,6 +503,7 @@ pub extern "C" fn zendoo_sc_proof_free(proof: *mut ZendooProof) {
 #[cfg(not(target_os = "windows"))]
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
+    ps_type: ProvingSystem,
     vk_path: *const u8,
     vk_path_len: usize,
     semantic_checks: bool,
@@ -490,6 +520,20 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
         slice::from_raw_parts(vk_path, vk_path_len)
     }));
 
+    // Check vk is of expected type before deserializing it.
+    match read_from_file::<ProvingSystem>(vk_path) {
+        Ok(vk_ps_type) => if vk_ps_type != ps_type {
+            *ret_code = CctpErrorCode::InvalidValue;
+            dbg!(format!("ProvingSystem mismatch: expected {:?}, found {:?}.", ps_type, vk_ps_type));
+            return null_mut();
+        },
+        Err(e) => {
+            *ret_code = CctpErrorCode::InvalidBufferData;
+            dbg!(format!("Error reading buffer: {:?}", e));
+            return null_mut();
+        }
+    }
+
     // Deserialize vk
     try_deserialize_to_raw_pointer_from_file!("vk", vk_path, semantic_checks, ret_code, null_mut())
 }
@@ -497,6 +541,7 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
 #[cfg(target_os = "windows")]
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
+    ps_type: ProvingSystem,
     vk_path: *const u16,
     vk_path_len: usize,
     semantic_checks: bool,
@@ -508,16 +553,46 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     });
     let vk_path = Path::new(&path_str);
 
+    // Check vk is of expected type before deserializing it.
+    match read_from_file::<ProvingSystem>(vk_path) {
+        Ok(vk_ps_type) => if vk_ps_type != ps_type {
+            *ret_code = CctpErrorCode::InvalidValue;
+            dbg!(format!("ProvingSystem mismatch: expected {:?}, found {:?}.", ps_type, vk_ps_type));
+            return null_mut();
+        },
+        Err(e) => {
+            *ret_code = CctpErrorCode::InvalidBufferData;
+            dbg!(format!("Error reading buffer: {:?}", e));
+            return null_mut();
+        }
+    }
+
     try_deserialize_to_raw_pointer_from_file!("vk", vk_path, semantic_checks, ret_code, null_mut())
 }
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk(
+    ps_type:         ProvingSystem,
     sc_vk_bytes:     *const BufferWithSize,
     semantic_checks: bool,
     ret_code:        &mut CctpErrorCode,
 ) -> *mut ZendooVerifierKey {
     let sc_vk_bytes = try_get_buffer_variable_size!("sc_vk_buffer", sc_vk_bytes, ret_code, null_mut());
+
+    // Check sc_vk is of expected type before deserializing it.
+    match deserialize_from_buffer::<ProvingSystem>(&sc_vk_bytes[..1]) {
+        Ok(vk_ps_type) => if vk_ps_type != ps_type {
+            *ret_code = CctpErrorCode::InvalidValue;
+            dbg!(format!("ProvingSystem mismatch: expected {:?}, found {:?}.", ps_type, vk_ps_type));
+            return null_mut();
+        },
+        Err(e) => {
+            *ret_code = CctpErrorCode::InvalidBufferData;
+            dbg!(format!("Error reading buffer: {:?}", e));
+            return null_mut();
+        }
+    }
+
     try_deserialize_to_raw_pointer!("sc_vk_bytes", sc_vk_bytes, semantic_checks, ret_code, null_mut())
 }
 
@@ -606,7 +681,7 @@ pub extern "C" fn zendoo_verify_certificate_proof(
 
 fn get_csw_proof_usr_ins<'a>(
     amount:                 u64,
-    sc_id:                  *const BufferWithSize,
+    sc_id:                  *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
@@ -614,7 +689,7 @@ fn get_csw_proof_usr_ins<'a>(
 ) -> Option<CSWProofUserInputs<'a>>
 {
     // Read constant size data
-    let rs_sc_id =      try_get_buffer_constant_size!("sc_id",      sc_id,      UINT_256_SIZE, ret_code, None);
+    let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, None);
     let rs_mc_pk_hash = try_get_buffer_constant_size!("mc_pk_hash", mc_pk_hash, UINT_160_SIZE, ret_code, None);
 
     // Read field element
@@ -635,7 +710,7 @@ fn get_csw_proof_usr_ins<'a>(
 #[no_mangle]
 pub extern "C" fn zendoo_verify_csw_proof(
     amount:                 u64,
-    sc_id:                  *const BufferWithSize,
+    sc_id:                  *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
@@ -736,7 +811,7 @@ pub extern "C" fn zendoo_add_csw_proof_to_batch_verifier(
     batch_verifier:         *mut ZendooBatchVerifier,
     proof_id:               u32,
     amount:                 u64,
-    sc_id:                  *const BufferWithSize,
+    sc_id:                  *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
