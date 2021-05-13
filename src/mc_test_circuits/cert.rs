@@ -120,26 +120,26 @@ impl ConstraintSynthesizer<FieldElement> for CertTestCircuit {
     }
 }
 
-pub struct CertTestProofUserInputs {
-    epoch_number:                         u32,
-    end_cumulative_sc_tx_comm_tree_root:  FieldElement,
-    bt_list:                              Vec<BackwardTransfer>,
-    ft_min_amount:                        u64,
-    btr_fee:                              u64,
-    quality:                              u64,
-    constant:                             FieldElement,
+pub struct CertTestProofUserInputs<'a> {
+    pub constant:                                   &'a FieldElement,
+    pub epoch_number:                               u32,
+    pub quality:                                    u64,
+    pub bt_list:                                    &'a [BackwardTransfer],
+    pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
+    pub btr_fee:                                    u64,
+    pub ft_min_amount:                              u64
 }
 
-impl UserInputs for CertTestProofUserInputs {
+impl<'a> UserInputs for CertTestProofUserInputs<'a> {
     fn get_circuit_inputs(&self) -> Result<Vec<FieldElement>, ProvingSystemError> {
         let hash_fes = FieldHash::init_constant_length(7, None)
+            .update(*self.constant)
             .update(FieldElement::from(self.epoch_number))
-            .update(self.end_cumulative_sc_tx_comm_tree_root)
-            .update(get_bt_merkle_root(self.bt_list.as_slice()).unwrap())
-            .update(FieldElement::from(self.ft_min_amount))
-            .update(FieldElement::from(self.btr_fee))
             .update(FieldElement::from(self.quality))
-            .update(self.constant)
+            .update(get_bt_merkle_root(self.bt_list).unwrap())
+            .update(*self.end_cumulative_sc_tx_commitment_tree_root)
+            .update(FieldElement::from(self.btr_fee))
+            .update(FieldElement::from(self.ft_min_amount))
             .finalize()
             .unwrap();
         Ok(vec![hash_fes])
@@ -204,30 +204,30 @@ impl ConstraintSynthesizer<FieldElement> for CertTestCircuitWithAccumulators {
     }
 }
 
-pub struct CertTestProofWithAccumulatorsUserInputs {
-    epoch_number:                         u32,
-    end_cumulative_sc_tx_comm_tree_root:  FieldElement,
-    bt_list:                              Vec<BackwardTransfer>,
-    ft_min_amount:                        u64,
-    btr_fee:                              u64,
-    quality:                              u64,
-    constant:                             FieldElement,
-    proof_data:                           Vec<FieldElement>,
+pub struct CertTestProofWithAccumulatorsUserInputs<'a> {
+    pub constant:                                   &'a FieldElement,
+    pub epoch_number:                               u32,
+    pub quality:                                    u64,
+    pub bt_list:                                    &'a [BackwardTransfer],
+    pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
+    pub btr_fee:                                    u64,
+    pub ft_min_amount:                              u64,
+    pub proof_data:                                 Vec<&'a FieldElement>,
 }
 
-impl UserInputs for CertTestProofWithAccumulatorsUserInputs {
+impl<'a> UserInputs for CertTestProofWithAccumulatorsUserInputs<'a> {
     fn get_circuit_inputs(&self) -> Result<Vec<FieldElement>, ProvingSystemError> {
         let mut hash_fes = vec![FieldHash::init_constant_length(7, None)
+            .update(*self.constant)
             .update(FieldElement::from(self.epoch_number))
-            .update(self.end_cumulative_sc_tx_comm_tree_root)
-            .update(get_bt_merkle_root(self.bt_list.as_slice()).unwrap())
-            .update(FieldElement::from(self.ft_min_amount))
-            .update(FieldElement::from(self.btr_fee))
             .update(FieldElement::from(self.quality))
-            .update(self.constant)
+            .update(get_bt_merkle_root(self.bt_list).unwrap())
+            .update(*self.end_cumulative_sc_tx_commitment_tree_root)
+            .update(FieldElement::from(self.btr_fee))
+            .update(FieldElement::from(self.ft_min_amount))
             .finalize()
             .unwrap()];
-        hash_fes.extend_from_slice(self.proof_data.as_slice());
+        hash_fes.append(&mut self.proof_data.iter().map(|&fe| fe.clone()).collect::<Vec<_>>());
         Ok(hash_fes)
     }
 }
@@ -275,22 +275,22 @@ pub fn generate_parameters(ps: ProvingSystem) -> Result<(ZendooProverKey, Zendoo
 }
 
 pub fn generate_proof(
-    pk:                                   &ZendooProverKey,
-    zk:                                   bool,
-    epoch_number:                         u32,
-    end_cumulative_sc_tx_comm_tree_root:  FieldElement,
-    bt_list:                              Vec<BackwardTransfer>,
-    ft_min_amount:                        u64,
-    btr_fee:                              u64,
-    quality:                              u64,
-    constant:                             FieldElement,
+    pk:                                         &ZendooProverKey,
+    zk:                                         bool,
+    constant:                                   &FieldElement,
+    epoch_number:                               u32,
+    quality:                                    u64,
+    bt_list:                                    &[BackwardTransfer],
+    end_cumulative_sc_tx_commitment_tree_root:  &FieldElement,
+    btr_fee:                                    u64,
+    ft_min_amount:                              u64
 ) -> Result<(Option<Vec<FieldElement>>, ZendooProof), ProvingSystemError> {
     let rng = &mut OsRng;
     let ck_g1 = get_g1_committer_key()?;
 
     // Read input param into field elements
     let epoch_number = FieldElement::from(epoch_number);
-    let mr_bt = get_bt_merkle_root(bt_list.as_slice()).unwrap();
+    let mr_bt = get_bt_merkle_root(bt_list).unwrap();
     let ft_min_amount = FieldElement::from(ft_min_amount);
     let btr_fee = FieldElement::from(btr_fee);
     let quality = FieldElement::from(quality);
@@ -306,12 +306,12 @@ pub fn generate_proof(
             let deferred_fes = deferred.to_field_elements().unwrap();
             let circ = CertTestCircuitWithAccumulators {
                 epoch_number: Some(epoch_number),
-                end_cumulative_sc_tx_comm_tree_root: Some(end_cumulative_sc_tx_comm_tree_root),
+                end_cumulative_sc_tx_comm_tree_root: Some(*end_cumulative_sc_tx_commitment_tree_root),
                 mr_bt: Some(mr_bt),
                 ft_min_amount: Some(ft_min_amount),
                 btr_fee: Some(btr_fee),
                 quality: Some(quality),
-                constant: Some(constant),
+                constant: Some(*constant),
                 custom_fields: deferred_fes.clone()
             };
             let proof = CoboundaryMarlin::prove(
@@ -330,12 +330,12 @@ pub fn generate_proof(
         ZendooProverKey::CoboundaryMarlin(pk) => {
             let circ = CertTestCircuit {
                 epoch_number: Some(epoch_number),
-                end_cumulative_sc_tx_comm_tree_root: Some(end_cumulative_sc_tx_comm_tree_root),
+                end_cumulative_sc_tx_comm_tree_root: Some(*end_cumulative_sc_tx_commitment_tree_root),
                 mr_bt: Some(mr_bt),
                 ft_min_amount: Some(ft_min_amount),
                 btr_fee: Some(btr_fee),
                 quality: Some(quality),
-                constant: Some(constant),
+                constant: Some(*constant),
             };
             let proof = CoboundaryMarlin::prove(
                 pk,
