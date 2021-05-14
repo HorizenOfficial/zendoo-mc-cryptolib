@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+static const size_t FIELD_SIZE = 32;
+
 extern "C" {
 
     #ifdef WIN32
@@ -356,8 +358,8 @@ extern "C" {
     bool zendoo_verify_ginger_merkle_path(
         const ginger_merkle_path_t* path,
         size_t height,
-        const BufferWithSize* leaf,
-        const BufferWithSize* root,
+        const field_t* leaf,
+        const field_t* root,
         CctpErrorCode* ret_code
     );
 
@@ -468,8 +470,8 @@ extern "C" {
             return zendoo_append_leaf_to_ginger_mht_from_raw(leaf, tree, ret_code);
         }
 
-        ginger_mht_t* finalize(CctpErrorCode* ret_code){
-            return zendoo_finalize_ginger_mht(tree, ret_code);
+        ZendooGingerMerkleTree finalize(CctpErrorCode* ret_code){
+            return ZendooGingerMerkleTree(zendoo_finalize_ginger_mht(tree, ret_code));
         }
 
         bool finalize_in_place(CctpErrorCode* ret_code){
@@ -691,7 +693,7 @@ extern "C" {
      */
     ZendooBatchProofVerifierResult zendoo_batch_verify_all_proofs(
         const sc_batch_proof_verifier_t* batch_verifier,
-        CctpErrorCode* ret_code,
+        CctpErrorCode* ret_code
     );
 
     /*
@@ -701,14 +703,13 @@ extern "C" {
         const sc_batch_proof_verifier_t* batch_verifier,
         const uint32_t* ids_list,
         size_t ids_list_len,
-        CctpErrorCode* ret_code,
+        CctpErrorCode* ret_code
     );
 
     /*
      * Free the memory pointed by `batch_verifier`,
     */
-    void zendoo_free_batch_proof_verifier(sc_batch_proof_verifier_t* batch_verifier)
-
+    void zendoo_free_batch_proof_verifier(sc_batch_proof_verifier_t* batch_verifier);
 
     /*
      *   Support struct to enhance and make easier the usage of sc_batch_proof_verifier, by
@@ -727,28 +728,30 @@ extern "C" {
 
         bool add_certificate_proof(
             uint32_t proof_id,
-            const BufferWithSize* constant,
-            const BufferWithSize* custom_fields,
+            const field_t* constant,
             uint32_t epoch_number,
-            const BufferWithSize* end_cum_comm_tree_root,
-            uint64_t btr_fee,
-            uint64_t ft_min_amount,
+            uint64_t quality,
             const backward_transfer_t* bt_list,
             size_t bt_list_len,
-            uint64_t quality,
+            const field_t** custom_fields,
+            size_t custom_fields_len,
+            const field_t* end_cum_comm_tree_root,
+            uint64_t btr_fee,
+            uint64_t ft_min_amount,
             sc_proof_t* sc_proof,
             sc_vk_t*    sc_vk,
-            CctpErrorCode* ret_code,
+            CctpErrorCode* ret_code
         )
         {
             return zendoo_add_certificate_proof_to_batch_verifier(
-                batch_verifier, proof_id, constant, custom_fields, custom_fields_len,
-                epoch_number, end_cum_comm_tree_root, btr_fee, ft_min_amount, bt_list,
-                bt_list_len, quality, sc_proof, sc_vk, ret_code
+                batch_verifier, proof_id, constant, epoch_number, quality,
+                bt_list, bt_list_len, custom_fields, custom_fields_len,
+                end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                sc_proof, sc_vk, ret_code
             );
         }
 
-        bool zendoo_add_csw_proof_to_batch_verifier(
+        bool add_csw_proof(
             uint32_t proof_id,
             uint64_t amount,
             const field_t* sc_id,
@@ -778,7 +781,7 @@ extern "C" {
         ~ZendooBatchProofVerifier() {
             zendoo_free_batch_proof_verifier(batch_verifier);
         }
-    }
+    };
 
 //
 //

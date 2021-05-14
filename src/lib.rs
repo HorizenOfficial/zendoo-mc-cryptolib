@@ -1161,33 +1161,17 @@ pub extern "C" fn zendoo_verify_ginger_merkle_path(
 pub extern "C" fn zendoo_verify_ginger_merkle_path_from_raw(
     path: *const GingerMHTPath,
     height: usize,
-    leaf: *const BufferWithSize,
-    root: *const BufferWithSize,
+    leaf: *const FieldElement,
+    root: *const FieldElement,
     ret_code: &mut CctpErrorCode,
 ) -> bool
 {
     let path = try_read_raw_pointer!("path", path, ret_code, false);
-    let root_bytes = try_get_buffer_constant_size!("root_bytes", root, FIELD_SIZE, ret_code, false);
-    let leaf_bytes = try_get_buffer_constant_size!("leaf_bytes", leaf, FIELD_SIZE, ret_code, false);
-
-    // Deserialize root
-    let root = deserialize_from_buffer(root_bytes);
-    if root.is_err() {
-        *ret_code = CctpErrorCode::InvalidBufferData;
-        dbg!(format!("Error deserializing root: {:?}", root.unwrap_err()));
-        return false;
-    }
-
-    // Deserialize leaf
-    let leaf = deserialize_from_buffer(leaf_bytes);
-    if root.is_err() {
-        *ret_code = CctpErrorCode::InvalidBufferData;
-        dbg!(format!("Error deserializing leaf: {:?}", leaf.unwrap_err()));
-        return false;
-    }
+    let root = try_read_raw_pointer!("root", root, ret_code, false);
+    let leaf = try_read_raw_pointer!("leaf", leaf, ret_code, false);
 
     // Verify path
-    match verify_ginger_merkle_path(path, height, &leaf.unwrap(), &root.unwrap()) {
+    match verify_ginger_merkle_path(path, height, leaf, root) {
         Ok(result) => result,
         Err(e) => {
             *ret_code = CctpErrorCode::MerkleTreeError;
