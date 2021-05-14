@@ -113,8 +113,6 @@ extern "C" {
         const BufferWithSize* tx_hash,
         uint32_t out_idx,
         uint32_t withdrawal_epoch_length,
-        ProvingSystem cert_proving_system,
-        ProvingSystem csw_proving_system,
         uint8_t mc_btr_request_data_length,
         const BufferWithSize* custom_field_elements_config,
         const BitVectorElementsConfig* custom_bv_elements_config,
@@ -531,9 +529,16 @@ extern "C" {
      * If `semantic_checks` flag is set, semantic checks on the proof will be performed.
      */
     sc_proof_t* zendoo_deserialize_sc_proof(
-        ProvingSystem psType,
         const BufferWithSize* sc_proof_bytes,
         bool semantic_checks,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of `sc_proof`.
+     */
+    ProvingSystem zendoo_get_sc_proof_proving_system_type(
+        const sc_proof_t* sc_proof,
         CctpErrorCode* ret_code
     );
 
@@ -550,7 +555,6 @@ extern "C" {
      * If `semantic_checks` flag is set, semantic checks on vk will be performed.
      */
     sc_vk_t* zendoo_deserialize_sc_vk_from_file(
-        ProvingSystem psType,
         const path_char_t* vk_path,
         size_t vk_path_len,
         bool semantic_checks,
@@ -562,9 +566,16 @@ extern "C" {
      * If `semantic_checks` flag is set, semantic checks on vk will be performed.
      */
     sc_vk_t* zendoo_deserialize_sc_vk(
-        ProvingSystem psType,
         const BufferWithSize* sc_vk_bytes,
         bool semantic_checks,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of `sc_vk`.
+     */
+    ProvingSystem zendoo_get_sc_vk_proving_system_type(
+        const sc_vk_t* sc_vk,
         CctpErrorCode* ret_code
     );
 

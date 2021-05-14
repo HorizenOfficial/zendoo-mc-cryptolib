@@ -22,7 +22,7 @@ use cctp_primitives::{
     utils::{
         data_structures::{BitVectorElementsConfig, BackwardTransfer},
         poseidon_hash::*, mht::*, serialization::{deserialize_from_buffer, serialize_to_buffer},
-        serialization::read_from_file, compute_sc_id
+        compute_sc_id
     }
 };
 
@@ -92,8 +92,6 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
     tx_hash:                        *const BufferWithSize,
     out_idx:                        u32,
     withdrawal_epoch_length:        u32,
-    cert_proving_system:            ProvingSystem,
-    csw_proving_system:             ProvingSystem,
     mc_btr_request_data_length:     u8,
     custom_field_elements_config:   *const BufferWithSize,
     custom_bv_elements_config:      *const BitVectorElementsConfig,
@@ -131,17 +129,12 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
     // optional parameters
     let rs_constant     = try_read_optional_raw_pointer!("constant", constant, ret_code, false);
     let rs_csw_vk       = try_get_optional_buffer_variable_size!("csw_vk", csw_vk, ret_code, false);
-    let csw_proving_system = match csw_proving_system {
-        ProvingSystem::Undefined => None,
-        _ => Some(csw_proving_system)
-    };
 
     // Add SidechainCreation to the CommitmentTree
     let ret = cmt.add_scc(
         rs_sc_id, amount, rs_pub_key, rs_tx_hash, out_idx, withdrawal_epoch_length,
-        cert_proving_system, csw_proving_system, mc_btr_request_data_length,
-        rs_custom_fe_conf, rs_custom_bv_elements_config, btr_fee, ft_min_amount,
-        rs_ccd, rs_constant, rs_cert_vk, rs_csw_vk
+        mc_btr_request_data_length, rs_custom_fe_conf, rs_custom_bv_elements_config,
+        btr_fee, ft_min_amount, rs_ccd, rs_constant, rs_cert_vk, rs_csw_vk
     );
 
     if !ret {
@@ -470,29 +463,23 @@ pub extern "C" fn zendoo_serialize_sc_proof(
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_proof(
-    ps_type:         ProvingSystem,
     sc_proof_bytes:  *const BufferWithSize,
     semantic_checks: bool,
     ret_code:        &mut CctpErrorCode,
 ) -> *mut ZendooProof
 {
     let sc_proof_bytes = try_get_buffer_variable_size!("sc_proof_buffer", sc_proof_bytes, ret_code, null_mut());
-
-    // Check sc_proof is of expected type before deserializing it.
-    match deserialize_from_buffer::<ProvingSystem>(&sc_proof_bytes[..1]) {
-        Ok(proof_ps_type) => if proof_ps_type != ps_type {
-            *ret_code = CctpErrorCode::InvalidValue;
-            dbg!(format!("ProvingSystem mismatch: expected {:?}, found {:?}.", ps_type, proof_ps_type));
-            return null_mut();
-        },
-        Err(e) => {
-            *ret_code = CctpErrorCode::InvalidBufferData;
-            dbg!(format!("Error reading buffer: {:?}", e));
-            return null_mut();
-        }
-    }
-
     try_deserialize_to_raw_pointer!("sc_proof_bytes", sc_proof_bytes, semantic_checks, ret_code, null_mut())
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_proof_proving_system_type(
+    sc_proof: *const ZendooProof,
+    ret_code: &mut CctpErrorCode
+) -> ProvingSystem
+{
+    let sc_proof = try_read_raw_pointer!("sc_proof", sc_proof, ret_code, ProvingSystem::Undefined);
+    sc_proof.get_proving_system_type()
 }
 
 #[no_mangle]
@@ -503,7 +490,6 @@ pub extern "C" fn zendoo_sc_proof_free(proof: *mut ZendooProof) {
 #[cfg(not(target_os = "windows"))]
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
-    ps_type: ProvingSystem,
     vk_path: *const u8,
     vk_path_len: usize,
     semantic_checks: bool,
@@ -520,20 +506,6 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
         slice::from_raw_parts(vk_path, vk_path_len)
     }));
 
-    // Check vk is of expected type before deserializing it.
-    match read_from_file::<ProvingSystem>(vk_path) {
-        Ok(vk_ps_type) => if vk_ps_type != ps_type {
-            *ret_code = CctpErrorCode::InvalidValue;
-            dbg!(format!("ProvingSystem mismatch: expected {:?}, found {:?}.", ps_type, vk_ps_type));
-            return null_mut();
-        },
-        Err(e) => {
-            *ret_code = CctpErrorCode::InvalidBufferData;
-            dbg!(format!("Error reading buffer: {:?}", e));
-            return null_mut();
-        }
-    }
-
     // Deserialize vk
     try_deserialize_to_raw_pointer_from_file!("vk", vk_path, semantic_checks, ret_code, null_mut())
 }
@@ -541,7 +513,6 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
 #[cfg(target_os = "windows")]
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
-    ps_type: ProvingSystem,
     vk_path: *const u16,
     vk_path_len: usize,
     semantic_checks: bool,
@@ -553,47 +524,27 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     });
     let vk_path = Path::new(&path_str);
 
-    // Check vk is of expected type before deserializing it.
-    match read_from_file::<ProvingSystem>(vk_path) {
-        Ok(vk_ps_type) => if vk_ps_type != ps_type {
-            *ret_code = CctpErrorCode::InvalidValue;
-            dbg!(format!("ProvingSystem mismatch: expected {:?}, found {:?}.", ps_type, vk_ps_type));
-            return null_mut();
-        },
-        Err(e) => {
-            *ret_code = CctpErrorCode::InvalidBufferData;
-            dbg!(format!("Error reading buffer: {:?}", e));
-            return null_mut();
-        }
-    }
-
     try_deserialize_to_raw_pointer_from_file!("vk", vk_path, semantic_checks, ret_code, null_mut())
 }
 
 #[no_mangle]
 pub extern "C" fn zendoo_deserialize_sc_vk(
-    ps_type:         ProvingSystem,
     sc_vk_bytes:     *const BufferWithSize,
     semantic_checks: bool,
     ret_code:        &mut CctpErrorCode,
 ) -> *mut ZendooVerifierKey {
     let sc_vk_bytes = try_get_buffer_variable_size!("sc_vk_buffer", sc_vk_bytes, ret_code, null_mut());
-
-    // Check sc_vk is of expected type before deserializing it.
-    match deserialize_from_buffer::<ProvingSystem>(&sc_vk_bytes[..1]) {
-        Ok(vk_ps_type) => if vk_ps_type != ps_type {
-            *ret_code = CctpErrorCode::InvalidValue;
-            dbg!(format!("ProvingSystem mismatch: expected {:?}, found {:?}.", ps_type, vk_ps_type));
-            return null_mut();
-        },
-        Err(e) => {
-            *ret_code = CctpErrorCode::InvalidBufferData;
-            dbg!(format!("Error reading buffer: {:?}", e));
-            return null_mut();
-        }
-    }
-
     try_deserialize_to_raw_pointer!("sc_vk_bytes", sc_vk_bytes, semantic_checks, ret_code, null_mut())
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_vk_proving_system_type(
+    sc_vk: *const ZendooVerifierKey,
+    ret_code: &mut CctpErrorCode
+) -> ProvingSystem
+{
+    let sc_vk = try_read_raw_pointer!("sc_vk", sc_vk, ret_code, ProvingSystem::Undefined);
+    sc_vk.get_proving_system_type()
 }
 
 #[no_mangle]
