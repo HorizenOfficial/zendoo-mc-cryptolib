@@ -146,12 +146,6 @@ pub struct CSWTestCircuitWithAccumulators {
 impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
     fn generate_constraints<CS: ConstraintSystem<FieldElement>>(self, cs: &mut CS) -> Result<(), SynthesisError>
     {
-        enforce_csw_inputs_hash_gadget(
-            cs.ns(|| "enforce H(witnesses) == pub_ins"),
-            self.amount, self.sc_id, self.pub_key_hash, self.cert_data_hash,
-            self.end_cumulative_sc_tx_comm_tree_root
-        )?;
-
         // convert the FinalDarlinDeferred efficiently to circuit inputs
         let deferred_as_native_fes = self.custom_fields;
 
@@ -185,6 +179,12 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
             )?;
         }
 
+        enforce_csw_inputs_hash_gadget(
+            cs.ns(|| "enforce H(witnesses) == pub_ins"),
+            self.amount, self.sc_id, self.pub_key_hash, self.cert_data_hash,
+            self.end_cumulative_sc_tx_comm_tree_root
+        )?;
+
         Ok(())
     }
 }
@@ -195,7 +195,6 @@ pub struct CSWTestProofWithAccumulatorsUserInputs<'a> {
     pub pub_key_hash:                               &'a [u8; UINT_160_SIZE],
     pub cert_data_hash:                             &'a FieldElement,
     pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
-    pub proof_data:                                 Vec<&'a FieldElement>,
 }
 
 impl<'a> UserInputs for CSWTestProofWithAccumulatorsUserInputs<'a> {
@@ -209,16 +208,14 @@ impl<'a> UserInputs for CSWTestProofWithAccumulatorsUserInputs<'a> {
         let mut pub_key_hash = self.pub_key_hash.to_vec();
         pub_key_hash.append(&mut vec![0u8; FIELD_SIZE - UINT_160_SIZE]);
 
-        let mut hash_fes = vec![FieldHash::init_constant_length(5, None)
+        Ok(vec![FieldHash::init_constant_length(5, None)
             .update(FieldElement::from(self.amount))
             .update(deserialize_from_buffer::<FieldElement>(&sc_id).unwrap())
             .update(deserialize_from_buffer::<FieldElement>(&pub_key_hash).unwrap())
             .update(*self.cert_data_hash)
             .update(*self.end_cumulative_sc_tx_commitment_tree_root)
             .finalize()
-            .unwrap()];
-        hash_fes.append(&mut self.proof_data.iter().map(|&fe| fe.clone()).collect::<Vec<_>>());
-        Ok(hash_fes)
+            .unwrap()])
     }
 }
 
@@ -268,7 +265,7 @@ pub fn generate_proof(
     pub_key_hash:                               &[u8; UINT_160_SIZE],
     cert_data_hash:                             &FieldElement,
     end_cumulative_sc_tx_commitment_tree_root:  &FieldElement,
-) -> Result<(Option<Vec<FieldElement>>, ZendooProof), ProvingSystemError> {
+) -> Result<ZendooProof, ProvingSystemError> {
     let rng = &mut OsRng;
     let ck_g1 = get_g1_committer_key()?;
 
@@ -313,7 +310,7 @@ pub fn generate_proof(
                 proof: MarlinProof(proof),
                 deferred
             };
-            Ok((Some(deferred_fes), ZendooProof::Darlin(darlin_proof)))
+            Ok(ZendooProof::Darlin(darlin_proof))
         },
         ZendooProverKey::CoboundaryMarlin(pk) => {
             let circ = CSWTestCircuit {
@@ -330,7 +327,7 @@ pub fn generate_proof(
                 zk,
                 if zk { Some(rng) } else { None }
             ).map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
-            Ok((None, ZendooProof::CoboundaryMarlin(MarlinProof(proof))))
+            Ok(ZendooProof::CoboundaryMarlin(MarlinProof(proof)))
         }
     }
 }

@@ -161,12 +161,6 @@ pub struct CertTestCircuitWithAccumulators {
 impl ConstraintSynthesizer<FieldElement> for CertTestCircuitWithAccumulators {
     fn generate_constraints<CS: ConstraintSystem<FieldElement>>(self, cs: &mut CS) -> Result<(), SynthesisError>
     {
-        enforce_cert_inputs_hash_gadget(
-            cs.ns(|| "enforce H(witnesses) == pub_ins"),
-            self.epoch_number, self.end_cumulative_sc_tx_comm_tree_root, self.mr_bt,
-            self.ft_min_amount, self.btr_fee, self.quality, self.constant
-        )?;
-
         // convert the FinalDarlinDeferred efficiently to circuit inputs
         let deferred_as_native_fes = self.custom_fields;
 
@@ -200,6 +194,12 @@ impl ConstraintSynthesizer<FieldElement> for CertTestCircuitWithAccumulators {
             )?;
         }
 
+        enforce_cert_inputs_hash_gadget(
+            cs.ns(|| "enforce H(witnesses) == pub_ins"),
+            self.epoch_number, self.end_cumulative_sc_tx_comm_tree_root, self.mr_bt,
+            self.ft_min_amount, self.btr_fee, self.quality, self.constant
+        )?;
+
         Ok(())
     }
 }
@@ -212,12 +212,11 @@ pub struct CertTestProofWithAccumulatorsUserInputs<'a> {
     pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
     pub btr_fee:                                    u64,
     pub ft_min_amount:                              u64,
-    pub proof_data:                                 Vec<&'a FieldElement>,
 }
 
 impl<'a> UserInputs for CertTestProofWithAccumulatorsUserInputs<'a> {
     fn get_circuit_inputs(&self) -> Result<Vec<FieldElement>, ProvingSystemError> {
-        let mut hash_fes = vec![FieldHash::init_constant_length(7, None)
+        Ok(vec![FieldHash::init_constant_length(7, None)
             .update(*self.constant)
             .update(FieldElement::from(self.epoch_number))
             .update(FieldElement::from(self.quality))
@@ -226,9 +225,8 @@ impl<'a> UserInputs for CertTestProofWithAccumulatorsUserInputs<'a> {
             .update(FieldElement::from(self.btr_fee))
             .update(FieldElement::from(self.ft_min_amount))
             .finalize()
-            .unwrap()];
-        hash_fes.append(&mut self.proof_data.iter().map(|&fe| fe.clone()).collect::<Vec<_>>());
-        Ok(hash_fes)
+            .unwrap()]
+        )
     }
 }
 
@@ -284,7 +282,7 @@ pub fn generate_proof(
     end_cumulative_sc_tx_commitment_tree_root:  &FieldElement,
     btr_fee:                                    u64,
     ft_min_amount:                              u64
-) -> Result<(Option<Vec<FieldElement>>, ZendooProof), ProvingSystemError> {
+) -> Result<ZendooProof, ProvingSystemError> {
     let rng = &mut OsRng;
     let ck_g1 = get_g1_committer_key()?;
 
@@ -325,7 +323,7 @@ pub fn generate_proof(
                 proof: MarlinProof(proof),
                 deferred
             };
-            Ok((Some(deferred_fes), ZendooProof::Darlin(darlin_proof)))
+            Ok(ZendooProof::Darlin(darlin_proof))
         },
         ZendooProverKey::CoboundaryMarlin(pk) => {
             let circ = CertTestCircuit {
@@ -344,7 +342,7 @@ pub fn generate_proof(
                 zk,
                 if zk { Some(rng) } else { None }
             ).map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
-            Ok((None, ZendooProof::CoboundaryMarlin(MarlinProof(proof))))
+            Ok(ZendooProof::CoboundaryMarlin(MarlinProof(proof)))
         }
     }
 }

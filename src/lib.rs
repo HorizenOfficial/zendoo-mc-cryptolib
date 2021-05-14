@@ -8,6 +8,9 @@ use std::{
     slice
 };
 
+#[cfg(not(target_os = "windows"))]
+use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+
 use cctp_primitives::{
     bit_vector::{compression::*, merkle_tree::*},
     commitment_tree::CommitmentTree,
@@ -32,11 +35,11 @@ use type_mapping::*;
 #[macro_use]
 pub mod macros;
 use macros::*;
+use cctp_primitives::utils::serialization::write_to_file;
 
 #[cfg(feature = "mc-test-circuit")]
 pub mod mc_test_circuits;
 #[cfg(feature = "mc-test-circuit")]
-use mc_test_circuits::*;
 
 #[cfg(test)]
 pub mod tests;
@@ -438,6 +441,63 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(fie
 
 ////********************Sidechain SNARK functions********************
 
+#[cfg(target_os = "windows")]
+#[no_mangle]
+pub extern "C" fn zendoo_init_dlog_keys(
+    ps_type: ProvingSystem,
+    segment_size: usize,
+    params_dir: *const u16,
+    params_dir_len: usize,
+    ret_code: &mut CctpErrorCode
+) -> bool {
+
+    // Read params_dir
+    let params_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    });
+    let params_dir = Path::new(&params_str);
+
+    let ck_g1_path = params_dir.join("ck_g1");
+    let ck_g2_path = params_dir.join("ck_g2");
+
+    match init_dlog_keys(ps_type, segment_size, &ck_g1_path, &ck_g2_path) {
+        Ok(()) => true,
+        Err(e) => {
+            dbg!(format!("Error bootstrapping DLOG keys: {:?}", e));
+            *ret_code = CctpErrorCode::GenericError;
+            false
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_init_dlog_keys(
+    ps_type: ProvingSystem,
+    segment_size: usize,
+    params_dir: *const u8,
+    params_dir_len: usize,
+    ret_code: &mut CctpErrorCode
+) -> bool {
+
+    // Read params_dir
+    let params_dir = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    }));
+
+    let ck_g1_path = params_dir.join("ck_g1");
+    let ck_g2_path = params_dir.join("ck_g2");
+
+    match init_dlog_keys(ps_type, segment_size, &ck_g1_path, &ck_g2_path) {
+        Ok(()) => true,
+        Err(e) => {
+            dbg!(format!("Error bootstrapping DLOG keys: {:?}", e));
+            *ret_code = CctpErrorCode::GenericError;
+            false
+        }
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn zendoo_serialize_sc_proof(
     sc_proof: *const ZendooProof,
@@ -496,10 +556,6 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     ret_code: &mut CctpErrorCode
 ) -> *mut ZendooVerifierKey
 {
-    use std::{
-        ffi::OsStr,
-        os::unix::ffi::OsStrExt,
-    };
 
     // Read file path
     let vk_path = Path::new(OsStr::from_bytes(unsafe {
@@ -1204,96 +1260,150 @@ pub extern "C" fn zendoo_free_ginger_mht(
     tree: *mut GingerMHT
 ) { free_pointer(tree) }
 
-////***************Test functions*******************
-//
-//#[cfg(feature = "mc-test-circuit")]
-//pub mod mc_test_circuit;
-//#[cfg(feature = "mc-test-circuit")]
-//pub use self::mc_test_circuit::*;
-//use primitives::FieldBasedHash;
-//use cctp_primitives::utils::serialization::{deserialize_from_buffer, deserialize_from_buffer_checked, serialize_to_buffer, read_from_file};
-//use cctp_primitives::utils::data_structures::{ProvingSystem, BitVectorElementsConfig, backward_transfer_t};
-//
-//#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
-//#[no_mangle]
-//pub extern "C" fn zendoo_generate_mc_test_params(
-//    params_dir: *const u16,
-//    params_dir_len: usize,
-//) -> bool {
-//
-//    // Read params_dir
-//    let params_str = OsString::from_wide(unsafe {
-//        slice::from_raw_parts(params_dir, params_dir_len)
-//    });
-//    let params_dir = Path::new(&params_str);
-//
-//    match ginger_calls::generate_test_mc_parameters(params_dir) {
-//        Ok(()) => true,
-//        Err(e) => {
-//            set_last_error(e, CRYPTO_ERROR);
-//            false
-//        }
-//    }
-//}
-//
-//#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
-//#[no_mangle]
-//pub extern "C" fn zendoo_generate_mc_test_params(
-//    params_dir: *const u8,
-//    params_dir_len: usize,
-//) -> bool {
-//
-//    // Read params_dir
-//    let params_dir = Path::new(OsStr::from_bytes(unsafe {
-//        slice::from_raw_parts(params_dir, params_dir_len)
-//    }));
-//
-//    match ginger_calls::generate_test_mc_parameters(params_dir) {
-//        Ok(()) => true,
-//        Err(e) => {
-//            set_last_error(e, CRYPTO_ERROR);
-//            false
-//        }
-//    }
-//}
-//
-//#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
-//#[no_mangle]
-//pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
-//    proof_path: *const u8,
-//    proof_path_len: usize,
-//) -> *mut SCProof
-//{
-//    // Read file path
-//    let proof_path = Path::new(OsStr::from_bytes(unsafe {
-//        slice::from_raw_parts(proof_path, proof_path_len)
-//    }));
-//
-//    match deserialize_from_file(proof_path){
-//        Some(proof) => Box::into_raw(Box::new(proof)),
-//        None => null_mut(),
-//    }
-//}
-//
-//#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
-//#[no_mangle]
-//pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
-//    proof_path: *const u16,
-//    proof_path_len: usize,
-//) -> *mut SCProof
-//{
-//    // Read file path
-//    let path_str = OsString::from_wide(unsafe {
-//        slice::from_raw_parts(proof_path, proof_path_len)
-//    });
-//    let proof_path = Path::new(&path_str);
-//
-//    match deserialize_from_file(proof_path){
-//        Some(proof) => Box::into_raw(Box::new(proof)),
-//        None => null_mut(),
-//    }
-//}
-//
+//***************Test functions*******************
+
+#[repr(C)]
+pub enum TestCircuitType {
+    Certificate,
+    CSW
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
+    proof_path:         *const u8,
+    proof_path_len:     usize,
+    semantic_checks:    bool,
+    ret_code:           &mut CctpErrorCode,
+) -> *mut ZendooProof
+{
+    // Read file path
+    let proof_path = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    }));
+
+    try_deserialize_to_raw_pointer_from_file!("sc_proof", proof_path, semantic_checks, ret_code, null_mut())
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
+    proof_path:         *const u16,
+    proof_path_len:     usize,
+    semantic_checks:    bool,
+    ret_code:           &mut CctpErrorCode,
+) -> *mut ZendooProof
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    });
+    let proof_path = Path::new(&path_str);
+
+    try_deserialize_to_raw_pointer_from_file!("sc_proof", proof_path, semantic_checks, ret_code, null_mut())
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_generate_mc_test_params(
+    circ_type:      TestCircuitType,
+    ps_type:        ProvingSystem,
+    params_dir:     *const u16,
+    params_dir_len: usize,
+    ret_code:       &mut CctpErrorCode,
+) -> bool
+{
+    // Read params_dir
+    let params_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    });
+    let params_dir = Path::new(&params_str);
+
+    // Generate params
+    let params = match circ_type {
+        TestCircuitType::Certificate => mc_test_circuits::cert::generate_parameters(ps_type),
+        TestCircuitType::CSW => mc_test_circuits::csw::generate_parameters(ps_type)
+    };
+
+    match params {
+        Ok((pk, vk)) => {
+            let pk_path = params_dir.join("test_pk");
+            let vk_path = params_dir.join("test_vk");
+
+            let pk_ser_res = write_to_file(&pk, &pk_path);
+            if pk_ser_res.is_err() {
+                dbg!(format!("Error writing pk to file: {:?}", pk_ser_res.unwrap_err()));
+                *ret_code = CctpErrorCode::InvalidFile;
+                return false;
+            }
+
+            let vk_ser_res = write_to_file(&vk, &vk_path);
+            if vk_ser_res.is_err() {
+                dbg!(format!("Error writing vk to file: {:?}", vk_ser_res.unwrap_err()));
+                *ret_code = CctpErrorCode::InvalidFile;
+                return false;
+            }
+
+            true
+        }
+        Err(e) => {
+            dbg!(format!("Error generating test params: {:?}", e));
+            *ret_code = CctpErrorCode::GenericError;
+            false
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_generate_mc_test_params(
+    circ_type:      TestCircuitType,
+    ps_type:        ProvingSystem,
+    params_dir:     *const u8,
+    params_dir_len: usize,
+    ret_code:       &mut CctpErrorCode,
+) -> bool {
+
+    // Read params_dir
+    let params_dir = Path::new(OsStr::from_bytes(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    }));
+
+    // Generate params
+    let params = match circ_type {
+        TestCircuitType::Certificate => mc_test_circuits::cert::generate_parameters(ps_type),
+        TestCircuitType::CSW => mc_test_circuits::csw::generate_parameters(ps_type)
+    };
+
+    match params {
+        Ok((pk, vk)) => {
+            let pk_path = params_dir.join("test_pk");
+            let vk_path = params_dir.join("test_vk");
+
+            let pk_ser_res = write_to_file(&pk, &pk_path);
+            if pk_ser_res.is_err() {
+                dbg!(format!("Error writing pk to file: {:?}", pk_ser_res.unwrap_err()));
+                *ret_code = CctpErrorCode::InvalidFile;
+                return false;
+            }
+
+            let vk_ser_res = write_to_file(&vk, &vk_path);
+            if vk_ser_res.is_err() {
+                dbg!(format!("Error writing vk to file: {:?}", vk_ser_res.unwrap_err()));
+                *ret_code = CctpErrorCode::InvalidFile;
+                return false;
+            }
+
+            true
+        }
+        Err(e) => {
+            dbg!(format!("Error generating test params: {:?}", e));
+            *ret_code = CctpErrorCode::GenericError;
+            false
+        }
+    }
+}
+
 //#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
 //#[no_mangle]
 //pub extern "C" fn zendoo_create_mc_test_proof(
