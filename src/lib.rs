@@ -8,8 +8,6 @@ use std::{
     slice
 };
 
-//TODO: Make bt_list optional
-
 #[cfg(not(target_os = "windows"))]
 use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
 
@@ -288,7 +286,7 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root,    ret_code, false);
 
     // Read bt_list
-    let rs_bt_list = try_get_obj_list!("bt_list", bt_list, bt_list_len, ret_code, false);
+    let rs_bt_list = try_get_optional_obj_list!("bt_list", bt_list, bt_list_len, ret_code, false);
 
     // Read custom fields list (if present)
     let rs_custom_fields = try_read_optional_double_raw_pointer!(
@@ -297,8 +295,9 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(
 
     // Add certificate to ScCommitmentTree
     let ret = cmt.add_cert(
-        rs_sc_id, epoch_number, quality, rs_bt_list, rs_custom_fields,
-        rs_end_cum_comm_tree_root, btr_fee, ft_min_amount
+        rs_sc_id, epoch_number, quality,
+        if rs_bt_list.is_some() { rs_bt_list.unwrap() } else { &[] },
+        rs_custom_fields, rs_end_cum_comm_tree_root, btr_fee, ft_min_amount
     );
 
     if !ret {
@@ -639,7 +638,7 @@ fn get_cert_proof_usr_ins<'a>(
 ) -> Option<CertificateProofUserInputs<'a>>
 {
     // Read bt_list
-    let rs_bt_list = try_get_obj_list!("bt_list", bt_list, bt_list_len, ret_code, None);
+    let rs_bt_list = try_get_optional_obj_list!("bt_list", bt_list, bt_list_len, ret_code, None);
 
     // Read mandatory, constant size data
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, None);
@@ -655,7 +654,7 @@ fn get_cert_proof_usr_ins<'a>(
         constant: rs_constant,
         epoch_number,
         quality,
-        bt_list: rs_bt_list,
+        bt_list: if rs_bt_list.is_some() { rs_bt_list.unwrap() } else { &[] },
         custom_fields: rs_custom_fields,
         end_cumulative_sc_tx_commitment_tree_root: rs_end_cum_comm_tree_root,
         btr_fee,
@@ -696,7 +695,10 @@ pub extern "C" fn zendoo_verify_certificate_proof(
         Ok(res) => res,
         Err(e) => {
             dbg!(format!("Proof verification failure {:?}", e));
-            *ret_code = CctpErrorCode::ProofVerificationFailure;
+            match e {
+                ProvingSystemError::ProofVerificationFailed(_) => *ret_code = CctpErrorCode::OK,
+                _ => *ret_code = CctpErrorCode::ProofVerificationFailure,
+            }
             false
         }
     }
@@ -758,7 +760,10 @@ pub extern "C" fn zendoo_verify_csw_proof(
         Ok(res) => res,
         Err(e) => {
             dbg!(format!("Proof verification failure {:?}", e));
-            *ret_code = CctpErrorCode::ProofVerificationFailure;
+            match e {
+                ProvingSystemError::ProofVerificationFailed(_) => *ret_code = CctpErrorCode::OK,
+                _ => *ret_code = CctpErrorCode::ProofVerificationFailure,
+            }
             false
         }
     }
@@ -888,12 +893,11 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
         // Otherwise, return the index of the failing proof if it's possible to estabilish it.
         Err(e) => {
             dbg!(format!("Batch proof verification failure: {:?}", e));
-            *ret_code = CctpErrorCode::FailedBatchProofVerification;
             let mut result = ZendooBatchProofVerifierResult { result: false, failing_proof: -1 };
 
             match e {
                 ProvingSystemError::FailedBatchVerification(maybe_id) => {
-                    *ret_code = CctpErrorCode::FailedBatchProofVerification;
+                    *ret_code = CctpErrorCode::OK;
                     if maybe_id.is_some() {
                         result.failing_proof = maybe_id.unwrap() as i64;
                     }
@@ -932,7 +936,7 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
 
             match e {
                 ProvingSystemError::FailedBatchVerification(maybe_id) => {
-                    *ret_code = CctpErrorCode::FailedBatchProofVerification;
+                    *ret_code = CctpErrorCode::OK;
                     if maybe_id.is_some() {
                         result.failing_proof = maybe_id.unwrap() as i64;
                     }
@@ -1398,7 +1402,7 @@ fn _zendoo_create_cert_test_proof(
 ) -> bool
 {
     // Read bt_list
-    let rs_bt_list = try_get_obj_list!("bt_list", bt_list, bt_list_len, ret_code, false);
+    let rs_bt_list = try_get_optional_obj_list!("bt_list", bt_list, bt_list_len, ret_code, false);
 
     // Read mandatory, constant size data
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, false);
@@ -1423,7 +1427,7 @@ fn _zendoo_create_cert_test_proof(
         rs_constant,
         epoch_number,
         quality,
-        rs_bt_list,
+        if rs_bt_list.is_some() { rs_bt_list.unwrap() } else { &[] },
         rs_end_cum_comm_tree_root,
         btr_fee,
         ft_min_amount

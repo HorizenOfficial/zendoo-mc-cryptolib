@@ -518,9 +518,9 @@ extern "C" {
 
     bool zendoo_init_dlog_keys(
         ProvingSystem ps_type,
-        size_t segment_size
+        size_t segment_size,
         const path_char_t* params_dir,
-        size_t params_dir_len
+        size_t params_dir_len,
         CctpErrorCode* ret_code
     );
 

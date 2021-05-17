@@ -23,146 +23,84 @@ use rand::rngs::OsRng;
 use cctp_primitives::proving_system::verifier::UserInputs;
 use primitives::FieldBasedHash;
 use cctp_primitives::utils::data_structures::BackwardTransfer;
-use cctp_primitives::utils::get_bt_merkle_root;
+use cctp_primitives::utils::{get_bt_merkle_root, get_cert_data_hash};
 
 type FieldElementGadget = FrGadget;
 type FieldHashGadget = TweedleFrPoseidonHashGadget;
 
-fn enforce_cert_inputs_hash_gadget<CS: ConstraintSystem<FieldElement>>(
+fn enforce_cert_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
     mut cs:                               CS,
-    epoch_number:                         Option<FieldElement>,
-    end_cumulative_sc_tx_comm_tree_root:  Option<FieldElement>,
-    mr_bt:                                Option<FieldElement>,
-    ft_min_amount:                        Option<FieldElement>,
-    btr_fee:                              Option<FieldElement>,
-    quality:                              Option<FieldElement>,
     constant:                             Option<FieldElement>,
+    cert_data_hash:                       Option<FieldElement>,
 ) -> Result<(), SynthesisError>
 {
-    //Alloc witnesses
-    let epoch_number_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc epoch_number"),
-        || epoch_number.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    let end_cumulative_sc_tx_comm_tree_root_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc end_cumulative_sc_tx_comm_tree_root"),
-        || end_cumulative_sc_tx_comm_tree_root.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    let mr_bt_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc mr_bt"),
-        || mr_bt.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    let ft_min_amount_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc ft_min_amount"),
-        || ft_min_amount.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    let btr_fee_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc btr_fee"),
-        || btr_fee.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    let quality_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc quality"),
-        || quality.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
     let constant_g = FieldElementGadget::alloc(
         cs.ns(|| "alloc constant"),
         || constant.ok_or(SynthesisError::AssignmentMissing)
     )?;
-    
-    // Enforce hash
-    let actual_hash_g = FieldHashGadget::enforce_hash_constant_length(
-        cs.ns(|| "H(witnesses)"),
-        &[
-            epoch_number_g, end_cumulative_sc_tx_comm_tree_root_g, mr_bt_g,
-            ft_min_amount_g, btr_fee_g, quality_g, constant_g
-        ]
+
+    let expected_constant_g = FieldElementGadget::alloc_input(
+        cs.ns(|| "alloc expected_constant"),
+        || constant.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
-    //Alloc public input hash
-    let expected_hash_g = FieldElementGadget::alloc_input(
-        cs.ns(|| "alloc expected H(witnesses) as public input"),
-        || Ok(actual_hash_g.get_value().get()?)
+    for _ in 0..512 {
+        constant_g.enforce_equal(
+            cs.ns(|| "check 1"),
+            &expected_constant_g
+        )?;
+    }
+
+    let cert_data_hash_g = FieldElementGadget::alloc(
+        cs.ns(|| "alloc cert_data_hash"),
+        || cert_data_hash.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
-    //Enforce equality
-    actual_hash_g.enforce_equal(
-        cs.ns(|| "actual_hash_g == expected_hash_g"),
-        &expected_hash_g
+    let expected_cert_data_hash_g = FieldElementGadget::alloc_input(
+        cs.ns(|| "alloc expected_cert_data_hash"),
+        || cert_data_hash.ok_or(SynthesisError::AssignmentMissing)
     )?;
+
+    for _ in 0..512 {
+        cert_data_hash_g.enforce_equal(
+            cs.ns(|| "check 2"),
+            &expected_cert_data_hash_g
+        )?;
+    }
+
     Ok(())
 }
 
 // Simple test circuit, enforcing that the hash of all the witnesses equals the public input
+#[derive(Debug)]
 pub struct CertTestCircuit {
-    epoch_number:                         Option<FieldElement>,
-    end_cumulative_sc_tx_comm_tree_root:  Option<FieldElement>,
-    mr_bt:                                Option<FieldElement>,
-    ft_min_amount:                        Option<FieldElement>,
-    btr_fee:                              Option<FieldElement>,
-    quality:                              Option<FieldElement>,
     constant:                             Option<FieldElement>,
+    cert_data_hash:                       Option<FieldElement>,
 }
 
 impl ConstraintSynthesizer<FieldElement> for CertTestCircuit {
     fn generate_constraints<CS: ConstraintSystem<FieldElement>>(self, cs: &mut CS) -> Result<(), SynthesisError>
     {
-        enforce_cert_inputs_hash_gadget(
-            cs.ns(|| "enforce H(witnesses) == pub_ins"), self.epoch_number,
-            self.end_cumulative_sc_tx_comm_tree_root, self.mr_bt,
-            self.ft_min_amount, self.btr_fee, self.quality, self.constant
+        enforce_cert_inputs_gadget(
+            cs.ns(|| "enforce witnesses == pub_ins"),
+            self.constant,
+            self.cert_data_hash
         )
-    }
-}
-
-pub struct CertTestProofUserInputs<'a> {
-    pub constant:                                   &'a FieldElement,
-    pub epoch_number:                               u32,
-    pub quality:                                    u64,
-    pub bt_list:                                    &'a [BackwardTransfer],
-    pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
-    pub btr_fee:                                    u64,
-    pub ft_min_amount:                              u64
-}
-
-impl<'a> UserInputs for CertTestProofUserInputs<'a> {
-    fn get_circuit_inputs(&self) -> Result<Vec<FieldElement>, ProvingSystemError> {
-        let hash_fes = FieldHash::init_constant_length(7, None)
-            .update(*self.constant)
-            .update(FieldElement::from(self.epoch_number))
-            .update(FieldElement::from(self.quality))
-            .update(get_bt_merkle_root(self.bt_list).unwrap())
-            .update(*self.end_cumulative_sc_tx_commitment_tree_root)
-            .update(FieldElement::from(self.btr_fee))
-            .update(FieldElement::from(self.ft_min_amount))
-            .finalize()
-            .unwrap();
-        Ok(vec![hash_fes])
     }
 }
 
 // Simple test circuit, enforcing that the hash of all the witnesses equals the public input
 pub struct CertTestCircuitWithAccumulators {
-    epoch_number:                         Option<FieldElement>,
-    end_cumulative_sc_tx_comm_tree_root:  Option<FieldElement>,
-    mr_bt:                                Option<FieldElement>,
-    ft_min_amount:                        Option<FieldElement>,
-    btr_fee:                              Option<FieldElement>,
-    quality:                              Option<FieldElement>,
     constant:                             Option<FieldElement>,
-    custom_fields:                        Vec<FieldElement>, // Represents deferred data
+    cert_data_hash:                       Option<FieldElement>,
+    deferred:                             Vec<FieldElement>, // Represents deferred data
 }
 
 impl ConstraintSynthesizer<FieldElement> for CertTestCircuitWithAccumulators {
     fn generate_constraints<CS: ConstraintSystem<FieldElement>>(self, cs: &mut CS) -> Result<(), SynthesisError>
     {
         // convert the FinalDarlinDeferred efficiently to circuit inputs
-        let deferred_as_native_fes = self.custom_fields;
+        let deferred_as_native_fes = self.deferred;
 
         // Alloc deferred data as public input
         let mut deferred_input_gs = Vec::new();
@@ -194,41 +132,16 @@ impl ConstraintSynthesizer<FieldElement> for CertTestCircuitWithAccumulators {
             )?;
         }
 
-        enforce_cert_inputs_hash_gadget(
-            cs.ns(|| "enforce H(witnesses) == pub_ins"),
-            self.epoch_number, self.end_cumulative_sc_tx_comm_tree_root, self.mr_bt,
-            self.ft_min_amount, self.btr_fee, self.quality, self.constant
+        enforce_cert_inputs_gadget(
+            cs.ns(|| "enforce witnesses == pub_ins"),
+            self.constant,
+            self.cert_data_hash
         )?;
 
         Ok(())
     }
 }
 
-pub struct CertTestProofWithAccumulatorsUserInputs<'a> {
-    pub constant:                                   &'a FieldElement,
-    pub epoch_number:                               u32,
-    pub quality:                                    u64,
-    pub bt_list:                                    &'a [BackwardTransfer],
-    pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
-    pub btr_fee:                                    u64,
-    pub ft_min_amount:                              u64,
-}
-
-impl<'a> UserInputs for CertTestProofWithAccumulatorsUserInputs<'a> {
-    fn get_circuit_inputs(&self) -> Result<Vec<FieldElement>, ProvingSystemError> {
-        Ok(vec![FieldHash::init_constant_length(7, None)
-            .update(*self.constant)
-            .update(FieldElement::from(self.epoch_number))
-            .update(FieldElement::from(self.quality))
-            .update(get_bt_merkle_root(self.bt_list).unwrap())
-            .update(*self.end_cumulative_sc_tx_commitment_tree_root)
-            .update(FieldElement::from(self.btr_fee))
-            .update(FieldElement::from(self.ft_min_amount))
-            .finalize()
-            .unwrap()]
-        )
-    }
-}
 
 pub fn generate_parameters(ps: ProvingSystem) -> Result<(ZendooProverKey, ZendooVerifierKey), ProvingSystemError>
 {
@@ -238,14 +151,9 @@ pub fn generate_parameters(ps: ProvingSystem) -> Result<(ZendooProverKey, Zendoo
         ProvingSystem::Darlin => {
             let ck_g2 = get_g2_committer_key()?;
             let circ = CertTestCircuitWithAccumulators {
-                epoch_number: None,
-                end_cumulative_sc_tx_comm_tree_root: None,
-                mr_bt: None,
-                ft_min_amount: None,
-                btr_fee: None,
-                quality: None,
                 constant: None,
-                custom_fields: FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
+                cert_data_hash: None,
+                deferred: FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
                     &mut rand::thread_rng(),
                     ck_g1.as_ref().unwrap(),
                     ck_g2.as_ref().unwrap(),
@@ -257,13 +165,8 @@ pub fn generate_parameters(ps: ProvingSystem) -> Result<(ZendooProverKey, Zendoo
         },
         ProvingSystem::CoboundaryMarlin => {
             let circ = CertTestCircuit {
-                epoch_number: None,
-                end_cumulative_sc_tx_comm_tree_root: None,
-                mr_bt: None,
-                ft_min_amount: None,
-                btr_fee: None,
-                quality: None,
                 constant: None,
+                cert_data_hash: None,
             };
             let (pk, vk) =  CoboundaryMarlin::index(ck_g1.as_ref().unwrap(), circ)
                 .map_err(|e| ProvingSystemError::SetupFailed(e.to_string()))?;
@@ -287,11 +190,15 @@ pub fn generate_proof(
     let ck_g1 = get_g1_committer_key()?;
 
     // Read input param into field elements
-    let epoch_number = FieldElement::from(epoch_number);
-    let mr_bt = get_bt_merkle_root(bt_list).unwrap();
-    let ft_min_amount = FieldElement::from(ft_min_amount);
-    let btr_fee = FieldElement::from(btr_fee);
-    let quality = FieldElement::from(quality);
+    let cert_data_hash = get_cert_data_hash(
+        epoch_number,
+        quality,
+        bt_list,
+        None,
+        end_cumulative_sc_tx_commitment_tree_root,
+        btr_fee,
+        ft_min_amount
+    ).map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
 
     match pk {
         ZendooProverKey::Darlin(pk) => {
@@ -303,14 +210,9 @@ pub fn generate_proof(
             );
             let deferred_fes = deferred.to_field_elements().unwrap();
             let circ = CertTestCircuitWithAccumulators {
-                epoch_number: Some(epoch_number),
-                end_cumulative_sc_tx_comm_tree_root: Some(*end_cumulative_sc_tx_commitment_tree_root),
-                mr_bt: Some(mr_bt),
-                ft_min_amount: Some(ft_min_amount),
-                btr_fee: Some(btr_fee),
-                quality: Some(quality),
                 constant: Some(*constant),
-                custom_fields: deferred_fes.clone()
+                cert_data_hash: Some(cert_data_hash),
+                deferred: deferred_fes.clone()
             };
             let proof = CoboundaryMarlin::prove(
                 pk,
@@ -327,13 +229,8 @@ pub fn generate_proof(
         },
         ZendooProverKey::CoboundaryMarlin(pk) => {
             let circ = CertTestCircuit {
-                epoch_number: Some(epoch_number),
-                end_cumulative_sc_tx_comm_tree_root: Some(*end_cumulative_sc_tx_commitment_tree_root),
-                mr_bt: Some(mr_bt),
-                ft_min_amount: Some(ft_min_amount),
-                btr_fee: Some(btr_fee),
-                quality: Some(quality),
                 constant: Some(*constant),
+                cert_data_hash: Some(cert_data_hash),
             };
             let proof = CoboundaryMarlin::prove(
                 pk,

@@ -27,7 +27,7 @@ use rand::rngs::OsRng;
 type FieldElementGadget = FrGadget;
 type FieldHashGadget = TweedleFrPoseidonHashGadget;
 
-fn enforce_csw_inputs_hash_gadget<CS: ConstraintSystem<FieldElement>>(
+fn enforce_csw_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
     mut cs:                                 CS,
     amount:                                 Option<FieldElement>,
     sc_id:                                  Option<FieldElement>,
@@ -36,10 +36,19 @@ fn enforce_csw_inputs_hash_gadget<CS: ConstraintSystem<FieldElement>>(
     end_cumulative_sc_tx_comm_tree_root:    Option<FieldElement>
 ) -> Result<(), SynthesisError>
 {
-    //Alloc witnesses
     let amount_g = FieldElementGadget::alloc(
         cs.ns(|| "alloc amount"),
         || amount.ok_or(SynthesisError::AssignmentMissing)
+    )?;
+
+    let expected_amount_g = FieldElementGadget::alloc_input(
+        cs.ns(|| "alloc expected_amount"),
+        || amount.ok_or(SynthesisError::AssignmentMissing)
+    )?;
+
+    amount_g.enforce_equal(
+        cs.ns(|| "check 1"),
+        &expected_amount_g
     )?;
 
     let sc_id_g = FieldElementGadget::alloc(
@@ -47,9 +56,29 @@ fn enforce_csw_inputs_hash_gadget<CS: ConstraintSystem<FieldElement>>(
         || sc_id.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
+    let expected_sc_id_g = FieldElementGadget::alloc_input(
+        cs.ns(|| "alloc expected_sc_id"),
+        || sc_id.ok_or(SynthesisError::AssignmentMissing)
+    )?;
+
+    sc_id_g.enforce_equal(
+        cs.ns(|| "check 2"),
+        &expected_sc_id_g
+    )?;
+
     let pub_key_hash_g = FieldElementGadget::alloc(
         cs.ns(|| "alloc pub_key_hash"),
         || pub_key_hash.ok_or(SynthesisError::AssignmentMissing)
+    )?;
+
+    let expected_pub_key_hash_g = FieldElementGadget::alloc_input(
+        cs.ns(|| "alloc expected_pub_key_hash"),
+        || pub_key_hash.ok_or(SynthesisError::AssignmentMissing)
+    )?;
+
+    pub_key_hash_g.enforce_equal(
+        cs.ns(|| "check 3"),
+        &expected_pub_key_hash_g
     )?;
 
     let cert_data_hash_g = FieldElementGadget::alloc(
@@ -57,27 +86,29 @@ fn enforce_csw_inputs_hash_gadget<CS: ConstraintSystem<FieldElement>>(
         || cert_data_hash.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
+    let expected_cert_data_hash_g = FieldElementGadget::alloc_input(
+        cs.ns(|| "alloc expected_cert_data_hash"),
+        || cert_data_hash.ok_or(SynthesisError::AssignmentMissing)
+    )?;
+
+    cert_data_hash_g.enforce_equal(
+        cs.ns(|| "check 4"),
+        &expected_cert_data_hash_g
+    )?;
+
     let end_cumulative_sc_tx_comm_tree_root_g = FieldElementGadget::alloc(
         cs.ns(|| "alloc end_cumulative_sc_tx_comm_tree_root"),
         || end_cumulative_sc_tx_comm_tree_root.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
-    // Enforce hash
-    let actual_hash_g = FieldHashGadget::enforce_hash_constant_length(
-        cs.ns(|| "H(witnesses)"),
-        &[amount_g, sc_id_g, pub_key_hash_g, cert_data_hash_g, end_cumulative_sc_tx_comm_tree_root_g]
+    let expected_end_cumulative_sc_tx_comm_tree_root_g = FieldElementGadget::alloc_input(
+        cs.ns(|| "alloc expected_end_cumulative_sc_tx_comm_tree_root"),
+        || end_cumulative_sc_tx_comm_tree_root.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
-    //Alloc public input hash
-    let expected_hash_g = FieldElementGadget::alloc_input(
-        cs.ns(|| "alloc expected H(witnesses) as public input"),
-        || Ok(actual_hash_g.get_value().get()?)
-    )?;
-
-    //Enforce equality
-    actual_hash_g.enforce_equal(
-        cs.ns(|| "actual_hash_g == expected_hash_g"),
-        &expected_hash_g
+    end_cumulative_sc_tx_comm_tree_root_g.enforce_equal(
+        cs.ns(|| "check 5"),
+        &expected_end_cumulative_sc_tx_comm_tree_root_g
     )?;
     Ok(())
 }
@@ -94,8 +125,8 @@ pub struct CSWTestCircuit {
 impl ConstraintSynthesizer<FieldElement> for CSWTestCircuit {
     fn generate_constraints<CS: ConstraintSystem<FieldElement>>(self, cs: &mut CS) -> Result<(), SynthesisError>
     {
-        enforce_csw_inputs_hash_gadget(
-            cs.ns(|| "enforce H(witnesses) == pub_ins"),
+        enforce_csw_inputs_gadget(
+            cs.ns(|| "enforce witnesses == pub_ins"),
             self.amount, self.sc_id, self.pub_key_hash, self.cert_data_hash,
             self.end_cumulative_sc_tx_comm_tree_root
         )
@@ -117,15 +148,10 @@ impl<'a> UserInputs for CSWTestProofUserInputs<'a> {
         let mut pub_key_hash = self.pub_key_hash.to_vec();
         pub_key_hash.append(&mut vec![0u8; FIELD_SIZE - UINT_160_SIZE]);
 
-        let hash_fes = FieldHash::init_constant_length(5, None)
-            .update(FieldElement::from(self.amount))
-            .update(*self.sc_id)
-            .update(deserialize_from_buffer::<FieldElement>(&pub_key_hash).unwrap())
-            .update(*self.cert_data_hash)
-            .update(*self.end_cumulative_sc_tx_commitment_tree_root)
-            .finalize()
-            .unwrap();
-        Ok(vec![hash_fes])
+        Ok(vec![
+            FieldElement::from(self.amount), *self.sc_id, deserialize_from_buffer::<FieldElement>(&pub_key_hash).unwrap(),
+            *self.cert_data_hash, *self.end_cumulative_sc_tx_commitment_tree_root
+        ])
     }
 }
 
@@ -175,8 +201,8 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
             )?;
         }
 
-        enforce_csw_inputs_hash_gadget(
-            cs.ns(|| "enforce H(witnesses) == pub_ins"),
+        enforce_csw_inputs_gadget(
+            cs.ns(|| "enforce witnesses == pub_ins"),
             self.amount, self.sc_id, self.pub_key_hash, self.cert_data_hash,
             self.end_cumulative_sc_tx_comm_tree_root
         )?;
@@ -200,14 +226,10 @@ impl<'a> UserInputs for CSWTestProofWithAccumulatorsUserInputs<'a> {
         let mut pub_key_hash = self.pub_key_hash.to_vec();
         pub_key_hash.append(&mut vec![0u8; FIELD_SIZE - UINT_160_SIZE]);
 
-        Ok(vec![FieldHash::init_constant_length(5, None)
-            .update(FieldElement::from(self.amount))
-            .update(*self.sc_id)
-            .update(deserialize_from_buffer::<FieldElement>(&pub_key_hash).unwrap())
-            .update(*self.cert_data_hash)
-            .update(*self.end_cumulative_sc_tx_commitment_tree_root)
-            .finalize()
-            .unwrap()])
+        Ok(vec![
+            FieldElement::from(self.amount), *self.sc_id, deserialize_from_buffer::<FieldElement>(&pub_key_hash).unwrap(),
+            *self.cert_data_hash, *self.end_cumulative_sc_tx_commitment_tree_root
+        ])
     }
 }
 

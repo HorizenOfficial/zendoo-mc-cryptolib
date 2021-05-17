@@ -382,6 +382,177 @@ TEST_CASE("Merkle Tree") {
 }
 
 
+TEST_SUITE("Single Proof Verifier") {
+
+    static std::string params_dir = std::string("../examples");
+    static size_t params_dir_len = params_dir.size();
+
+    bool initDlogKeys() {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Bootstrap keys
+        bool init_result = zendoo_init_dlog_keys(
+            ProvingSystem::Darlin,
+            1 << 9,
+            (path_char_t*)params_dir.c_str(),
+            params_dir_len,
+            &ret_code
+        );
+        CHECK(init_result == true);
+        CHECK(ret_code == CctpErrorCode::OK);
+    }
+
+    void create_verify_cert_proof(size_t numBt, bool zk) {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Generate random data
+        auto constant = zendoo_get_field_from_long(1);
+        auto end_cum_comm_tree_root = zendoo_get_field_from_long(2);
+        uint32_t epoch_number = 10;
+        uint64_t quality = 100;
+        uint64_t btr_fee = 1000;
+        uint64_t ft_min_amount = 5000;
+
+        //Create dummy bt list
+        size_t bt_list_len = numBt;
+        std::vector<backward_transfer_t> bt_list;
+        if (bt_list_len != 0) {
+            for(int i = 0; i < bt_list_len; i++){
+                bt_list.push_back({{0}, 0});
+            }
+        }
+
+        // Specify paths
+        auto pk_path = params_dir + std::string("/test_pk");
+        auto proof_path = params_dir + std::string("/cert_test_proof");
+
+        CHECK(
+            zendoo_create_cert_test_proof(
+                zk, constant, epoch_number, quality, bt_list.data(), bt_list_len,
+                end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                (path_char_t*)pk_path.c_str(), pk_path.size(),
+                (path_char_t*)proof_path.c_str(), proof_path.size(),
+                &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Verify proof with correct data
+
+        auto sc_proof = zendoo_deserialize_sc_proof_from_file(
+            (path_char_t*)proof_path.c_str(),
+            proof_path.size(),
+            false,
+            &ret_code
+        );
+        CHECK(sc_proof != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        auto vk_path = params_dir + std::string("/test_vk");
+        auto sc_vk = zendoo_deserialize_sc_vk_from_file(
+            (path_char_t*)vk_path.c_str(),
+            vk_path.size(),
+            false,
+            &ret_code
+        );
+        CHECK(sc_vk != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Positive verification
+        CHECK(
+            zendoo_verify_certificate_proof(
+                constant, epoch_number, quality, bt_list.data(), bt_list_len,
+                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                sc_proof, sc_vk, &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Negative verification
+        auto wrong_constant = zendoo_get_field_from_long(2);
+        CHECK(
+            zendoo_verify_certificate_proof(
+                wrong_constant, epoch_number, quality, bt_list.data(), bt_list_len,
+                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                sc_proof, sc_vk, &ret_code
+            ) == false
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Free memory
+        zendoo_field_free(constant);
+        zendoo_field_free(wrong_constant);
+        zendoo_field_free(end_cum_comm_tree_root);
+        zendoo_sc_vk_free(sc_vk);
+        zendoo_sc_proof_free(sc_proof);
+
+        // Destroy proof file
+        remove(proof_path.c_str());
+    }
+
+    TEST_CASE("Proof Verifier: Cert - Coboundary Marlin") {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Init keys
+        initDlogKeys();
+
+        // Generate cert test circuit pk and vk
+        CHECK(
+            zendoo_generate_mc_test_params(
+                TestCircuitType::Certificate,
+                ProvingSystem::CoboundaryMarlin,
+                (path_char_t*)params_dir.c_str(),
+                params_dir_len,
+                &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Test all cases
+        create_verify_cert_proof(10, true);
+        create_verify_cert_proof(0, true);
+        create_verify_cert_proof(10, false);
+        create_verify_cert_proof(0, false);
+
+        // Delete files
+        auto pk_path = params_dir + std::string("/test_pk");
+        auto vk_path = params_dir + std::string("/test_vk");
+        remove(pk_path.c_str());
+        remove(vk_path.c_str());
+    }
+
+    TEST_CASE("Proof Verifier: Cert - Darlin") {
+       CctpErrorCode ret_code = CctpErrorCode::OK;
+
+       // Init keys
+       initDlogKeys();
+
+       // Generate cert test circuit pk and vk
+       CHECK(
+           zendoo_generate_mc_test_params(
+               TestCircuitType::Certificate,
+               ProvingSystem::Darlin,
+               (path_char_t*)params_dir.c_str(),
+               params_dir_len,
+               &ret_code
+           ) == true
+       );
+       CHECK(ret_code == CctpErrorCode::OK);
+
+       // Test all cases
+       create_verify_cert_proof(10, true);
+       create_verify_cert_proof(0, true);
+       create_verify_cert_proof(10, false);
+       create_verify_cert_proof(0, false);
+
+       // Delete files
+       auto pk_path = params_dir + std::string("/test_pk");
+       auto vk_path = params_dir + std::string("/test_vk");
+       remove(pk_path.c_str());
+       remove(vk_path.c_str());
+    }
+}
+
 //
 //void proof_test() {
 //
