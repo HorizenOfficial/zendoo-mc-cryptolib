@@ -34,7 +34,8 @@ extern "C" {
             CompressError,
             UncompressError,
             MerkleRootBuildError,
-            GenericError
+            GenericError,
+            TestProofCreationFailure,
     } CctpErrorCode;
 
     //Field related functions
@@ -823,6 +824,7 @@ extern "C" {
 
     /* Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path */
     bool zendoo_create_cert_test_proof(
+        bool zk,
         const field_t* constant,
         uint32_t epoch_number,
         uint64_t quality,
@@ -840,6 +842,7 @@ extern "C" {
 
     /* Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path */
     bool zendoo_create_csw_test_proof(
+        bool zk,
         uint32_t proof_id,
         uint64_t amount,
         const field_t* sc_id,

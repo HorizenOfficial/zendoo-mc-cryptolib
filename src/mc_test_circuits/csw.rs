@@ -104,7 +104,7 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuit {
 
 pub struct CSWTestProofUserInputs<'a> {
     pub amount:                                     u64,
-    pub sc_id:                                      &'a [u8; UINT_256_SIZE],
+    pub sc_id:                                      &'a FieldElement,
     pub pub_key_hash:                               &'a [u8; UINT_160_SIZE],
     pub cert_data_hash:                             &'a FieldElement,
     pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
@@ -113,17 +113,13 @@ pub struct CSWTestProofUserInputs<'a> {
 impl<'a> UserInputs for CSWTestProofUserInputs<'a> {
     fn get_circuit_inputs(&self) -> Result<Vec<FieldElement>, ProvingSystemError> {
 
-        // Mask away last byte
-        let mut sc_id = self.sc_id.to_vec();
-        sc_id[31] = 0u8;
-
         // Pad with 0s until FIELD_SIZE
         let mut pub_key_hash = self.pub_key_hash.to_vec();
         pub_key_hash.append(&mut vec![0u8; FIELD_SIZE - UINT_160_SIZE]);
 
         let hash_fes = FieldHash::init_constant_length(5, None)
             .update(FieldElement::from(self.amount))
-            .update(deserialize_from_buffer::<FieldElement>(&sc_id).unwrap())
+            .update(*self.sc_id)
             .update(deserialize_from_buffer::<FieldElement>(&pub_key_hash).unwrap())
             .update(*self.cert_data_hash)
             .update(*self.end_cumulative_sc_tx_commitment_tree_root)
@@ -191,7 +187,7 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
 
 pub struct CSWTestProofWithAccumulatorsUserInputs<'a> {
     pub amount:                                     u64,
-    pub sc_id:                                      &'a [u8; UINT_256_SIZE],
+    pub sc_id:                                      &'a FieldElement,
     pub pub_key_hash:                               &'a [u8; UINT_160_SIZE],
     pub cert_data_hash:                             &'a FieldElement,
     pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
@@ -200,17 +196,13 @@ pub struct CSWTestProofWithAccumulatorsUserInputs<'a> {
 impl<'a> UserInputs for CSWTestProofWithAccumulatorsUserInputs<'a> {
     fn get_circuit_inputs(&self) -> Result<Vec<FieldElement>, ProvingSystemError> {
 
-        // Mask away last byte
-        let mut sc_id = self.sc_id.to_vec();
-        sc_id[31] = 0u8;
-
         // Pad with 0s until FIELD_SIZE
         let mut pub_key_hash = self.pub_key_hash.to_vec();
         pub_key_hash.append(&mut vec![0u8; FIELD_SIZE - UINT_160_SIZE]);
 
         Ok(vec![FieldHash::init_constant_length(5, None)
             .update(FieldElement::from(self.amount))
-            .update(deserialize_from_buffer::<FieldElement>(&sc_id).unwrap())
+            .update(*self.sc_id)
             .update(deserialize_from_buffer::<FieldElement>(&pub_key_hash).unwrap())
             .update(*self.cert_data_hash)
             .update(*self.end_cumulative_sc_tx_commitment_tree_root)
@@ -261,19 +253,13 @@ pub fn generate_proof(
     pk:                                         &ZendooProverKey,
     zk:                                         bool,
     amount:                                     u64,
-    sc_id:                                      &[u8; UINT_256_SIZE],
+    sc_id:                                      &FieldElement,
     pub_key_hash:                               &[u8; UINT_160_SIZE],
     cert_data_hash:                             &FieldElement,
     end_cumulative_sc_tx_commitment_tree_root:  &FieldElement,
 ) -> Result<ZendooProof, ProvingSystemError> {
     let rng = &mut OsRng;
     let ck_g1 = get_g1_committer_key()?;
-
-    // Read input param into field elements
-    // Mask away last byte
-    let mut sc_id = sc_id.to_vec();
-    sc_id[31] = 0u8;
-    let sc_id_fe = deserialize_from_buffer::<FieldElement>(sc_id.as_slice()).unwrap();
 
     // Pad with 0s until FIELD_SIZE
     let mut pub_key_hash = pub_key_hash.to_vec();
@@ -293,7 +279,7 @@ pub fn generate_proof(
             let deferred_fes = deferred.to_field_elements().unwrap();
             let circ = CSWTestCircuitWithAccumulators {
                 amount: Some(amount),
-                sc_id: Some(sc_id_fe),
+                sc_id: Some(*sc_id),
                 pub_key_hash: Some(pub_key_hash_fe),
                 cert_data_hash: Some(*cert_data_hash),
                 end_cumulative_sc_tx_comm_tree_root: Some(*end_cumulative_sc_tx_commitment_tree_root),
@@ -315,7 +301,7 @@ pub fn generate_proof(
         ZendooProverKey::CoboundaryMarlin(pk) => {
             let circ = CSWTestCircuit {
                 amount: Some(amount),
-                sc_id: Some(sc_id_fe),
+                sc_id: Some(*sc_id),
                 pub_key_hash: Some(pub_key_hash_fe),
                 cert_data_hash: Some(*cert_data_hash),
                 end_cumulative_sc_tx_comm_tree_root: Some(*end_cumulative_sc_tx_commitment_tree_root),

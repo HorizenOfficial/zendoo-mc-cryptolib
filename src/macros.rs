@@ -21,7 +21,8 @@ pub enum CctpErrorCode {
     CompressError,
     UncompressError,
     MerkleRootBuildError,
-    GenericError
+    GenericError,
+    TestProofCreationFailure,
 }
 
 #[repr(C)]
