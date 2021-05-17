@@ -92,8 +92,8 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
     tx_hash:                        *const BufferWithSize,
     out_idx:                        u32,
     withdrawal_epoch_length:        u32,
-    cert_proving_system:            ProvingSystem,
-    csw_proving_system:             ProvingSystem,
+    _cert_proving_system:            ProvingSystem,
+    _csw_proving_system:             ProvingSystem,
     mc_btr_request_data_length:     u8,
     custom_field_elements_config:   *const BufferWithSize,
     custom_bv_elements_config:      *const BitVectorElementsConfig,
@@ -131,15 +131,11 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
     // optional parameters
     let rs_constant     = try_read_optional_raw_pointer!("constant", constant, ret_code, false);
     let rs_csw_vk       = try_get_optional_buffer_variable_size!("csw_vk", csw_vk, ret_code, false);
-    let csw_proving_system = match csw_proving_system {
-        ProvingSystem::Undefined => None,
-        _ => Some(csw_proving_system)
-    };
 
     // Add SidechainCreation to the CommitmentTree
     let ret = cmt.add_scc(
         rs_sc_id, amount, rs_pub_key, rs_tx_hash, out_idx, withdrawal_epoch_length,
-        cert_proving_system, csw_proving_system, mc_btr_request_data_length,
+        mc_btr_request_data_length,
         rs_custom_fe_conf, rs_custom_bv_elements_config, btr_fee, ft_min_amount,
         rs_ccd, rs_constant, rs_cert_vk, rs_csw_vk
     );
