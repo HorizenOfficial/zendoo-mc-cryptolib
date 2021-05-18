@@ -691,9 +691,11 @@ TEST_SUITE("Single Proof Verifier") {
         // Delete files
         auto pk_path = params_dir + std::string("/test_pk");
         auto vk_path = params_dir + std::string("/test_vk");
+        auto ck_g1_path = params_dir + std::string("/ck_g1");
+        auto ck_g2_path = params_dir + std::string("/ck_g2");
         remove(pk_path.c_str());
         remove(vk_path.c_str());
-        remove("/ck_g1");
-        remove("/ck_g2");
+        remove(ck_g1_path.c_str());
+        remove(ck_g2_path.c_str());
     }
 }
