@@ -10,23 +10,33 @@ path = "src/lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-algebra = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp"}
-primitives = {version = "0.1.0", features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp"}
-cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "dev" }
+algebra = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_asm"}
+primitives = {version = "0.1.0", features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_asm"}
+cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "optimizations_asm" }
 
-proof-systems = {version = "0.1.0", features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
-r1cs-crypto = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
-r1cs-core = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
-r1cs-std = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
+proof-systems = {version = "0.1.0", features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_asm", optional = true }
+r1cs-crypto = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_asm", optional = true }
+r1cs-core = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_asm", optional = true}
+r1cs-std = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_asm", optional = true}
 
 maybe-uninit = "=2.0.0"
 rand = "0.7.3"
 winapi = "=0.3.6"
 lazy_static = "=1.4.0"
 libc = "=0.2.70"
-cfg-if = "= 0.1.2"
+cfg-if = "=1.0.0"
 
 [features]
+default = [ "parallel", "asm" ]
+parallel = [ "algebra/parallel" ]
+asm = [
+    "algebra/llvm_asm",
+    "primitives/llvm_asm",
+    "cctp_primitives/asm",
+    "proof-systems/llvm_asm",
+    "r1cs-crypto/llvm_asm",
+    "r1cs-std/llvm_asm"
+]
 mc-test-circuit = ["proof-systems", "r1cs-crypto", "r1cs-core", "r1cs-std"]
 
 [profile.release]
