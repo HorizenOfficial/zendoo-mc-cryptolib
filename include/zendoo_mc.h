@@ -92,6 +92,10 @@ extern "C" {
     struct BitVectorElementsConfig {
         uint32_t bit_vector_size_bits;
         uint32_t max_compressed_byte_size;
+
+        BitVectorElementsConfig(): bit_vector_size_bits(0), max_compressed_byte_size(0) {}
+        BitVectorElementsConfig(uint32_t bit_vector_size_bits, uint32_t max_compressed_byte_size):
+            bit_vector_size_bits(bit_vector_size_bits), max_compressed_byte_size(max_compressed_byte_size) {}
     };
 
     size_t zendoo_get_sc_custom_data_size_in_bytes(void);
@@ -617,6 +621,13 @@ extern "C" {
         sc_vk_t*    sc_vk,
         CctpErrorCode* ret_code
     );
+
+    /*
+     * Return a field element to be used as `cert_data_hash` input for
+     * `zendoo_verify_csw_proof()` and `zendoo_add_csw_proof_to_batch_verifier()`
+     * when no `cert_data_hash` is present.
+     */
+    field_t* zendoo_get_phantom_cert_data_hash();
 
     /*  Verify a CSW proof sc_proof `sc_proof` given its corresponding sc_vk `sc_vk`
      *  and all the data needed to construct proof's public inputs. Return true if

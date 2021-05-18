@@ -730,7 +730,11 @@ fn get_csw_proof_usr_ins<'a>(
         cert_data_hash: rs_cert_data_hash,
         end_cumulative_sc_tx_commitment_tree_root: rs_end_cum_comm_tree_root
     })
+}
 
+#[no_mangle]
+pub extern "C" fn zendoo_get_phantom_cert_data_hash() -> *mut FieldElement {
+    Box::into_raw(Box::new(cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH))
 }
 
 #[no_mangle]

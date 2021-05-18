@@ -103,7 +103,7 @@ checksum = "e3c69b077ad434294d3ce9f1f6143a2a4b89a8a2d54ef813d85003a4fd1137fd"
 [[package]]
 name = "cctp_primitives"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=dev#62e0e81d41ea011996ab1098e912ee05b22b80e9"
+source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=dev#08725feda72aec56ba8798d9889f6108db976113"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -391,7 +391,7 @@ checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 [[package]]
 name = "poly-commit"
 version = "0.1.0"
-source = "git+https://github.com/HorizenLabs/poly-commit?branch=dev#4e7ee63074466bf3679a3400e868fc0b6f8e2672"
+source = "git+https://github.com/HorizenLabs/poly-commit?branch=dev#ba115df13b34c9938e9b9a2550c8be66b9fc4d09"
 dependencies = [
  "algebra",
  "bench-utils",

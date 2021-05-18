@@ -4,13 +4,10 @@ use r1cs_core::{
     ConstraintSynthesizer, ConstraintSystem, SynthesisError,
 };
 use r1cs_std::{
-    fields::FieldGadget,
     alloc::AllocGadget,
     eq::EqGadget,
-    Assignment,
     instantiated::tweedle::FrGadget,
 };
-use r1cs_crypto::crh::{poseidon::tweedle::TweedleFrPoseidonHashGadget, FieldBasedHashGadget};
 use cctp_primitives::{
     type_mapping::FieldElement,
     proving_system::{
@@ -20,13 +17,10 @@ use cctp_primitives::{
 };
 use crate::type_mapping::*;
 use rand::rngs::OsRng;
-use cctp_primitives::proving_system::verifier::UserInputs;
-use primitives::FieldBasedHash;
 use cctp_primitives::utils::data_structures::BackwardTransfer;
-use cctp_primitives::utils::{get_bt_merkle_root, get_cert_data_hash};
+use cctp_primitives::utils::get_cert_data_hash;
 
 type FieldElementGadget = FrGadget;
-type FieldHashGadget = TweedleFrPoseidonHashGadget;
 
 fn enforce_cert_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
     mut cs:                               CS,

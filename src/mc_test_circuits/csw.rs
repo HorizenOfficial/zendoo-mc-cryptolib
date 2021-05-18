@@ -1,32 +1,25 @@
 use algebra::ToConstraintField;
-use primitives::FieldBasedHash;
 use proof_systems::darlin::data_structures::{FinalDarlinDeferredData, FinalDarlinProof};
 use r1cs_core::{
     ConstraintSynthesizer, ConstraintSystem, SynthesisError,
 };
 use r1cs_std::{
-    fields::FieldGadget,
     alloc::AllocGadget,
     eq::EqGadget,
-    Assignment,
     instantiated::tweedle::FrGadget,
 };
-use r1cs_crypto::crh::{poseidon::tweedle::TweedleFrPoseidonHashGadget, FieldBasedHashGadget};
 use cctp_primitives::{
     type_mapping::FieldElement,
     proving_system::{
         ProvingSystem, ZendooProverKey, ZendooProof, ZendooVerifierKey,
         error::ProvingSystemError, init::{get_g1_committer_key, get_g2_committer_key},
-        verifier::UserInputs
     },
-    utils::serialization::deserialize_from_buffer,
 };
 use crate::type_mapping::*;
 use rand::rngs::OsRng;
 use cctp_primitives::utils::commitment_tree::{ByteAccumulator, hash_vec};
 
 type FieldElementGadget = FrGadget;
-type FieldHashGadget = TweedleFrPoseidonHashGadget;
 
 fn enforce_csw_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
     mut cs:             CS,
@@ -40,7 +33,7 @@ fn enforce_csw_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
 
     let expected_aggregated_input_g = FieldElementGadget::alloc_input(
         cs.ns(|| "alloc expected_aggregated_input"),
-        || amount.ok_or(SynthesisError::AssignmentMissing)
+        || aggregated_input.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
     for _ in 0..512 {
@@ -154,11 +147,15 @@ pub fn generate_proof(
     let ck_g1 = get_g1_committer_key()?;
 
     let mut fes = ByteAccumulator::init()
-        .update(amount)?
-        .update(pub_key_hash)?
-        .get_field_elements()?;
-    fes.append(&mut vec![*sc_id, *cert_data_hash, *end_cumulative_sc_tx_commitment_tree_root]);
-    let aggregated_input = hash_vec(fes).map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
+        .update(amount).map_err(|e| ProvingSystemError::Other(format!("{:?}", e)))?
+        .update(&pub_key_hash[..]).map_err(|e| ProvingSystemError::Other(format!("{:?}", e)))?
+        .get_field_elements().map_err(|e| ProvingSystemError::Other(format!("{:?}", e)))?;
+
+    fes.append(&mut vec![
+        *sc_id, *cert_data_hash, *end_cumulative_sc_tx_commitment_tree_root
+    ]);
+
+    let aggregated_input = hash_vec(fes).map_err(|e| ProvingSystemError::Other(format!("{:?}", e)))?;
 
 
     match pk {
