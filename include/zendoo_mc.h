@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 static const size_t FIELD_SIZE = 32;
+static const size_t MC_PK_SIZE = 20;
 
 extern "C" {
 
@@ -854,7 +855,6 @@ extern "C" {
     /* Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path */
     bool zendoo_create_csw_test_proof(
         bool zk,
-        uint32_t proof_id,
         uint64_t amount,
         const field_t* sc_id,
         const BufferWithSize* mc_pk_hash,

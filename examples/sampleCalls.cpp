@@ -551,248 +551,149 @@ TEST_SUITE("Single Proof Verifier") {
        remove(pk_path.c_str());
        remove(vk_path.c_str());
     }
-}
 
-//
-//void proof_test() {
-//
-//    std::cout << "Zk proof test" << std::endl;
-//
-//    //Deserialize zero knowledge proof
-//    //Read proof from file
-//    std::ifstream is ("../test_files/sample_proof", std::ifstream::binary);
-//    is.seekg (0, is.end);
-//    int length = is.tellg();
-//
-//    //Check correct length
-//    assert(("Unexpected size", length == zendoo_get_sc_proof_size_in_bytes()));
-//
-//    is.seekg (0, is.beg);
-//    char* proof_bytes = new char [length];
-//    is.read(proof_bytes,length);
-//    is.close();
-//
-//    //Deserialize proof
-//    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes, true);
-//    if(proof == NULL){
-//        print_error("error");
-//        abort();
-//    }
-//
-//    delete[] proof_bytes;
-//
-//    //Inputs
-//    unsigned char end_epoch_mc_b_hash[32] = {
-//        157, 219, 85, 159, 75, 56, 146, 21, 107, 239, 76, 31, 208, 213, 230, 24, 44, 74, 250, 66, 71, 23, 106, 4, 138,
-//        157, 28, 43, 158, 39, 152, 91
-//    };
-//
-//    unsigned char prev_end_epoch_mc_b_hash[32] = {
-//        74, 229, 219, 59, 25, 231, 227, 68, 3, 118, 194, 58, 99, 219, 112, 39, 73, 202, 238, 140, 114, 144, 253, 32,
-//        237, 117, 117, 60, 200, 70, 187, 171
-//    };
-//
-//    unsigned char constant_bytes[96] = {
-//        234, 144, 148, 15, 127, 44, 243, 131, 152, 238, 209, 246, 126, 175, 154, 42, 208, 215, 180, 233, 20, 153, 7, 10,
-//        180, 78, 89, 9, 9, 160, 1, 42, 91, 202, 221, 104, 241, 231, 8, 59, 174, 159, 27, 108, 74, 80, 118, 192, 127, 238,
-//        216, 167, 72, 15, 61, 97, 121, 13, 48, 143, 255, 165, 228, 6, 121, 210, 112, 228, 161, 214, 233, 137, 108, 184,
-//        80, 27, 213, 72, 110, 7, 200, 194, 23, 95, 102, 236, 181, 230, 139, 215, 104, 22, 214, 70, 0, 0
-//    };
-//
-//    auto constant = zendoo_deserialize_field(constant_bytes);
-//    if (constant == NULL) {
-//        print_error("error");
-//        abort();
-//    }
-//
-//    uint64_t quality = 2;
-//
-//    //Create dummy bt
-//    size_t bt_list_len = 10;
-//    const backward_transfer_t bt_list[bt_list_len] = { {0}, 0 };
-//
-//    //Read vk from file
-//    std::ifstream is1 ("../test_files/sample_vk", std::ifstream::binary);
-//    is1.seekg (0, is1.end);
-//    length = is1.tellg();
-//
-//    //Check correct length
-//    assert(("Unexpected size", length == zendoo_get_sc_vk_size_in_bytes()));
-//
-//    is1.seekg (0, is1.beg);
-//    char* vk_bytes = new char [length];
-//    is1.read(vk_bytes,length);
-//    is1.close();
-//
-//    //Deserialize vk
-//    auto vk_from_buffer = zendoo_deserialize_sc_vk((unsigned char*)vk_bytes, true);
-//    if(vk_from_buffer == NULL){
-//        print_error("error");
-//        abort();
-//    }
-//
-//    delete[] vk_bytes;
-//
-//    //Deserialize vk directly from file
-//    sc_vk_t* vk_from_file = zendoo_deserialize_sc_vk_from_file(
-//        (path_char_t*)"../test_files/sample_vk",
-//        23,
-//        true
-//    );
-//
-//    //Check equality
-//    assert(("Unexpected inequality", zendoo_sc_vk_assert_eq(vk_from_buffer, vk_from_file)));
-//
-//    //Verify zkproof
-//    if(!zendoo_verify_sc_proof(
-//        end_epoch_mc_b_hash,
-//        prev_end_epoch_mc_b_hash,
-//        bt_list,
-//        bt_list_len,
-//        quality,
-//        constant,
-//        NULL,
-//        proof,
-//        vk_from_buffer
-//    )){
-//        error_or("Proof not verified");
-//        abort();
-//    }
-//
-//    //Negative test: change quality (for instance) and assert proof failure
-//    assert((
-//        "Proof verification should fail",
-//        !zendoo_verify_sc_proof(
-//         end_epoch_mc_b_hash,
-//         prev_end_epoch_mc_b_hash,
-//         bt_list,
-//         bt_list_len,
-//         quality - 1,
-//         constant,
-//         NULL,
-//         proof,
-//         vk_from_buffer
-//        )
-//    ));
-//
-//    //Free proof
-//    zendoo_sc_proof_free(proof);
-//    zendoo_sc_vk_free(vk_from_buffer);
-//    zendoo_sc_vk_free(vk_from_file);
-//    zendoo_field_free(constant);
-//
-//    std::cout<< "...ok" << std::endl;
-//}
-//
-//void proof_test_no_bwt() {
-//
-//    std::cout << "Zk proof no bwt test" << std::endl;
-//
-//    //Deserialize zero knowledge proof
-//    //Read proof from file
-//    std::ifstream is ("../test_files/sample_proof_no_bwt", std::ifstream::binary);
-//    is.seekg (0, is.end);
-//    int length = is.tellg();
-//
-//    //Check correct length
-//    assert(("Unexpected size", length == zendoo_get_sc_proof_size_in_bytes()));
-//
-//    is.seekg (0, is.beg);
-//    char* proof_bytes = new char [length];
-//    is.read(proof_bytes,length);
-//    is.close();
-//
-//    //Deserialize proof
-//    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes, true);
-//    if(proof == NULL){
-//        print_error("error");
-//        abort();
-//    }
-//
-//    delete[] proof_bytes;
-//
-//    //Inputs
-//    unsigned char end_epoch_mc_b_hash[32] = {
-//        8, 57, 79, 205, 58, 30, 190, 170, 144, 137, 231, 236, 172, 54, 173, 50, 69, 208, 163, 134, 201, 131, 129, 223,
-//        143, 76, 119, 48, 95, 6, 141, 17
-//    };
-//
-//    unsigned char prev_end_epoch_mc_b_hash[32] = {
-//        172, 64, 135, 162, 30, 208, 207, 7, 107, 205, 4, 141, 230, 6, 119, 131, 112, 98, 170, 234, 70, 66, 95, 11, 159,
-//        178, 50, 37, 95, 187, 147, 1
-//    };
-//
-//    unsigned char constant_bytes[96] = {
-//        53, 15, 18, 36, 121, 179, 90, 14, 215, 218, 231, 181, 9, 186, 122, 78, 227, 142, 190, 43, 134, 218, 178, 160,
-//        251, 246, 207, 130, 247, 53, 246, 68, 251, 126, 22, 250, 0, 135, 243, 13, 97, 76, 166, 142, 143, 19, 69, 66,
-//        225, 142, 210, 176, 253, 197, 145, 68, 142, 4, 96, 91, 23, 39, 56, 43, 96, 115, 57, 59, 34, 62, 156, 221, 27,
-//        174, 134, 170, 26, 86, 112, 176, 126, 207, 29, 213, 99, 3, 183, 43, 191, 43, 211, 110, 177, 152, 0, 0
-//    };
-//
-//    auto constant = zendoo_deserialize_field(constant_bytes);
-//    if (constant == NULL) {
-//        print_error("error");
-//        abort();
-//    }
-//
-//    uint64_t quality = 2;
-//
-//    //Create empty bt_list
-//    std::vector<backward_transfer_t> bt_list;
-//
-//    //Read vk from file
-//    sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
-//        // NOTE: The circuit is the same as the previous one but we regenerate the params for this test
-//        // for convenience
-//        (path_char_t*)"../test_files/sample_vk_no_bwt",
-//        30,
-//        true
-//    );
-//
-//    //Verify zkproof
-//    if(!zendoo_verify_sc_proof(
-//        end_epoch_mc_b_hash,
-//        prev_end_epoch_mc_b_hash,
-//        bt_list.data(),
-//        0,
-//        quality,
-//        constant,
-//        NULL,
-//        proof,
-//        vk
-//    )){
-//        error_or("Proof not verified");
-//        abort();
-//    }
-//
-//    //Negative test: change quality (for instance) and assert proof failure
-//    assert((
-//        "Proof verification should fail",
-//        !zendoo_verify_sc_proof(
-//         end_epoch_mc_b_hash,
-//         prev_end_epoch_mc_b_hash,
-//         bt_list.data(),
-//         0,
-//         quality - 1,
-//         constant,
-//         NULL,
-//         proof,
-//         vk
-//        )
-//    ));
-//
-//    //Free proof
-//    zendoo_sc_proof_free(proof);
-//    zendoo_sc_vk_free(vk);
-//    zendoo_field_free(constant);
-//
-//    std::cout<< "...ok" << std::endl;
-//}
-//
-//int main() {
-//    field_test();
-//    hash_test();
-//    merkle_test();
-//    proof_test();
-//    proof_test_no_bwt();
-//}
+    void create_verify_csw_proof(bool phantomCertDataHash, bool zk) {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Generate random data
+        auto sc_id = zendoo_get_field_from_long(1);
+        auto end_cum_comm_tree_root = zendoo_get_field_from_long(2);
+        field_t* cert_data_hash;
+        if (phantomCertDataHash) {
+            cert_data_hash = zendoo_get_phantom_cert_data_hash();
+        } else {
+            cert_data_hash = zendoo_get_field_from_long(3);
+        }
+        uint64_t amount = 100;
+        std::vector<unsigned char> mc_pk_hash_vec(MC_PK_SIZE, 255);
+        auto mc_pk_hash = BufferWithSize(mc_pk_hash_vec.data(), mc_pk_hash_vec.size());
+
+        // Specify paths
+        auto pk_path = params_dir + std::string("/test_pk");
+        auto proof_path = params_dir + std::string("/csw_test_proof");
+
+        CHECK(
+            zendoo_create_csw_test_proof(
+                zk, amount, sc_id, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
+                (path_char_t*)pk_path.c_str(), pk_path.size(),
+                (path_char_t*)proof_path.c_str(), proof_path.size(),
+                &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Verify proof with correct data
+        auto sc_proof = zendoo_deserialize_sc_proof_from_file(
+            (path_char_t*)proof_path.c_str(),
+            proof_path.size(),
+            false,
+            &ret_code
+        );
+        CHECK(sc_proof != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        auto vk_path = params_dir + std::string("/test_vk");
+        auto sc_vk = zendoo_deserialize_sc_vk_from_file(
+            (path_char_t*)vk_path.c_str(),
+            vk_path.size(),
+            false,
+            &ret_code
+        );
+        CHECK(sc_vk != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Positive verification
+        CHECK(
+            zendoo_verify_csw_proof(
+                amount, sc_id, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
+                sc_proof, sc_vk, &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Negative verification
+        auto wrong_sc_id = zendoo_get_field_from_long(4);
+        CHECK(
+            zendoo_verify_csw_proof(
+                amount, wrong_sc_id, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
+                sc_proof, sc_vk, &ret_code
+            ) == false
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Free memory
+        zendoo_field_free(sc_id);
+        zendoo_field_free(wrong_sc_id);
+        zendoo_field_free(cert_data_hash);
+        zendoo_field_free(end_cum_comm_tree_root);
+        zendoo_sc_vk_free(sc_vk);
+        zendoo_sc_proof_free(sc_proof);
+
+        // Destroy proof file
+        remove(proof_path.c_str());
+    }
+
+    TEST_CASE("Proof Verifier: CSW - Coboundary Marlin") {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Init keys
+        initDlogKeys();
+
+        // Generate cert test circuit pk and vk
+        CHECK(
+            zendoo_generate_mc_test_params(
+                TestCircuitType::CSW,
+                ProvingSystem::CoboundaryMarlin,
+                (path_char_t*)params_dir.c_str(),
+                params_dir_len,
+                &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Test all cases
+        create_verify_csw_proof(true, true);
+        create_verify_csw_proof(true, false);
+        create_verify_csw_proof(false, true);
+        create_verify_csw_proof(false, false);
+
+        // Delete files
+        auto pk_path = params_dir + std::string("/test_pk");
+        auto vk_path = params_dir + std::string("/test_vk");
+        remove(pk_path.c_str());
+        remove(vk_path.c_str());
+    }
+
+    TEST_CASE("Proof Verifier: Cert - Darlin") {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Init keys
+        initDlogKeys();
+
+        // Generate cert test circuit pk and vk
+        CHECK(
+           zendoo_generate_mc_test_params(
+               TestCircuitType::CSW,
+               ProvingSystem::Darlin,
+               (path_char_t*)params_dir.c_str(),
+               params_dir_len,
+               &ret_code
+           ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Test all cases
+        create_verify_csw_proof(true, true);
+        create_verify_csw_proof(true, false);
+        create_verify_csw_proof(false, true);
+        create_verify_csw_proof(false, false);
+
+        // Delete files
+        auto pk_path = params_dir + std::string("/test_pk");
+        auto vk_path = params_dir + std::string("/test_vk");
+        remove(pk_path.c_str());
+        remove(vk_path.c_str());
+        remove("/ck_g1");
+        remove("/ck_g2");
+    }
+}
