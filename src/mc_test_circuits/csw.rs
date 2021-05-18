@@ -23,153 +23,59 @@ use cctp_primitives::{
 };
 use crate::type_mapping::*;
 use rand::rngs::OsRng;
+use cctp_primitives::utils::commitment_tree::{ByteAccumulator, hash_vec};
 
 type FieldElementGadget = FrGadget;
 type FieldHashGadget = TweedleFrPoseidonHashGadget;
 
 fn enforce_csw_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
-    mut cs:                                 CS,
-    amount:                                 Option<FieldElement>,
-    sc_id:                                  Option<FieldElement>,
-    pub_key_hash:                           Option<FieldElement>,
-    cert_data_hash:                         Option<FieldElement>,
-    end_cumulative_sc_tx_comm_tree_root:    Option<FieldElement>
+    mut cs:             CS,
+    aggregated_input:   Option<FieldElement>,
 ) -> Result<(), SynthesisError>
 {
-    let amount_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc amount"),
+    let aggregated_input_g = FieldElementGadget::alloc(
+        cs.ns(|| "alloc aggregated_input"),
+        || aggregated_input.ok_or(SynthesisError::AssignmentMissing)
+    )?;
+
+    let expected_aggregated_input_g = FieldElementGadget::alloc_input(
+        cs.ns(|| "alloc expected_aggregated_input"),
         || amount.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
-    let expected_amount_g = FieldElementGadget::alloc_input(
-        cs.ns(|| "alloc expected_amount"),
-        || amount.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    amount_g.enforce_equal(
-        cs.ns(|| "check 1"),
-        &expected_amount_g
-    )?;
-
-    let sc_id_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc sc_id"),
-        || sc_id.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    let expected_sc_id_g = FieldElementGadget::alloc_input(
-        cs.ns(|| "alloc expected_sc_id"),
-        || sc_id.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    sc_id_g.enforce_equal(
-        cs.ns(|| "check 2"),
-        &expected_sc_id_g
-    )?;
-
-    let pub_key_hash_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc pub_key_hash"),
-        || pub_key_hash.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    let expected_pub_key_hash_g = FieldElementGadget::alloc_input(
-        cs.ns(|| "alloc expected_pub_key_hash"),
-        || pub_key_hash.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    pub_key_hash_g.enforce_equal(
-        cs.ns(|| "check 3"),
-        &expected_pub_key_hash_g
-    )?;
-
-    let cert_data_hash_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc cert_data_hash"),
-        || cert_data_hash.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    let expected_cert_data_hash_g = FieldElementGadget::alloc_input(
-        cs.ns(|| "alloc expected_cert_data_hash"),
-        || cert_data_hash.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    cert_data_hash_g.enforce_equal(
-        cs.ns(|| "check 4"),
-        &expected_cert_data_hash_g
-    )?;
-
-    let end_cumulative_sc_tx_comm_tree_root_g = FieldElementGadget::alloc(
-        cs.ns(|| "alloc end_cumulative_sc_tx_comm_tree_root"),
-        || end_cumulative_sc_tx_comm_tree_root.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    let expected_end_cumulative_sc_tx_comm_tree_root_g = FieldElementGadget::alloc_input(
-        cs.ns(|| "alloc expected_end_cumulative_sc_tx_comm_tree_root"),
-        || end_cumulative_sc_tx_comm_tree_root.ok_or(SynthesisError::AssignmentMissing)
-    )?;
-
-    end_cumulative_sc_tx_comm_tree_root_g.enforce_equal(
-        cs.ns(|| "check 5"),
-        &expected_end_cumulative_sc_tx_comm_tree_root_g
-    )?;
+    for _ in 0..512 {
+        aggregated_input_g.enforce_equal(
+            cs.ns(|| "check 1"),
+            &expected_aggregated_input_g
+        )?;
+    }
+    
     Ok(())
 }
 
 // Simple test circuit, enforcing that the hash of all the witnesses equals the public input
 pub struct CSWTestCircuit {
-    amount:                                 Option<FieldElement>,
-    sc_id:                                  Option<FieldElement>,
-    pub_key_hash:                           Option<FieldElement>,
-    cert_data_hash:                         Option<FieldElement>,
-    end_cumulative_sc_tx_comm_tree_root:    Option<FieldElement>
+    aggregated_input: Option<FieldElement>,
 }
 
 impl ConstraintSynthesizer<FieldElement> for CSWTestCircuit {
     fn generate_constraints<CS: ConstraintSystem<FieldElement>>(self, cs: &mut CS) -> Result<(), SynthesisError>
     {
-        enforce_csw_inputs_gadget(
-            cs.ns(|| "enforce witnesses == pub_ins"),
-            self.amount, self.sc_id, self.pub_key_hash, self.cert_data_hash,
-            self.end_cumulative_sc_tx_comm_tree_root
-        )
-    }
-}
-
-pub struct CSWTestProofUserInputs<'a> {
-    pub amount:                                     u64,
-    pub sc_id:                                      &'a FieldElement,
-    pub pub_key_hash:                               &'a [u8; UINT_160_SIZE],
-    pub cert_data_hash:                             &'a FieldElement,
-    pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
-}
-
-impl<'a> UserInputs for CSWTestProofUserInputs<'a> {
-    fn get_circuit_inputs(&self) -> Result<Vec<FieldElement>, ProvingSystemError> {
-
-        // Pad with 0s until FIELD_SIZE
-        let mut pub_key_hash = self.pub_key_hash.to_vec();
-        pub_key_hash.append(&mut vec![0u8; FIELD_SIZE - UINT_160_SIZE]);
-
-        Ok(vec![
-            FieldElement::from(self.amount), *self.sc_id, deserialize_from_buffer::<FieldElement>(&pub_key_hash).unwrap(),
-            *self.cert_data_hash, *self.end_cumulative_sc_tx_commitment_tree_root
-        ])
+        enforce_csw_inputs_gadget(cs.ns(|| "enforce witnesses == pub_ins"), self.aggregated_input)
     }
 }
 
 // Simple test circuit, enforcing that the hash of all the witnesses equals the public input
 pub struct CSWTestCircuitWithAccumulators {
-    amount:                                 Option<FieldElement>,
-    sc_id:                                  Option<FieldElement>,
-    pub_key_hash:                           Option<FieldElement>,
-    cert_data_hash:                         Option<FieldElement>,
-    end_cumulative_sc_tx_comm_tree_root:    Option<FieldElement>,
-    custom_fields:                          Vec<FieldElement>, // Represents deferred data
+    aggregated_input:   Option<FieldElement>,
+    deferred:           Vec<FieldElement>, // Represents deferred data
 }
 
 impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
     fn generate_constraints<CS: ConstraintSystem<FieldElement>>(self, cs: &mut CS) -> Result<(), SynthesisError>
     {
         // convert the FinalDarlinDeferred efficiently to circuit inputs
-        let deferred_as_native_fes = self.custom_fields;
+        let deferred_as_native_fes = self.deferred;
 
         // Alloc deferred data as public input
         let mut deferred_input_gs = Vec::new();
@@ -201,35 +107,7 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
             )?;
         }
 
-        enforce_csw_inputs_gadget(
-            cs.ns(|| "enforce witnesses == pub_ins"),
-            self.amount, self.sc_id, self.pub_key_hash, self.cert_data_hash,
-            self.end_cumulative_sc_tx_comm_tree_root
-        )?;
-
-        Ok(())
-    }
-}
-
-pub struct CSWTestProofWithAccumulatorsUserInputs<'a> {
-    pub amount:                                     u64,
-    pub sc_id:                                      &'a FieldElement,
-    pub pub_key_hash:                               &'a [u8; UINT_160_SIZE],
-    pub cert_data_hash:                             &'a FieldElement,
-    pub end_cumulative_sc_tx_commitment_tree_root:  &'a FieldElement,
-}
-
-impl<'a> UserInputs for CSWTestProofWithAccumulatorsUserInputs<'a> {
-    fn get_circuit_inputs(&self) -> Result<Vec<FieldElement>, ProvingSystemError> {
-
-        // Pad with 0s until FIELD_SIZE
-        let mut pub_key_hash = self.pub_key_hash.to_vec();
-        pub_key_hash.append(&mut vec![0u8; FIELD_SIZE - UINT_160_SIZE]);
-
-        Ok(vec![
-            FieldElement::from(self.amount), *self.sc_id, deserialize_from_buffer::<FieldElement>(&pub_key_hash).unwrap(),
-            *self.cert_data_hash, *self.end_cumulative_sc_tx_commitment_tree_root
-        ])
+        enforce_csw_inputs_gadget(cs.ns(|| "enforce witnesses == pub_ins"), self.aggregated_input)
     }
 }
 
@@ -241,12 +119,8 @@ pub fn generate_parameters(ps: ProvingSystem) -> Result<(ZendooProverKey, Zendoo
         ProvingSystem::Darlin => {
             let ck_g2 = get_g2_committer_key()?;
             let circ = CSWTestCircuitWithAccumulators {
-                amount: None,
-                sc_id: None,
-                pub_key_hash: None,
-                cert_data_hash: None,
-                end_cumulative_sc_tx_comm_tree_root: None,
-                custom_fields: FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
+                aggregated_input: None,
+                deferred: FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
                     &mut rand::thread_rng(),
                     ck_g1.as_ref().unwrap(),
                     ck_g2.as_ref().unwrap(),
@@ -258,11 +132,7 @@ pub fn generate_parameters(ps: ProvingSystem) -> Result<(ZendooProverKey, Zendoo
         },
         ProvingSystem::CoboundaryMarlin => {
             let circ = CSWTestCircuit {
-                amount: None,
-                sc_id: None,
-                pub_key_hash: None,
-                cert_data_hash: None,
-                end_cumulative_sc_tx_comm_tree_root: None,
+                aggregated_input: None,
             };
             let (pk, vk) =  CoboundaryMarlin::index(ck_g1.as_ref().unwrap(), circ)
                 .map_err(|e| ProvingSystemError::SetupFailed(e.to_string()))?;
@@ -283,12 +153,13 @@ pub fn generate_proof(
     let rng = &mut OsRng;
     let ck_g1 = get_g1_committer_key()?;
 
-    // Pad with 0s until FIELD_SIZE
-    let mut pub_key_hash = pub_key_hash.to_vec();
-    pub_key_hash.append(&mut vec![0u8; FIELD_SIZE - UINT_160_SIZE]);
-    let pub_key_hash_fe = deserialize_from_buffer::<FieldElement>(pub_key_hash.as_slice()).unwrap();
+    let mut fes = ByteAccumulator::init()
+        .update(amount)?
+        .update(pub_key_hash)?
+        .get_field_elements()?;
+    fes.append(&mut vec![*sc_id, *cert_data_hash, *end_cumulative_sc_tx_commitment_tree_root]);
+    let aggregated_input = hash_vec(fes).map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
 
-    let amount = FieldElement::from(amount);
 
     match pk {
         ZendooProverKey::Darlin(pk) => {
@@ -300,12 +171,8 @@ pub fn generate_proof(
             );
             let deferred_fes = deferred.to_field_elements().unwrap();
             let circ = CSWTestCircuitWithAccumulators {
-                amount: Some(amount),
-                sc_id: Some(*sc_id),
-                pub_key_hash: Some(pub_key_hash_fe),
-                cert_data_hash: Some(*cert_data_hash),
-                end_cumulative_sc_tx_comm_tree_root: Some(*end_cumulative_sc_tx_commitment_tree_root),
-                custom_fields: deferred_fes.clone()
+                aggregated_input: Some(aggregated_input),
+                deferred: deferred_fes.clone()
             };
             let proof = CoboundaryMarlin::prove(
                 pk,
@@ -322,11 +189,7 @@ pub fn generate_proof(
         },
         ZendooProverKey::CoboundaryMarlin(pk) => {
             let circ = CSWTestCircuit {
-                amount: Some(amount),
-                sc_id: Some(*sc_id),
-                pub_key_hash: Some(pub_key_hash_fe),
-                cert_data_hash: Some(*cert_data_hash),
-                end_cumulative_sc_tx_comm_tree_root: Some(*end_cumulative_sc_tx_commitment_tree_root),
+                aggregated_input: Some(aggregated_input),
             };
             let proof = CoboundaryMarlin::prove(
                 pk,
