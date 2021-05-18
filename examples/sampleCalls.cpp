@@ -1,5 +1,8 @@
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+
 #include "zendoo_mc.h"
-/*#include <stdio.h>
+#include "doctest.h"
+#include <stdio.h>
 #include <iostream>
 #include <fstream>
 #include <cstring>
@@ -7,138 +10,295 @@
 #include <cassert>
 #include <vector>
 
-void print_error(const char *msg) {
-    Error err = zendoo_get_last_error();
-
-    fprintf(stderr,
-            "%s: %s [%d - %s]\n",
-            msg,
-            err.msg,
-            err.category,
-            zendoo_get_category_name(err.category));
+void print_bytes(unsigned char bytes[], size_t len){
+    for(int i = 0; i < len; i++){
+        std::cout << (int)bytes[i];
+        std::cout << ", ";
+    }
 }
 
-void error_or(const char* msg){
-    if (zendoo_get_last_error().category != 0)
-        print_error("error: ");
-    else
-        std::cout << msg << std::endl;
+void print_field(field_t* field) {
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+    unsigned char field_bytes[FIELD_SIZE];
+    zendoo_serialize_field(field, field_bytes, &ret_code);
+    print_bytes(field_bytes, FIELD_SIZE);
 }
 
-void field_test() {
-    std::cout << "Field test" << std::endl;
-    //Size is the expected one
-    int field_len = zendoo_get_field_size_in_bytes();
-    assert(("Unexpected size", field_len == 96));
+TEST_SUITE("Field Element") {
 
-    auto field = zendoo_get_random_field();
-
-    //Serialize and deserialize and check equality
-    unsigned char field_bytes[field_len];
-    zendoo_serialize_field(field, field_bytes);
-
-    auto field_deserialized = zendoo_deserialize_field(field_bytes);
-    if (field_deserialized == NULL) {
-        print_error("error");
-        abort();
+    TEST_CASE("Field Size") {
+        int field_len = zendoo_get_field_size_in_bytes();
+        CHECK(field_len == FIELD_SIZE);
     }
 
-    assert(("Unexpected deserialized field", zendoo_field_assert_eq(field, field_deserialized)));
+    TEST_CASE("Positive serialize/deserialize"){
+        CctpErrorCode ret_code = CctpErrorCode::OK;
 
-    zendoo_field_free(field);
-    zendoo_field_free(field_deserialized);
+        // Check correct serialization
+        auto field = zendoo_get_random_field();
 
-    std::cout<< "...ok" << std::endl;
+        //Serialize and deserialize and check equality
+        unsigned char field_bytes[FIELD_SIZE];
+        zendoo_serialize_field(field, field_bytes, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Check correct deserialization
+        auto field_deserialized = zendoo_deserialize_field(field_bytes, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Check equality
+        CHECK(zendoo_field_assert_eq(field, field_deserialized));
+
+        zendoo_field_free(field);
+        zendoo_field_free(field_deserialized);
+    }
+
+    TEST_CASE("Negative serialize/deserialize"){
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        //Serialize and deserialize and check equality
+        unsigned char field_bytes[FIELD_SIZE] = {
+            64, 192, 222, 36, 97, 22, 129, 41, 101, 218, 34, 193, 41, 200, 74, 248,
+            126, 226, 209, 85, 85, 50, 64, 27, 23, 69, 240, 210, 79, 85, 196, 3
+        };
+
+        // Check correct deserialization
+        auto correct_field_deserialized = zendoo_deserialize_field(field_bytes, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Modify a byte of field_bytes and deserialize
+        field_bytes[0] = 0;
+        auto wrong_field_deserialized = zendoo_deserialize_field(field_bytes, &ret_code);
+
+        // Check equality
+        CHECK_FALSE(zendoo_field_assert_eq(correct_field_deserialized, wrong_field_deserialized));
+
+        // Free memory
+        zendoo_field_free(correct_field_deserialized);
+        zendoo_field_free(wrong_field_deserialized);
+    }
+
+    TEST_CASE("Edge cases serialize/deserialize"){
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Attempt to deserialize a field element over the modulus
+        unsigned char over_the_modulus_fe[FIELD_SIZE] = {
+            255, 255, 255, 255, 255, 255, 255, 255,
+            255, 255, 255, 255, 255, 255, 255, 255,
+            255, 255, 255, 255, 255, 255, 255, 255,
+            255, 255, 255, 255, 255, 255, 255, 255
+        };
+        auto field_deserialized = zendoo_deserialize_field(over_the_modulus_fe, &ret_code);
+        CHECK(field_deserialized == NULL);
+        CHECK(ret_code == CctpErrorCode::InvalidBufferData);
+
+        zendoo_field_free(field_deserialized);
+    }
 }
 
+TEST_SUITE("Poseidon Hash") {
 
-void hash_test() {
-
-    std::cout << "Hash test" << std::endl;
-
-    unsigned char lhs[96] = {
-        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
-        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
-        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
-        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 0, 0
+    static const unsigned char expected_result_bytes[FIELD_SIZE] = {
+        254, 126, 175, 176, 130, 2, 161, 183, 90, 48, 41, 150, 100, 148, 142, 37,
+        122, 246, 6, 134, 190, 158, 5, 195, 112, 148, 148, 144, 106, 91, 234, 5
     };
 
-    unsigned char rhs[96] = {
-        199, 130, 235, 52, 44, 219, 5, 195, 71, 154, 54, 121, 3, 11, 111, 160, 86, 212, 189, 66, 235, 236, 240, 242,
-        126, 248, 116, 0, 48, 95, 133, 85, 73, 150, 110, 169, 16, 88, 136, 34, 106, 7, 38, 176, 46, 89, 163, 49, 162,
-        222, 182, 42, 200, 240, 149, 226, 173, 203, 148, 194, 207, 59, 44, 185, 67, 134, 107, 221, 188, 208, 122, 212,
-        200, 42, 227, 3, 23, 59, 31, 37, 91, 64, 69, 196, 74, 195, 24, 5, 165, 25, 101, 215, 45, 92, 1, 0
-    };
+    TEST_CASE("Constant Length Poseidon Hash") {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
 
-    unsigned char hash[96] = {
-        53, 2, 235, 12, 255, 18, 125, 167, 223, 32, 245, 103, 38, 74, 43, 73, 254, 189, 174, 137, 20, 90, 195, 107, 202,
-        24, 151, 136, 85, 23, 9, 93, 207, 33, 229, 200, 178, 225, 221, 127, 18, 250, 108, 56, 86, 94, 171, 1, 76, 21,
-        237, 254, 26, 235, 196, 14, 18, 129, 101, 158, 136, 103, 147, 147, 239, 140, 163, 94, 245, 147, 110, 28, 93,
-        231, 66, 7, 111, 11, 202, 99, 146, 211, 117, 143, 224, 99, 183, 108, 157, 200, 119, 169, 180, 148, 0, 0,
-    };
+        // Init digest
+        auto digest = ZendooPoseidonHashConstantLength(2, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
 
-    auto lhs_field = zendoo_deserialize_field(lhs);
-    if (lhs_field == NULL) {
-        print_error("error");
-        abort();
+        //Update with 1 field element
+        auto lhs = zendoo_get_field_from_long(1);
+        digest.update(lhs, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Trying to finalize without having reached the
+        // specified input size will cause an error
+        auto result_before = digest.finalize(&ret_code);
+        CHECK(result_before == NULL);
+        CHECK(ret_code == CctpErrorCode::HashingError);
+
+        // Update with 1 field element
+        auto rhs = zendoo_get_field_from_long(2);
+        digest.update(rhs, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Finalize hash
+        auto result = digest.finalize(&ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Check result is equal to the expected one
+        auto expected_result = zendoo_deserialize_field(expected_result_bytes, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(zendoo_field_assert_eq(result, expected_result));
+
+        // Finalize is idempotent
+        auto result_copy = digest.finalize(&ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(zendoo_field_assert_eq(result, result_copy));
+
+        // Update once and more and assert that trying to finalize with more
+        // inputs than the ones specified at creation will result in an error.
+        auto additional_input = zendoo_get_field_from_long(3);
+        digest.update(additional_input, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        auto result_after = digest.finalize(&ret_code);
+        CHECK(result_after == NULL);
+        CHECK(ret_code == CctpErrorCode::HashingError);
+
+        // Free memory
+        zendoo_field_free(lhs);
+        zendoo_field_free(rhs);
+        zendoo_field_free(result);
+        zendoo_field_free(expected_result);
+        zendoo_field_free(result_copy);
+        zendoo_field_free(additional_input);
+
+        // Once out of scope the destructor of ZendooPoseidonHash will automatically free the memory Rust-side
+        // for digest
     }
-    auto rhs_field = zendoo_deserialize_field(rhs);
-    if (rhs_field == NULL) {
-        print_error("error");
-        abort();
+
+    TEST_CASE("Variable Length Poseidon Hash mod rate") {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Init digest
+        auto digest = ZendooPoseidonHashVariableLength(true, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        //Update with 1 field element
+        auto lhs = zendoo_get_field_from_long(1);
+        digest.update(lhs, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Trying to finalize with an input size non mod rate
+        // will result in an error
+        auto result_before = digest.finalize(&ret_code);
+        CHECK(result_before == NULL);
+        CHECK(ret_code == CctpErrorCode::HashingError);
+
+        // Update with 1 field element
+        auto rhs = zendoo_get_field_from_long(2);
+        digest.update(rhs, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Finalize hash
+        auto result = digest.finalize(&ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Check result is equal to the expected one.
+        // Result is also the same of the constant length poseidon hash
+        // (no unnecessary padding is added)
+        auto expected_result = zendoo_deserialize_field(expected_result_bytes, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(zendoo_field_assert_eq(result, expected_result));
+
+        // Finalize is idempotent
+        auto result_copy = digest.finalize(&ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(zendoo_field_assert_eq(result, result_copy));
+
+        // Update once and more and assert that trying to finalize
+        // with an input non mod rate will result in an error
+        auto additional_input = zendoo_get_field_from_long(3);
+        digest.update(additional_input, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        auto result_after = digest.finalize(&ret_code);
+        CHECK(result_after == NULL);
+        CHECK(ret_code == CctpErrorCode::HashingError);
+
+        // Free memory
+        zendoo_field_free(lhs);
+        zendoo_field_free(rhs);
+        zendoo_field_free(result);
+        zendoo_field_free(expected_result);
+        zendoo_field_free(result_copy);
+        zendoo_field_free(additional_input);
+
+        // Once out of scope the destructor of ZendooPoseidonHash will automatically free the memory Rust-side
+        // for digest
     }
 
-    auto expected_hash = zendoo_deserialize_field(hash);
-    if (expected_hash == NULL) {
-        print_error("error");
-        abort();
+    TEST_CASE("Variable Length Poseidon Hash NON mod rate") {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        unsigned char expected_result_bytes_variable_length[FIELD_SIZE] = {
+            212, 129, 183, 174, 117, 46, 61, 128, 124, 74, 158, 233, 177, 251, 225, 0,
+            99, 148, 140, 105, 239, 1, 217, 66, 106, 133, 62, 197, 131, 215, 206, 28
+        };
+
+        // Init digest
+        auto digest = ZendooPoseidonHashVariableLength(false, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        //Update with 1 field element
+        auto lhs = zendoo_get_field_from_long(1);
+        digest.update(lhs, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // It's possible to finalize in any moment (padding will be performed)
+        auto result_before = digest.finalize(&ret_code);
+        CHECK(result_before != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Update with 1 field element
+        auto rhs = zendoo_get_field_from_long(2);
+        digest.update(rhs, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Finalize hash
+        auto result = digest.finalize(&ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Check result is equal to the expected one.
+        auto expected_result = zendoo_deserialize_field(expected_result_bytes_variable_length, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(zendoo_field_assert_eq(result, expected_result));
+
+        // Finalize is idempotent
+        auto result_copy = digest.finalize(&ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(zendoo_field_assert_eq(result, result_copy));
+
+        // It's possible to finalize in any moment (padding will be performed)
+        auto additional_input = zendoo_get_field_from_long(3);
+        digest.update(additional_input, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        auto result_after = digest.finalize(&ret_code);
+        CHECK(result_after != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Free memory
+        zendoo_field_free(lhs);
+        zendoo_field_free(rhs);
+        zendoo_field_free(result_before);
+        zendoo_field_free(result);
+        zendoo_field_free(expected_result);
+        zendoo_field_free(result_copy);
+        zendoo_field_free(result_after);
+        zendoo_field_free(additional_input);
+
+        // Once out of scope the destructor of ZendooPoseidonHash will automatically free the memory Rust-side
+        // for digest
     }
-
-    auto digest = ZendooPoseidonHash();
-
-    digest.update(lhs_field);
-
-    auto temp_hash = digest.finalize();
-    digest.update(rhs_field); // Call to finalize keeps the state
-
-    auto actual_hash = digest.finalize();
-    assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash, expected_hash)));
-    zendoo_field_free(actual_hash);
-
-    auto actual_hash_2 = digest.finalize(); // finalize() is idempotent
-    assert(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_2, expected_hash)));
-    zendoo_field_free(actual_hash_2);
-
-    zendoo_field_free(expected_hash);
-    zendoo_field_free(temp_hash);
-    zendoo_field_free(lhs_field);
-    zendoo_field_free(rhs_field);
-
-    std::cout<< "...ok" << std::endl;
-
-    // Once out of scope the destructor of ZendooPoseidonHash will automatically free the memory Rust-side
-    // for digest
 }
 
-void merkle_test() {
-
-    std::cout << "Merkle test" << std::endl;
-
+TEST_CASE("Merkle Tree") {
     size_t height = 5;
+    CctpErrorCode ret_code = CctpErrorCode::OK;
 
     // Deserialize root
-    unsigned char expected_root_bytes[96] = {
-        192, 138, 102, 85, 151, 8, 139, 184, 209, 249, 171, 182, 227, 80, 52, 215, 32, 37, 145, 166,
-        74, 136, 40, 200, 213, 72, 124, 101, 91, 235, 114, 0, 147, 61, 180, 29, 183, 111, 247, 2,
-        169, 12, 179, 173, 87, 88, 187, 229, 26, 139, 80, 228, 125, 246, 145, 141, 43, 19, 148, 94,
-        190, 140, 20, 123, 208, 132, 48, 243, 14, 2, 48, 106, 100, 13, 41, 254, 129, 225, 168, 23,
-        72, 215, 207, 255, 98, 156, 102, 215, 201, 158, 10, 123, 107, 238, 0, 0
+    unsigned char expected_root_bytes[FIELD_SIZE] = {
+        113, 174, 41, 1, 227, 14, 47, 27, 44, 172, 21, 18, 63, 182, 174, 162, 239, 251,
+        93, 88, 43, 221, 235, 253, 30, 110, 180, 114, 134, 192, 15, 20
     };
-    auto expected_root = zendoo_deserialize_field(expected_root_bytes);
-    if (expected_root == NULL) {
-        print_error("error");
-        abort();
-    }
+    auto expected_root = zendoo_deserialize_field(expected_root_bytes, &ret_code);
+    CHECK(ret_code == CctpErrorCode::OK);
 
     //Generate leaves
     int leaves_len = 32;
@@ -152,281 +312,487 @@ void merkle_test() {
 
     // Add leaves to tree
     for (int i = 0; i < leaves_len; i++){
-        tree.append(leaves[i]);
+        tree.append(leaves[i], &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
     }
 
+    // Adding more leaves than the tree size should result in an error
+    tree.append(leaves[0], &ret_code);
+    CHECK(ret_code == CctpErrorCode::MerkleTreeError);
+
+    // Asking for the root of a non-finalized tree should result in an error
+    auto null_root = tree.root(&ret_code);
+    CHECK(null_root == NULL);
+    CHECK(ret_code == CctpErrorCode::MerkleRootBuildError);
+
+    // Asking for a merkle path  of a non-finalized tree should result in an error
+    auto path = tree.get_merkle_path(0, &ret_code);
+    CHECK(path == NULL);
+    CHECK(ret_code == CctpErrorCode::MerkleTreeError);
+
     // Finalize tree
-    tree.finalize_in_place();
+    tree.finalize_in_place(&ret_code);
+    CHECK(ret_code == CctpErrorCode::OK);
 
     // Compute root and assert equality with expected one
-    auto root = tree.root();
-    assert(("Expected roots to be equal", zendoo_field_assert_eq(root, expected_root)));
+    auto root = tree.root(&ret_code);
+    CHECK(ret_code == CctpErrorCode::OK);
+    CHECK(zendoo_field_assert_eq(root, expected_root));
 
     // It is the same by calling finalize()
-    auto tree_copy = tree.finalize();
-    auto root_copy = tree_copy.root();
-    assert(("Expected roots to be equal", zendoo_field_assert_eq(root_copy, expected_root)));
+    auto tree_copy = tree.finalize(&ret_code);
+    CHECK(ret_code == CctpErrorCode::OK);
+
+    auto root_copy = tree_copy.root(&ret_code);
+    CHECK(ret_code == CctpErrorCode::OK);
+
+    CHECK(zendoo_field_assert_eq(root_copy, root));
+
+    auto wrong_root = zendoo_get_random_field();
 
     // Test Merkle Paths
     for (int i = 0; i < leaves_len; i++) {
-        auto path = tree.get_merkle_path(i);
-        assert(("Merkle Path must be verified", zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root)));
+
+        // Get Merkle Path
+        auto path = tree.get_merkle_path(i, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Verify Merkle Path
+        CHECK(zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root, &ret_code));
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Negative test: verify MerklePath for a wrong root and assert failure
+        CHECK_FALSE(zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], wrong_root, &ret_code));
+        CHECK(ret_code == CctpErrorCode::OK);
+
         zendoo_free_ginger_merkle_path(path);
     }
 
     // Free memory
-    zendoo_field_free(expected_root);
     for (int i = 0; i < leaves_len; i++){
         zendoo_field_free((field_t*)leaves[i]);
     }
     zendoo_field_free(root);
     zendoo_field_free(root_copy);
+    zendoo_field_free(expected_root);
+    zendoo_field_free(wrong_root);
 
-    std::cout<< "...ok" << std::endl;
-
-    // Once out of scope, the destructor of ZendooGingerMerkleTree will
-    // free the memory Rust-side for tree and tree_copy.
+    // Once out of scope the destructor of ZendooGingerMerkleTree will automatically free
+    // the memory Rust-side for tree and tree_copy
 }
 
-void proof_test() {
 
-    std::cout << "Zk proof test" << std::endl;
+TEST_SUITE("Single Proof Verifier") {
 
-    //Deserialize zero knowledge proof
-    //Read proof from file
-    std::ifstream is ("../test_files/sample_proof", std::ifstream::binary);
-    is.seekg (0, is.end);
-    int length = is.tellg();
+    static std::string params_dir = std::string("../examples");
+    static size_t params_dir_len = params_dir.size();
 
-    //Check correct length
-    assert(("Unexpected size", length == zendoo_get_sc_proof_size_in_bytes()));
+    bool initDlogKeys() {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
 
-    is.seekg (0, is.beg);
-    char* proof_bytes = new char [length];
-    is.read(proof_bytes,length);
-    is.close();
-
-    //Deserialize proof
-    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes, true);
-    if(proof == NULL){
-        print_error("error");
-        abort();
+        // Bootstrap keys
+        bool init_result = zendoo_init_dlog_keys(
+            ProvingSystem::Darlin,
+            1 << 9,
+            (path_char_t*)params_dir.c_str(),
+            params_dir_len,
+            &ret_code
+        );
+        CHECK(init_result == true);
+        CHECK(ret_code == CctpErrorCode::OK);
     }
 
-    delete[] proof_bytes;
+    void create_verify_cert_proof(size_t numBt, bool zk) {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
 
-    //Inputs
-    unsigned char end_epoch_mc_b_hash[32] = {
-        157, 219, 85, 159, 75, 56, 146, 21, 107, 239, 76, 31, 208, 213, 230, 24, 44, 74, 250, 66, 71, 23, 106, 4, 138,
-        157, 28, 43, 158, 39, 152, 91
-    };
+        // Generate random data
+        auto constant = zendoo_get_field_from_long(1);
+        auto end_cum_comm_tree_root = zendoo_get_field_from_long(2);
+        uint32_t epoch_number = 10;
+        uint64_t quality = 100;
+        uint64_t btr_fee = 1000;
+        uint64_t ft_min_amount = 5000;
 
-    unsigned char prev_end_epoch_mc_b_hash[32] = {
-        74, 229, 219, 59, 25, 231, 227, 68, 3, 118, 194, 58, 99, 219, 112, 39, 73, 202, 238, 140, 114, 144, 253, 32,
-        237, 117, 117, 60, 200, 70, 187, 171
-    };
+        //Create dummy bt list
+        size_t bt_list_len = numBt;
+        std::vector<backward_transfer_t> bt_list;
+        if (bt_list_len != 0) {
+            for(int i = 0; i < bt_list_len; i++){
+                bt_list.push_back({{0}, 0});
+            }
+        }
 
-    unsigned char constant_bytes[96] = {
-        234, 144, 148, 15, 127, 44, 243, 131, 152, 238, 209, 246, 126, 175, 154, 42, 208, 215, 180, 233, 20, 153, 7, 10,
-        180, 78, 89, 9, 9, 160, 1, 42, 91, 202, 221, 104, 241, 231, 8, 59, 174, 159, 27, 108, 74, 80, 118, 192, 127, 238,
-        216, 167, 72, 15, 61, 97, 121, 13, 48, 143, 255, 165, 228, 6, 121, 210, 112, 228, 161, 214, 233, 137, 108, 184,
-        80, 27, 213, 72, 110, 7, 200, 194, 23, 95, 102, 236, 181, 230, 139, 215, 104, 22, 214, 70, 0, 0
-    };
+        // Specify paths
+        auto pk_path = params_dir + std::string("/test_pk");
+        auto proof_path = params_dir + std::string("/cert_test_proof");
 
-    auto constant = zendoo_deserialize_field(constant_bytes);
-    if (constant == NULL) {
-        print_error("error");
-        abort();
+        CHECK(
+            zendoo_create_cert_test_proof(
+                zk, constant, epoch_number, quality, bt_list.data(), bt_list_len,
+                end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                (path_char_t*)pk_path.c_str(), pk_path.size(),
+                (path_char_t*)proof_path.c_str(), proof_path.size(),
+                &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Verify proof with correct data
+
+        auto sc_proof = zendoo_deserialize_sc_proof_from_file(
+            (path_char_t*)proof_path.c_str(),
+            proof_path.size(),
+            false,
+            &ret_code
+        );
+        CHECK(sc_proof != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        auto vk_path = params_dir + std::string("/test_vk");
+        auto sc_vk = zendoo_deserialize_sc_vk_from_file(
+            (path_char_t*)vk_path.c_str(),
+            vk_path.size(),
+            false,
+            &ret_code
+        );
+        CHECK(sc_vk != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Positive verification
+        CHECK(
+            zendoo_verify_certificate_proof(
+                constant, epoch_number, quality, bt_list.data(), bt_list_len,
+                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                sc_proof, sc_vk, &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Negative verification
+        auto wrong_constant = zendoo_get_field_from_long(2);
+        CHECK(
+            zendoo_verify_certificate_proof(
+                wrong_constant, epoch_number, quality, bt_list.data(), bt_list_len,
+                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                sc_proof, sc_vk, &ret_code
+            ) == false
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Free memory
+        zendoo_field_free(constant);
+        zendoo_field_free(wrong_constant);
+        zendoo_field_free(end_cum_comm_tree_root);
+        zendoo_sc_vk_free(sc_vk);
+        zendoo_sc_proof_free(sc_proof);
+
+        // Destroy proof file
+        remove(proof_path.c_str());
     }
 
-    uint64_t quality = 2;
+    TEST_CASE("Proof Verifier: Cert - Coboundary Marlin") {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
 
-    //Create dummy bt
-    size_t bt_list_len = 10;
-    const backward_transfer_t bt_list[bt_list_len] = { {0}, 0 };
+        // Init keys
+        initDlogKeys();
 
-    //Read vk from file
-    std::ifstream is1 ("../test_files/sample_vk", std::ifstream::binary);
-    is1.seekg (0, is1.end);
-    length = is1.tellg();
+        // Generate cert test circuit pk and vk
+        CHECK(
+            zendoo_generate_mc_test_params(
+                TestCircuitType::Certificate,
+                ProvingSystem::CoboundaryMarlin,
+                (path_char_t*)params_dir.c_str(),
+                params_dir_len,
+                &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
 
-    //Check correct length
-    assert(("Unexpected size", length == zendoo_get_sc_vk_size_in_bytes()));
+        // Test all cases
+        create_verify_cert_proof(10, true);
+        create_verify_cert_proof(0, true);
+        create_verify_cert_proof(10, false);
+        create_verify_cert_proof(0, false);
 
-    is1.seekg (0, is1.beg);
-    char* vk_bytes = new char [length];
-    is1.read(vk_bytes,length);
-    is1.close();
-
-    //Deserialize vk
-    auto vk_from_buffer = zendoo_deserialize_sc_vk((unsigned char*)vk_bytes, true);
-    if(vk_from_buffer == NULL){
-        print_error("error");
-        abort();
+        // Delete files
+        auto pk_path = params_dir + std::string("/test_pk");
+        auto vk_path = params_dir + std::string("/test_vk");
+        remove(pk_path.c_str());
+        remove(vk_path.c_str());
     }
 
-    delete[] vk_bytes;
+    TEST_CASE("Proof Verifier: Cert - Darlin") {
+       CctpErrorCode ret_code = CctpErrorCode::OK;
 
-    //Deserialize vk directly from file
-    sc_vk_t* vk_from_file = zendoo_deserialize_sc_vk_from_file(
-        (path_char_t*)"../test_files/sample_vk",
-        23,
-        true
-    );
+       // Init keys
+       initDlogKeys();
 
-    //Check equality
-    assert(("Unexpected inequality", zendoo_sc_vk_assert_eq(vk_from_buffer, vk_from_file)));
+       // Generate cert test circuit pk and vk
+       CHECK(
+           zendoo_generate_mc_test_params(
+               TestCircuitType::Certificate,
+               ProvingSystem::Darlin,
+               (path_char_t*)params_dir.c_str(),
+               params_dir_len,
+               &ret_code
+           ) == true
+       );
+       CHECK(ret_code == CctpErrorCode::OK);
 
-    //Verify zkproof
-    if(!zendoo_verify_sc_proof(
-        end_epoch_mc_b_hash,
-        prev_end_epoch_mc_b_hash,
-        bt_list,
-        bt_list_len,
-        quality,
-        constant,
-        NULL,
-        proof,
-        vk_from_buffer
-    )){
-        error_or("Proof not verified");
-        abort();
+       // Test all cases
+       create_verify_cert_proof(10, true);
+       create_verify_cert_proof(0, true);
+       create_verify_cert_proof(10, false);
+       create_verify_cert_proof(0, false);
+
+       // Delete files
+       auto pk_path = params_dir + std::string("/test_pk");
+       auto vk_path = params_dir + std::string("/test_vk");
+       remove(pk_path.c_str());
+       remove(vk_path.c_str());
     }
-
-    //Negative test: change quality (for instance) and assert proof failure
-    assert((
-        "Proof verification should fail",
-        !zendoo_verify_sc_proof(
-         end_epoch_mc_b_hash,
-         prev_end_epoch_mc_b_hash,
-         bt_list,
-         bt_list_len,
-         quality - 1,
-         constant,
-         NULL,
-         proof,
-         vk_from_buffer
-        )
-    ));
-
-    //Free proof
-    zendoo_sc_proof_free(proof);
-    zendoo_sc_vk_free(vk_from_buffer);
-    zendoo_sc_vk_free(vk_from_file);
-    zendoo_field_free(constant);
-
-    std::cout<< "...ok" << std::endl;
 }
 
-void proof_test_no_bwt() {
-
-    std::cout << "Zk proof no bwt test" << std::endl;
-
-    //Deserialize zero knowledge proof
-    //Read proof from file
-    std::ifstream is ("../test_files/sample_proof_no_bwt", std::ifstream::binary);
-    is.seekg (0, is.end);
-    int length = is.tellg();
-
-    //Check correct length
-    assert(("Unexpected size", length == zendoo_get_sc_proof_size_in_bytes()));
-
-    is.seekg (0, is.beg);
-    char* proof_bytes = new char [length];
-    is.read(proof_bytes,length);
-    is.close();
-
-    //Deserialize proof
-    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes, true);
-    if(proof == NULL){
-        print_error("error");
-        abort();
-    }
-
-    delete[] proof_bytes;
-
-    //Inputs
-    unsigned char end_epoch_mc_b_hash[32] = {
-        8, 57, 79, 205, 58, 30, 190, 170, 144, 137, 231, 236, 172, 54, 173, 50, 69, 208, 163, 134, 201, 131, 129, 223,
-        143, 76, 119, 48, 95, 6, 141, 17
-    };
-
-    unsigned char prev_end_epoch_mc_b_hash[32] = {
-        172, 64, 135, 162, 30, 208, 207, 7, 107, 205, 4, 141, 230, 6, 119, 131, 112, 98, 170, 234, 70, 66, 95, 11, 159,
-        178, 50, 37, 95, 187, 147, 1
-    };
-
-    unsigned char constant_bytes[96] = {
-        53, 15, 18, 36, 121, 179, 90, 14, 215, 218, 231, 181, 9, 186, 122, 78, 227, 142, 190, 43, 134, 218, 178, 160,
-        251, 246, 207, 130, 247, 53, 246, 68, 251, 126, 22, 250, 0, 135, 243, 13, 97, 76, 166, 142, 143, 19, 69, 66,
-        225, 142, 210, 176, 253, 197, 145, 68, 142, 4, 96, 91, 23, 39, 56, 43, 96, 115, 57, 59, 34, 62, 156, 221, 27,
-        174, 134, 170, 26, 86, 112, 176, 126, 207, 29, 213, 99, 3, 183, 43, 191, 43, 211, 110, 177, 152, 0, 0
-    };
-
-    auto constant = zendoo_deserialize_field(constant_bytes);
-    if (constant == NULL) {
-        print_error("error");
-        abort();
-    }
-
-    uint64_t quality = 2;
-
-    //Create empty bt_list
-    std::vector<backward_transfer_t> bt_list;
-
-    //Read vk from file
-    sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
-        // NOTE: The circuit is the same as the previous one but we regenerate the params for this test
-        // for convenience
-        (path_char_t*)"../test_files/sample_vk_no_bwt",
-        30,
-        true
-    );
-
-    //Verify zkproof
-    if(!zendoo_verify_sc_proof(
-        end_epoch_mc_b_hash,
-        prev_end_epoch_mc_b_hash,
-        bt_list.data(),
-        0,
-        quality,
-        constant,
-        NULL,
-        proof,
-        vk
-    )){
-        error_or("Proof not verified");
-        abort();
-    }
-
-    //Negative test: change quality (for instance) and assert proof failure
-    assert((
-        "Proof verification should fail",
-        !zendoo_verify_sc_proof(
-         end_epoch_mc_b_hash,
-         prev_end_epoch_mc_b_hash,
-         bt_list.data(),
-         0,
-         quality - 1,
-         constant,
-         NULL,
-         proof,
-         vk
-        )
-    ));
-
-    //Free proof
-    zendoo_sc_proof_free(proof);
-    zendoo_sc_vk_free(vk);
-    zendoo_field_free(constant);
-
-    std::cout<< "...ok" << std::endl;
-}
-
-int main() {
-    field_test();
-    hash_test();
-    merkle_test();
-    proof_test();
-    proof_test_no_bwt();
-}*/
+//
+//void proof_test() {
+//
+//    std::cout << "Zk proof test" << std::endl;
+//
+//    //Deserialize zero knowledge proof
+//    //Read proof from file
+//    std::ifstream is ("../test_files/sample_proof", std::ifstream::binary);
+//    is.seekg (0, is.end);
+//    int length = is.tellg();
+//
+//    //Check correct length
+//    assert(("Unexpected size", length == zendoo_get_sc_proof_size_in_bytes()));
+//
+//    is.seekg (0, is.beg);
+//    char* proof_bytes = new char [length];
+//    is.read(proof_bytes,length);
+//    is.close();
+//
+//    //Deserialize proof
+//    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes, true);
+//    if(proof == NULL){
+//        print_error("error");
+//        abort();
+//    }
+//
+//    delete[] proof_bytes;
+//
+//    //Inputs
+//    unsigned char end_epoch_mc_b_hash[32] = {
+//        157, 219, 85, 159, 75, 56, 146, 21, 107, 239, 76, 31, 208, 213, 230, 24, 44, 74, 250, 66, 71, 23, 106, 4, 138,
+//        157, 28, 43, 158, 39, 152, 91
+//    };
+//
+//    unsigned char prev_end_epoch_mc_b_hash[32] = {
+//        74, 229, 219, 59, 25, 231, 227, 68, 3, 118, 194, 58, 99, 219, 112, 39, 73, 202, 238, 140, 114, 144, 253, 32,
+//        237, 117, 117, 60, 200, 70, 187, 171
+//    };
+//
+//    unsigned char constant_bytes[96] = {
+//        234, 144, 148, 15, 127, 44, 243, 131, 152, 238, 209, 246, 126, 175, 154, 42, 208, 215, 180, 233, 20, 153, 7, 10,
+//        180, 78, 89, 9, 9, 160, 1, 42, 91, 202, 221, 104, 241, 231, 8, 59, 174, 159, 27, 108, 74, 80, 118, 192, 127, 238,
+//        216, 167, 72, 15, 61, 97, 121, 13, 48, 143, 255, 165, 228, 6, 121, 210, 112, 228, 161, 214, 233, 137, 108, 184,
+//        80, 27, 213, 72, 110, 7, 200, 194, 23, 95, 102, 236, 181, 230, 139, 215, 104, 22, 214, 70, 0, 0
+//    };
+//
+//    auto constant = zendoo_deserialize_field(constant_bytes);
+//    if (constant == NULL) {
+//        print_error("error");
+//        abort();
+//    }
+//
+//    uint64_t quality = 2;
+//
+//    //Create dummy bt
+//    size_t bt_list_len = 10;
+//    const backward_transfer_t bt_list[bt_list_len] = { {0}, 0 };
+//
+//    //Read vk from file
+//    std::ifstream is1 ("../test_files/sample_vk", std::ifstream::binary);
+//    is1.seekg (0, is1.end);
+//    length = is1.tellg();
+//
+//    //Check correct length
+//    assert(("Unexpected size", length == zendoo_get_sc_vk_size_in_bytes()));
+//
+//    is1.seekg (0, is1.beg);
+//    char* vk_bytes = new char [length];
+//    is1.read(vk_bytes,length);
+//    is1.close();
+//
+//    //Deserialize vk
+//    auto vk_from_buffer = zendoo_deserialize_sc_vk((unsigned char*)vk_bytes, true);
+//    if(vk_from_buffer == NULL){
+//        print_error("error");
+//        abort();
+//    }
+//
+//    delete[] vk_bytes;
+//
+//    //Deserialize vk directly from file
+//    sc_vk_t* vk_from_file = zendoo_deserialize_sc_vk_from_file(
+//        (path_char_t*)"../test_files/sample_vk",
+//        23,
+//        true
+//    );
+//
+//    //Check equality
+//    assert(("Unexpected inequality", zendoo_sc_vk_assert_eq(vk_from_buffer, vk_from_file)));
+//
+//    //Verify zkproof
+//    if(!zendoo_verify_sc_proof(
+//        end_epoch_mc_b_hash,
+//        prev_end_epoch_mc_b_hash,
+//        bt_list,
+//        bt_list_len,
+//        quality,
+//        constant,
+//        NULL,
+//        proof,
+//        vk_from_buffer
+//    )){
+//        error_or("Proof not verified");
+//        abort();
+//    }
+//
+//    //Negative test: change quality (for instance) and assert proof failure
+//    assert((
+//        "Proof verification should fail",
+//        !zendoo_verify_sc_proof(
+//         end_epoch_mc_b_hash,
+//         prev_end_epoch_mc_b_hash,
+//         bt_list,
+//         bt_list_len,
+//         quality - 1,
+//         constant,
+//         NULL,
+//         proof,
+//         vk_from_buffer
+//        )
+//    ));
+//
+//    //Free proof
+//    zendoo_sc_proof_free(proof);
+//    zendoo_sc_vk_free(vk_from_buffer);
+//    zendoo_sc_vk_free(vk_from_file);
+//    zendoo_field_free(constant);
+//
+//    std::cout<< "...ok" << std::endl;
+//}
+//
+//void proof_test_no_bwt() {
+//
+//    std::cout << "Zk proof no bwt test" << std::endl;
+//
+//    //Deserialize zero knowledge proof
+//    //Read proof from file
+//    std::ifstream is ("../test_files/sample_proof_no_bwt", std::ifstream::binary);
+//    is.seekg (0, is.end);
+//    int length = is.tellg();
+//
+//    //Check correct length
+//    assert(("Unexpected size", length == zendoo_get_sc_proof_size_in_bytes()));
+//
+//    is.seekg (0, is.beg);
+//    char* proof_bytes = new char [length];
+//    is.read(proof_bytes,length);
+//    is.close();
+//
+//    //Deserialize proof
+//    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes, true);
+//    if(proof == NULL){
+//        print_error("error");
+//        abort();
+//    }
+//
+//    delete[] proof_bytes;
+//
+//    //Inputs
+//    unsigned char end_epoch_mc_b_hash[32] = {
+//        8, 57, 79, 205, 58, 30, 190, 170, 144, 137, 231, 236, 172, 54, 173, 50, 69, 208, 163, 134, 201, 131, 129, 223,
+//        143, 76, 119, 48, 95, 6, 141, 17
+//    };
+//
+//    unsigned char prev_end_epoch_mc_b_hash[32] = {
+//        172, 64, 135, 162, 30, 208, 207, 7, 107, 205, 4, 141, 230, 6, 119, 131, 112, 98, 170, 234, 70, 66, 95, 11, 159,
+//        178, 50, 37, 95, 187, 147, 1
+//    };
+//
+//    unsigned char constant_bytes[96] = {
+//        53, 15, 18, 36, 121, 179, 90, 14, 215, 218, 231, 181, 9, 186, 122, 78, 227, 142, 190, 43, 134, 218, 178, 160,
+//        251, 246, 207, 130, 247, 53, 246, 68, 251, 126, 22, 250, 0, 135, 243, 13, 97, 76, 166, 142, 143, 19, 69, 66,
+//        225, 142, 210, 176, 253, 197, 145, 68, 142, 4, 96, 91, 23, 39, 56, 43, 96, 115, 57, 59, 34, 62, 156, 221, 27,
+//        174, 134, 170, 26, 86, 112, 176, 126, 207, 29, 213, 99, 3, 183, 43, 191, 43, 211, 110, 177, 152, 0, 0
+//    };
+//
+//    auto constant = zendoo_deserialize_field(constant_bytes);
+//    if (constant == NULL) {
+//        print_error("error");
+//        abort();
+//    }
+//
+//    uint64_t quality = 2;
+//
+//    //Create empty bt_list
+//    std::vector<backward_transfer_t> bt_list;
+//
+//    //Read vk from file
+//    sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
+//        // NOTE: The circuit is the same as the previous one but we regenerate the params for this test
+//        // for convenience
+//        (path_char_t*)"../test_files/sample_vk_no_bwt",
+//        30,
+//        true
+//    );
+//
+//    //Verify zkproof
+//    if(!zendoo_verify_sc_proof(
+//        end_epoch_mc_b_hash,
+//        prev_end_epoch_mc_b_hash,
+//        bt_list.data(),
+//        0,
+//        quality,
+//        constant,
+//        NULL,
+//        proof,
+//        vk
+//    )){
+//        error_or("Proof not verified");
+//        abort();
+//    }
+//
+//    //Negative test: change quality (for instance) and assert proof failure
+//    assert((
+//        "Proof verification should fail",
+//        !zendoo_verify_sc_proof(
+//         end_epoch_mc_b_hash,
+//         prev_end_epoch_mc_b_hash,
+//         bt_list.data(),
+//         0,
+//         quality - 1,
+//         constant,
+//         NULL,
+//         proof,
+//         vk
+//        )
+//    ));
+//
+//    //Free proof
+//    zendoo_sc_proof_free(proof);
+//    zendoo_sc_vk_free(vk);
+//    zendoo_field_free(constant);
+//
+//    std::cout<< "...ok" << std::endl;
+//}
+//
+//int main() {
+//    field_test();
+//    hash_test();
+//    merkle_test();
+//    proof_test();
+//    proof_test_no_bwt();
+//}

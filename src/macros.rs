@@ -21,7 +21,8 @@ pub enum CctpErrorCode {
     CompressError,
     UncompressError,
     MerkleRootBuildError,
-    GenericError
+    GenericError,
+    TestProofCreationFailure,
 }
 
 #[repr(C)]
@@ -174,6 +175,30 @@ macro_rules! try_get_obj_list {
     }};
 }
 
+/// Convert a *const T to a &[T].
+pub(crate) fn get_optional_obj_list<'a, T>(in_list: *const T, in_list_size: usize) -> (Option<&'a [T]>, CctpErrorCode) {
+    if in_list.is_null() {
+        return (None, CctpErrorCode::OK)
+    }
+
+    let data = Some(unsafe { slice::from_raw_parts(in_list, in_list_size)});
+    (data, CctpErrorCode::OK)
+}
+
+macro_rules! try_get_optional_obj_list {
+    ($param_name: expr, $in_list:expr, $in_list_size:expr, $ret_code: expr, $err_ret:expr) => {{
+        let (optional_data, ret_code) = get_optional_obj_list($in_list, $in_list_size);
+        *$ret_code = ret_code;
+
+        if ret_code != CctpErrorCode::OK {
+            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+            return $err_ret;
+        }
+
+        optional_data
+    }};
+}
+
 pub(crate) fn read_raw_pointer<'a, T>(input: *const T) -> (Option<&'a T>, CctpErrorCode) {
     if input.is_null() {
         return (None, CctpErrorCode::NullPtr);
@@ -294,7 +319,7 @@ macro_rules! try_deserialize_to_raw_pointer {
         match data {
             Some(x) => {x}
             None => {
-                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+                dbg!("Error with param ", $param_name, ": ", $ret_code);
                 return $err_ret;
             }
         }

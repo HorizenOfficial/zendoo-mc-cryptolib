@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+static const size_t FIELD_SIZE = 32;
+
 extern "C" {
 
     #ifdef WIN32
@@ -32,7 +34,8 @@ extern "C" {
             CompressError,
             UncompressError,
             MerkleRootBuildError,
-            GenericError
+            GenericError,
+            TestProofCreationFailure,
     } CctpErrorCode;
 
     //Field related functions
@@ -113,8 +116,6 @@ extern "C" {
         const BufferWithSize* tx_hash,
         uint32_t out_idx,
         uint32_t withdrawal_epoch_length,
-        ProvingSystem cert_proving_system,
-        ProvingSystem csw_proving_system,
         uint8_t mc_btr_request_data_length,
         const BufferWithSize* custom_field_elements_config,
         const BitVectorElementsConfig* custom_bv_elements_config,
@@ -358,8 +359,8 @@ extern "C" {
     bool zendoo_verify_ginger_merkle_path(
         const ginger_merkle_path_t* path,
         size_t height,
-        const BufferWithSize* leaf,
-        const BufferWithSize* root,
+        const field_t* leaf,
+        const field_t* root,
         CctpErrorCode* ret_code
     );
 
@@ -470,8 +471,8 @@ extern "C" {
             return zendoo_append_leaf_to_ginger_mht_from_raw(leaf, tree, ret_code);
         }
 
-        ginger_mht_t* finalize(CctpErrorCode* ret_code){
-            return zendoo_finalize_ginger_mht(tree, ret_code);
+        ZendooGingerMerkleTree finalize(CctpErrorCode* ret_code){
+            return ZendooGingerMerkleTree(zendoo_finalize_ginger_mht(tree, ret_code));
         }
 
         bool finalize_in_place(CctpErrorCode* ret_code){
@@ -515,6 +516,14 @@ extern "C" {
 
     //SC SNARK related functions
 
+    bool zendoo_init_dlog_keys(
+        ProvingSystem ps_type,
+        size_t segment_size,
+        const path_char_t* params_dir,
+        size_t params_dir_len,
+        CctpErrorCode* ret_code
+    );
+
     typedef struct sc_proof sc_proof_t;
 
     /*
@@ -531,9 +540,16 @@ extern "C" {
      * If `semantic_checks` flag is set, semantic checks on the proof will be performed.
      */
     sc_proof_t* zendoo_deserialize_sc_proof(
-        ProvingSystem psType,
         const BufferWithSize* sc_proof_bytes,
         bool semantic_checks,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of `sc_proof`.
+     */
+    ProvingSystem zendoo_get_sc_proof_proving_system_type(
+        const sc_proof_t* sc_proof,
         CctpErrorCode* ret_code
     );
 
@@ -550,7 +566,6 @@ extern "C" {
      * If `semantic_checks` flag is set, semantic checks on vk will be performed.
      */
     sc_vk_t* zendoo_deserialize_sc_vk_from_file(
-        ProvingSystem psType,
         const path_char_t* vk_path,
         size_t vk_path_len,
         bool semantic_checks,
@@ -562,9 +577,16 @@ extern "C" {
      * If `semantic_checks` flag is set, semantic checks on vk will be performed.
      */
     sc_vk_t* zendoo_deserialize_sc_vk(
-        ProvingSystem psType,
         const BufferWithSize* sc_vk_bytes,
         bool semantic_checks,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of `sc_vk`.
+     */
+    ProvingSystem zendoo_get_sc_vk_proving_system_type(
+        const sc_vk_t* sc_vk,
         CctpErrorCode* ret_code
     );
 
@@ -680,7 +702,7 @@ extern "C" {
      */
     ZendooBatchProofVerifierResult zendoo_batch_verify_all_proofs(
         const sc_batch_proof_verifier_t* batch_verifier,
-        CctpErrorCode* ret_code,
+        CctpErrorCode* ret_code
     );
 
     /*
@@ -690,14 +712,13 @@ extern "C" {
         const sc_batch_proof_verifier_t* batch_verifier,
         const uint32_t* ids_list,
         size_t ids_list_len,
-        CctpErrorCode* ret_code,
+        CctpErrorCode* ret_code
     );
 
     /*
      * Free the memory pointed by `batch_verifier`,
     */
-    void zendoo_free_batch_proof_verifier(sc_batch_proof_verifier_t* batch_verifier)
-
+    void zendoo_free_batch_proof_verifier(sc_batch_proof_verifier_t* batch_verifier);
 
     /*
      *   Support struct to enhance and make easier the usage of sc_batch_proof_verifier, by
@@ -716,28 +737,30 @@ extern "C" {
 
         bool add_certificate_proof(
             uint32_t proof_id,
-            const BufferWithSize* constant,
-            const BufferWithSize* custom_fields,
+            const field_t* constant,
             uint32_t epoch_number,
-            const BufferWithSize* end_cum_comm_tree_root,
-            uint64_t btr_fee,
-            uint64_t ft_min_amount,
+            uint64_t quality,
             const backward_transfer_t* bt_list,
             size_t bt_list_len,
-            uint64_t quality,
+            const field_t** custom_fields,
+            size_t custom_fields_len,
+            const field_t* end_cum_comm_tree_root,
+            uint64_t btr_fee,
+            uint64_t ft_min_amount,
             sc_proof_t* sc_proof,
             sc_vk_t*    sc_vk,
-            CctpErrorCode* ret_code,
+            CctpErrorCode* ret_code
         )
         {
             return zendoo_add_certificate_proof_to_batch_verifier(
-                batch_verifier, proof_id, constant, custom_fields, custom_fields_len,
-                epoch_number, end_cum_comm_tree_root, btr_fee, ft_min_amount, bt_list,
-                bt_list_len, quality, sc_proof, sc_vk, ret_code
+                batch_verifier, proof_id, constant, epoch_number, quality,
+                bt_list, bt_list_len, custom_fields, custom_fields_len,
+                end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                sc_proof, sc_vk, ret_code
             );
         }
 
-        bool zendoo_add_csw_proof_to_batch_verifier(
+        bool add_csw_proof(
             uint32_t proof_id,
             uint64_t amount,
             const field_t* sc_id,
@@ -767,50 +790,80 @@ extern "C" {
         ~ZendooBatchProofVerifier() {
             zendoo_free_batch_proof_verifier(batch_verifier);
         }
-    }
+    };
 
-//
-//
-//    //Test functions
-//
-//    /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
-//     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
-//     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
-//     */
-//    sc_proof_t* zendoo_deserialize_sc_proof_from_file(
-//        const path_char_t* proof_path,
-//        size_t proof_path_len,
-//        bool enforce_membership
-//    );
-//
-//    /* Generates and saves at specified path params_dir the proving key and verification key for MCTestCircuit */
-//    bool zendoo_generate_mc_test_params(
-//        const path_char_t* params_dir,
-//        size_t params_dir_len
-//    );
-//
-//    /* Generates, given the required witnesses and the proving key, a MCTestCircuit proof, and saves it at specified path */
-//    bool zendoo_create_mc_test_proof(
-//        const unsigned char* end_epoch_mc_b_hash,
-//        const unsigned char* prev_end_epoch_mc_b_hash,
-//        const backward_transfer_t* bt_list,
-//        size_t bt_list_len,
-//        uint64_t quality,
-//        const field_t* constant,
-//        const path_char_t* pk_path,
-//        size_t pk_path_len,
-//        const path_char_t* proof_path,
-//        size_t proof_path_len
-//    );
-//
-//     /* Return `true` if the vks pointed by `sc_vk_1` and `sc_vk_2` are
-//       * equal, and `false` otherwise.
-//       */
-//      bool zendoo_sc_vk_assert_eq(
-//          const sc_vk_t* sc_vk_1,
-//          const sc_vk_t* sc_vk_2
-//      );
-//
+    //Test functions
+
+    /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
+     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
+     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
+     */
+    sc_proof_t* zendoo_deserialize_sc_proof_from_file(
+        const path_char_t* proof_path,
+        size_t proof_path_len,
+        bool semantic_checks,
+        CctpErrorCode* ret_code
+    );
+
+    typedef enum TestCircuitType {
+        Certificate,
+        CSW,
+    } TestCircuitType;
+
+    /*
+     * Generates and saves at specified path `params_dir` the proving key and verification key for the
+     * specified `circ_type`.
+     */
+    bool zendoo_generate_mc_test_params(
+        TestCircuitType circ_type,
+        ProvingSystem ps_type,
+        const path_char_t* params_dir,
+        size_t params_dir_len,
+        CctpErrorCode* ret_code
+    );
+
+    /* Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path */
+    bool zendoo_create_cert_test_proof(
+        bool zk,
+        const field_t* constant,
+        uint32_t epoch_number,
+        uint64_t quality,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
+        const field_t* end_cum_comm_tree_root,
+        uint64_t btr_fee,
+        uint64_t ft_min_amount,
+        const path_char_t* pk_path,
+        size_t pk_path_len,
+        const path_char_t* proof_path,
+        size_t proof_path_len,
+        CctpErrorCode* ret_code
+    );
+
+    /* Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path */
+    bool zendoo_create_csw_test_proof(
+        bool zk,
+        uint32_t proof_id,
+        uint64_t amount,
+        const field_t* sc_id,
+        const BufferWithSize* mc_pk_hash,
+        const field_t* cert_data_hash,
+        const field_t* end_cum_comm_tree_root,
+        const path_char_t* pk_path,
+        size_t pk_path_len,
+        const path_char_t* proof_path,
+        size_t proof_path_len,
+        CctpErrorCode* ret_code
+    );
+
+     /* Return `true` if the vks pointed by `sc_vk_1` and `sc_vk_2` are
+      * equal, and `false` otherwise.
+      */
+     bool zendoo_sc_vk_assert_eq(
+         const sc_vk_t* sc_vk_1,
+         const sc_vk_t* sc_vk_2
+     );
+
 }
 
 #endif // ZENDOO_MC_INCLUDE_H_
