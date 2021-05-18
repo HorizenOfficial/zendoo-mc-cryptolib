@@ -35,14 +35,15 @@ use type_mapping::*;
 #[macro_use]
 pub mod macros;
 use macros::*;
-use cctp_primitives::utils::serialization::{write_to_file, read_from_file};
 
 #[cfg(feature = "mc-test-circuit")]
 pub mod mc_test_circuits;
-#[cfg(feature = "mc-test-circuit")]
 
-#[cfg(test)]
-pub mod tests;
+#[cfg(feature = "mc-test-circuit")]
+use cctp_primitives::utils::serialization::{write_to_file, read_from_file};
+
+//#[cfg(test)]
+//pub mod tests;
 
 pub(crate) fn free_pointer<T> (ptr: *mut T) {
     if ptr.is_null() { return };
@@ -729,7 +730,11 @@ fn get_csw_proof_usr_ins<'a>(
         cert_data_hash: rs_cert_data_hash,
         end_cumulative_sc_tx_commitment_tree_root: rs_end_cum_comm_tree_root
     })
+}
 
+#[no_mangle]
+pub extern "C" fn zendoo_get_phantom_cert_data_hash() -> *mut FieldElement {
+    Box::into_raw(Box::new(cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH))
 }
 
 #[no_mangle]
@@ -1316,6 +1321,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
     try_deserialize_to_raw_pointer_from_file!("sc_proof", proof_path, semantic_checks, ret_code, null_mut())
 }
 
+#[cfg(feature = "mc-test-circuit")]
 fn _zendoo_generate_mc_test_params(
     circ_type:      TestCircuitType,
     ps_type:        ProvingSystem,
@@ -1386,6 +1392,7 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     _zendoo_generate_mc_test_params(circ_type, ps_type, params_dir, ret_code)
 }
 
+#[cfg(feature = "mc-test-circuit")]
 fn _zendoo_create_cert_test_proof(
     zk:                     bool,
     constant:               *const FieldElement,
@@ -1509,6 +1516,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
     )
 }
 
+#[cfg(feature = "mc-test-circuit")]
 fn _zendoo_create_csw_test_proof(
     zk:                     bool,
     amount:                 u64,

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 static const size_t FIELD_SIZE = 32;
+static const size_t MC_PK_SIZE = 20;
 
 extern "C" {
 
@@ -92,6 +93,10 @@ extern "C" {
     struct BitVectorElementsConfig {
         uint32_t bit_vector_size_bits;
         uint32_t max_compressed_byte_size;
+
+        BitVectorElementsConfig(): bit_vector_size_bits(0), max_compressed_byte_size(0) {}
+        BitVectorElementsConfig(uint32_t bit_vector_size_bits, uint32_t max_compressed_byte_size):
+            bit_vector_size_bits(bit_vector_size_bits), max_compressed_byte_size(max_compressed_byte_size) {}
     };
 
     size_t zendoo_get_sc_custom_data_size_in_bytes(void);
@@ -618,6 +623,13 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
+    /*
+     * Return a field element to be used as `cert_data_hash` input for
+     * `zendoo_verify_csw_proof()` and `zendoo_add_csw_proof_to_batch_verifier()`
+     * when no `cert_data_hash` is present.
+     */
+    field_t* zendoo_get_phantom_cert_data_hash();
+
     /*  Verify a CSW proof sc_proof `sc_proof` given its corresponding sc_vk `sc_vk`
      *  and all the data needed to construct proof's public inputs. Return true if
      *  proof verification was successful, false otherwise.
@@ -843,7 +855,6 @@ extern "C" {
     /* Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path */
     bool zendoo_create_csw_test_proof(
         bool zk,
-        uint32_t proof_id,
         uint64_t amount,
         const field_t* sc_id,
         const BufferWithSize* mc_pk_hash,
