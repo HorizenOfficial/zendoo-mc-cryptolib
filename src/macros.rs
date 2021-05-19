@@ -98,7 +98,7 @@ macro_rules! try_get_buffer_constant_size {
         match data {
             Some(x) => {x.try_into().unwrap()}
             None => {
-                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+                println!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -123,7 +123,7 @@ macro_rules! try_get_buffer_variable_size {
         match data {
             Some(x) => {x}
             None => {
-                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+                println!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -143,7 +143,7 @@ macro_rules! try_get_optional_buffer_variable_size {
         let (optional_data, ret_code) = get_optional_buffer_variable_size($in_buffer);
         *$ret_code = ret_code;
         if ret_code != CctpErrorCode::OK {
-            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+            println!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
         optional_data
@@ -168,7 +168,7 @@ macro_rules! try_get_obj_list {
         match data {
             Some(x) => {x}
             None => {
-                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+                println!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -191,7 +191,7 @@ macro_rules! try_get_optional_obj_list {
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+            println!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
 
@@ -214,7 +214,7 @@ macro_rules! try_read_raw_pointer {
         match data {
             Some(x) => {x}
             None => {
-                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+                println!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -232,7 +232,7 @@ macro_rules! try_read_optional_raw_pointer {
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+            println!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
 
@@ -255,7 +255,7 @@ macro_rules! try_read_mut_raw_pointer {
         match data {
             Some(x) => {x}
             None => {
-                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+                println!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -288,7 +288,7 @@ macro_rules! try_serialize_from_raw_pointer {
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+            println!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
     }};
@@ -306,7 +306,7 @@ pub(crate) fn deserialize_to_raw_pointer<T: CanonicalDeserialize + SemanticallyV
     }{
         Ok(t) => (Some(Box::into_raw(Box::new(t))), CctpErrorCode::OK),
         Err(_) => {
-            (None, CctpErrorCode::InvalidBufferData)
+            (None, CctpErrorCode::InvalidValue)
         }
     }
 }
@@ -319,7 +319,7 @@ macro_rules! try_deserialize_to_raw_pointer {
         match data {
             Some(x) => {x}
             None => {
-                dbg!("Error with param ", $param_name, ": ", $ret_code);
+                println!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -351,7 +351,7 @@ macro_rules! try_deserialize_to_raw_pointer_from_file {
         match data {
             Some(x) => {x}
             None => {
-                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+                println!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -390,7 +390,7 @@ macro_rules! try_read_double_raw_pointer {
         match data {
             Some(x) => {x}
             None => {
-                dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+                println!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -427,7 +427,7 @@ macro_rules! try_read_optional_double_raw_pointer {
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            dbg!(format!("Error with param: {:?}: {:?}", $param_name, ret_code));
+            println!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
 

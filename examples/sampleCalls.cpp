@@ -90,7 +90,7 @@ TEST_SUITE("Field Element") {
         };
         auto field_deserialized = zendoo_deserialize_field(over_the_modulus_fe, &ret_code);
         CHECK(field_deserialized == NULL);
-        CHECK(ret_code == CctpErrorCode::InvalidBufferData);
+        CHECK(ret_code == CctpErrorCode::InvalidValue);
 
         zendoo_field_free(field_deserialized);
     }
@@ -424,13 +424,21 @@ TEST_SUITE("Single Proof Verifier") {
 
         // Specify paths
         auto pk_path = params_dir + std::string("/test_pk");
+        auto sc_pk = zendoo_deserialize_sc_pk_from_file(
+            (path_char_t*)pk_path.c_str(),
+            pk_path.size(),
+            true,
+            &ret_code
+        );
+        CHECK(sc_pk != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
+
         auto proof_path = params_dir + std::string("/cert_test_proof");
 
         CHECK(
             zendoo_create_cert_test_proof(
                 zk, constant, epoch_number, quality, bt_list.data(), bt_list_len,
-                end_cum_comm_tree_root, btr_fee, ft_min_amount,
-                (path_char_t*)pk_path.c_str(), pk_path.size(),
+                end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
                 (path_char_t*)proof_path.c_str(), proof_path.size(),
                 &ret_code
             ) == true
@@ -442,7 +450,7 @@ TEST_SUITE("Single Proof Verifier") {
         auto sc_proof = zendoo_deserialize_sc_proof_from_file(
             (path_char_t*)proof_path.c_str(),
             proof_path.size(),
-            false,
+            true,
             &ret_code
         );
         CHECK(sc_proof != NULL);
@@ -452,7 +460,7 @@ TEST_SUITE("Single Proof Verifier") {
         auto sc_vk = zendoo_deserialize_sc_vk_from_file(
             (path_char_t*)vk_path.c_str(),
             vk_path.size(),
-            false,
+            true,
             &ret_code
         );
         CHECK(sc_vk != NULL);
@@ -483,6 +491,7 @@ TEST_SUITE("Single Proof Verifier") {
         zendoo_field_free(constant);
         zendoo_field_free(wrong_constant);
         zendoo_field_free(end_cum_comm_tree_root);
+        zendoo_sc_pk_free(sc_pk);
         zendoo_sc_vk_free(sc_vk);
         zendoo_sc_proof_free(sc_proof);
 
@@ -570,13 +579,20 @@ TEST_SUITE("Single Proof Verifier") {
 
         // Specify paths
         auto pk_path = params_dir + std::string("/test_pk");
+        auto sc_pk = zendoo_deserialize_sc_pk_from_file(
+            (path_char_t*)pk_path.c_str(),
+            pk_path.size(),
+            true,
+            &ret_code
+        );
+        CHECK(sc_pk != NULL);
+        CHECK(ret_code == CctpErrorCode::OK);
         auto proof_path = params_dir + std::string("/csw_test_proof");
 
         CHECK(
             zendoo_create_csw_test_proof(
                 zk, amount, sc_id, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
-                (path_char_t*)pk_path.c_str(), pk_path.size(),
-                (path_char_t*)proof_path.c_str(), proof_path.size(),
+                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(),
                 &ret_code
             ) == true
         );
@@ -586,7 +602,7 @@ TEST_SUITE("Single Proof Verifier") {
         auto sc_proof = zendoo_deserialize_sc_proof_from_file(
             (path_char_t*)proof_path.c_str(),
             proof_path.size(),
-            false,
+            true,
             &ret_code
         );
         CHECK(sc_proof != NULL);
@@ -596,7 +612,7 @@ TEST_SUITE("Single Proof Verifier") {
         auto sc_vk = zendoo_deserialize_sc_vk_from_file(
             (path_char_t*)vk_path.c_str(),
             vk_path.size(),
-            false,
+            true,
             &ret_code
         );
         CHECK(sc_vk != NULL);
@@ -626,6 +642,7 @@ TEST_SUITE("Single Proof Verifier") {
         zendoo_field_free(wrong_sc_id);
         zendoo_field_free(cert_data_hash);
         zendoo_field_free(end_cum_comm_tree_root);
+        zendoo_sc_pk_free(sc_pk);
         zendoo_sc_vk_free(sc_vk);
         zendoo_sc_proof_free(sc_proof);
 
@@ -664,7 +681,7 @@ TEST_SUITE("Single Proof Verifier") {
         remove(vk_path.c_str());
     }
 
-    TEST_CASE("Proof Verifier: Cert - Darlin") {
+    TEST_CASE("Proof Verifier: CSW - Darlin") {
         CctpErrorCode ret_code = CctpErrorCode::OK;
 
         // Init keys

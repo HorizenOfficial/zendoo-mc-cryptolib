@@ -806,8 +806,36 @@ extern "C" {
 
     //Test functions
 
+    typedef struct sc_pk sc_pk_t;
+
+    /* Deserialize a sc_pk from a file at path `pk_path` and return an opaque pointer to it.
+     * If `semantic_checks` flag is set, group membership test for curve points will be performed.
+     * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
+     */
+    sc_pk_t* zendoo_deserialize_sc_pk_from_file(
+        const path_char_t* pk_path,
+        size_t pk_path_len,
+        bool semantic_checks,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of `sc_proof`.
+     */
+    ProvingSystem zendoo_get_sc_pk_proving_system_type(
+        const sc_pk_t* pk,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Free the memory from the sc_pk pointed by `sc_pk`. It's caller responsibility
+     * to set `sc_pk` to NULL afterwards. If `sc_pk` was already null, the function does
+     * nothing.
+     */
+    void zendoo_sc_pk_free(sc_pk_t* pk);
+
     /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
-     * If `enforce_membership` flag is set, group membership test for curve points will be performed.
+     * If `semantic_checks` flag is set, group membership test for curve points will be performed.
      * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
      */
     sc_proof_t* zendoo_deserialize_sc_proof_from_file(
@@ -845,8 +873,7 @@ extern "C" {
         const field_t* end_cum_comm_tree_root,
         uint64_t btr_fee,
         uint64_t ft_min_amount,
-        const path_char_t* pk_path,
-        size_t pk_path_len,
+        const sc_pk_t* pk,
         const path_char_t* proof_path,
         size_t proof_path_len,
         CctpErrorCode* ret_code
@@ -860,8 +887,7 @@ extern "C" {
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
-        const path_char_t* pk_path,
-        size_t pk_path_len,
+        const sc_pk_t* pk,
         const path_char_t* proof_path,
         size_t proof_path_len,
         CctpErrorCode* ret_code

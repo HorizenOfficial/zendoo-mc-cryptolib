@@ -40,16 +40,34 @@ void create_verify_test_cert_proof(int argc, char** argv) {
     auto proof_path = std::string(argv[arg++]);
     size_t proof_path_len = proof_path.size();
 
-    auto pk_path = std::string(argv[arg]) + std::string("test_cert_pk");
-    auto vk_path = std::string(argv[arg++]) + std::string("test_cert_vk");
-    size_t pk_path_len = vk_path.size();
-    size_t vk_path_len = pk_path_len;
+    auto params_path = std::string(argv[arg++]);
+
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+    // Deserialize pk
+    auto pk_path = params_path + std::string("test_pk");
+    size_t pk_path_len = pk_path.size();
+
+    sc_pk_t* pk = zendoo_deserialize_sc_pk_from_file(
+        (path_char_t*)pk_path.c_str(),
+        pk_path_len,
+        true,
+        &ret_code
+    );
+    assert(pk != NULL);
+    assert(ret_code == CctpErrorCode::OK);
+
+    // Get ps_type
+    auto ps_type = zendoo_get_sc_pk_proving_system_type(pk, &ret_code);
+    assert(ps_type != ProvingSystem::Undefined);
+    assert(ret_code == CctpErrorCode::OK);
+
+    // Load DLOG keys
+    assert(zendoo_init_dlog_keys(ps_type, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
+    assert(ret_code == CctpErrorCode::OK);
 
     // Parse epoch number and quality
     uint32_t epoch_number = strtoull(argv[arg++], NULL, 0);
     uint64_t quality = strtoull(argv[arg++], NULL, 0);
-
-    CctpErrorCode ret_code = CctpErrorCode::OK;
 
     // Parse constant
     assert(IsHex(argv[arg]));
@@ -95,7 +113,7 @@ void create_verify_test_cert_proof(int argc, char** argv) {
     }
 
     // Generate proof and vk
-    assert(zendoo_create_mc_test_proof(
+    assert(zendoo_create_cert_test_proof(
         zk,
         constant_f,
         epoch_number,
@@ -105,8 +123,7 @@ void create_verify_test_cert_proof(int argc, char** argv) {
         end_cum_comm_tree_root_f,
         btr_fee,
         ft_min_amount,
-        (path_char_t*)pk_path.c_str(),
-        pk_path_len,
+        pk,
         (path_char_t*)proof_path.c_str(),
         proof_path_len,
         &ret_code
@@ -120,24 +137,26 @@ void create_verify_test_cert_proof(int argc, char** argv) {
         sc_proof_t* proof = zendoo_deserialize_sc_proof_from_file(
             (path_char_t*)proof_path.c_str(),
             proof_path_len,
-            false,
-            &ret_code,
+            true,
+            &ret_code
         );
         assert(proof != NULL);
         assert(ret_code == CctpErrorCode::OK);
 
         // Deserialize vk
+        auto vk_path = params_path + std::string("test_vk");
+        size_t vk_path_len = vk_path.size();
         sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
             (path_char_t*)vk_path.c_str(),
             vk_path_len,
-            false,
+            true,
             &ret_code
         );
         assert(vk != NULL);
         assert(ret_code == CctpErrorCode::OK);
 
         // Verify proof
-        assert(zendoo_verify_sc_proof(
+        assert(zendoo_verify_certificate_proof(
             constant_f,
             epoch_number,
             quality,
@@ -152,11 +171,32 @@ void create_verify_test_cert_proof(int argc, char** argv) {
             vk,
             &ret_code
         ));
+        assert(ret_code == CctpErrorCode::OK);
+
+        // Negative test
+        auto wrong_epoch_number = epoch_number + 1;
+        assert(!zendoo_verify_certificate_proof(
+            constant_f,
+            wrong_epoch_number,
+            quality,
+            bt_list.data(),
+            bt_list_length,
+            NULL,
+            0,
+            end_cum_comm_tree_root_f,
+            btr_fee,
+            ft_min_amount,
+            proof,
+            vk,
+            &ret_code
+        ));
+        assert(ret_code == CctpErrorCode::OK);
 
         zendoo_sc_proof_free(proof);
         zendoo_sc_vk_free(vk);
     }
 
+    zendoo_sc_pk_free(pk);
     zendoo_field_free(constant_f);
     zendoo_field_free(end_cum_comm_tree_root_f);
 }
@@ -180,10 +220,138 @@ void create_verify_test_csw_proof(int argc, char** argv) {
     auto proof_path = std::string(argv[arg++]);
     size_t proof_path_len = proof_path.size();
 
-    auto pk_path = std::string(argv[arg]) + std::string("test_cert_pk");
-    auto vk_path = std::string(argv[arg++]) + std::string("test_cert_vk");
-    size_t pk_path_len = vk_path.size();
-    size_t vk_path_len = pk_path_len;
+    auto params_path = std::string(argv[arg++]);
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+
+    // Deserialize pk
+    auto pk_path = params_path + std::string("test_pk");
+    size_t pk_path_len = pk_path.size();
+    sc_pk_t* pk = zendoo_deserialize_sc_pk_from_file(
+        (path_char_t*)pk_path.c_str(),
+        pk_path_len,
+        true,
+        &ret_code
+    );
+    assert(pk != NULL);
+    assert(ret_code == CctpErrorCode::OK);
+
+    // Get ps_type
+    auto ps_type = zendoo_get_sc_pk_proving_system_type(pk, &ret_code);
+    assert(ps_type != ProvingSystem::Undefined);
+    assert(ret_code == CctpErrorCode::OK);
+
+    // Load DLOG keys
+    assert(zendoo_init_dlog_keys(ps_type, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
+    assert(ret_code == CctpErrorCode::OK);
+
+    // Parse amount
+    uint64_t amount = strtoull(argv[arg++], NULL, 0);
+
+    // Parse sc_id
+    assert(IsHex(argv[arg]));
+    auto sc_id = ParseHex(argv[arg++]);
+    assert(sc_id.size() == 32);
+    field_t* sc_id_f = zendoo_deserialize_field(sc_id.data(), &ret_code);
+    assert(sc_id_f != NULL);
+    assert(ret_code == CctpErrorCode::OK);
+
+    // Parse mc_pk_hash
+    assert(IsHex(argv[arg]));
+    auto mc_pk_hash_vec = SetHex(argv[arg++], 20);
+    auto mc_pk_hash = BufferWithSize(mc_pk_hash_vec.data(), mc_pk_hash_vec.size());
+
+    // Parse end_cum_comm_tree_root
+    assert(IsHex(argv[arg]));
+    auto end_cum_comm_tree_root = ParseHex(argv[arg++]);
+    assert(end_cum_comm_tree_root.size() == 32);
+    field_t* end_cum_comm_tree_root_f = zendoo_deserialize_field(end_cum_comm_tree_root.data(), &ret_code);
+    assert(end_cum_comm_tree_root_f != NULL);
+    assert(ret_code == CctpErrorCode::OK);
+
+    // Parse cert_data_hash
+    assert(IsHex(argv[arg]));
+    auto cert_data_hash = ParseHex(argv[arg++]);
+    assert(cert_data_hash.size() == 32);
+    field_t* cert_data_hash_f = zendoo_deserialize_field(cert_data_hash.data(), &ret_code);
+    assert(cert_data_hash_f != NULL);
+    assert(ret_code == CctpErrorCode::OK);
+
+    // Generate proof and vk
+    assert(zendoo_create_csw_test_proof(
+        zk,
+        amount,
+        sc_id_f,
+        &mc_pk_hash,
+        cert_data_hash_f,
+        end_cum_comm_tree_root_f,
+        pk,
+        (path_char_t*)proof_path.c_str(),
+        proof_path_len,
+        &ret_code
+    ));
+    assert(ret_code == CctpErrorCode::OK);
+
+    // If -v was specified we verify the proof just created
+    if(verify) {
+
+        // Deserialize proof
+        sc_proof_t* proof = zendoo_deserialize_sc_proof_from_file(
+            (path_char_t*)proof_path.c_str(),
+            proof_path_len,
+            true,
+            &ret_code
+        );
+        assert(proof != NULL);
+        assert(ret_code == CctpErrorCode::OK);
+
+        // Deserialize vk
+        auto vk_path = params_path + std::string("test_vk");
+        size_t vk_path_len = vk_path.size();
+
+        sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
+            (path_char_t*)vk_path.c_str(),
+            vk_path_len,
+            true,
+            &ret_code
+        );
+        assert(vk != NULL);
+        assert(ret_code == CctpErrorCode::OK);
+
+        // Verify proof
+        assert(zendoo_verify_csw_proof(
+            amount,
+            sc_id_f,
+            &mc_pk_hash,
+            cert_data_hash_f,
+            end_cum_comm_tree_root_f,
+            proof,
+            vk,
+            &ret_code
+        ));
+        assert(ret_code == CctpErrorCode::OK);
+
+        // Negative test
+        auto wrong_amount = amount + 1;
+        assert(!zendoo_verify_csw_proof(
+            wrong_amount,
+            sc_id_f,
+            &mc_pk_hash,
+            cert_data_hash_f,
+            end_cum_comm_tree_root_f,
+            proof,
+            vk,
+            &ret_code
+        ));
+        assert(ret_code == CctpErrorCode::OK);
+
+        zendoo_sc_proof_free(proof);
+        zendoo_sc_vk_free(vk);
+    }
+
+    zendoo_sc_pk_free(pk);
+    zendoo_field_free(sc_id_f);
+    zendoo_field_free(cert_data_hash_f);
+    zendoo_field_free(end_cum_comm_tree_root_f);
 }
 
 void create_verify(int argc, char** argv)
@@ -225,12 +393,15 @@ void generate(char** argv)
     // Get Path
     auto path = std::string(argv[4]);
 
-    // Generate proving and verifying key
+    // Load DLOG keys
     CctpErrorCode ret_code = CctpErrorCode::OK;
-    assert(zendoo_generate_mc_test_params(circ_type, ps_type, (path_char_t*)path.c_str(), path.size()), &ret_code);
-    assert(ret_code = CctpErrorCode::OK);
-}
+    assert(zendoo_init_dlog_keys(ps_type, 1 << 9, (path_char_t*)path.c_str(), path.size(), &ret_code));
+    assert(ret_code == CctpErrorCode::OK);
 
+    // Generate proving and verifying key
+    assert(zendoo_generate_mc_test_params(circ_type, ps_type, (path_char_t*)path.c_str(), path.size(), &ret_code));
+    assert(ret_code == CctpErrorCode::OK);
+}
 
 int main(int argc, char** argv)
 {
@@ -238,7 +409,7 @@ int main(int argc, char** argv)
         assert(argc == 5);
         generate(argv);
     } else if (std::string(argv[1]) == "create"){
-        assert(argc > 7);
+        assert(argc >= 9);
         create_verify(argc, argv);
     } else {
         abort();

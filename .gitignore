@@ -1,4 +1,6 @@
 target
+examples/bin_SampleCalls
+mc_test/mc_test
 
 # Intellij
 .idea
