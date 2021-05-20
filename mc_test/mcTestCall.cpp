@@ -7,22 +7,22 @@
 /*
  *  Usage:
  *
- *  1) ./mcTest "generate" "cert/csw", "darlin/coboundary_marlin", "params_dir"
+ *  1) ./mcTest "generate" "cert/csw" "darlin/cob_marlin" "params_dir"
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
  *  Pre-requisites: DLOG keys should be already loaded in memory;
  *
- *  2) ./mcTest "create" "cert" <"-v"> <"-zk"> "proof_path" "params_dir" "epoch_number" "quality"
- *  "constant" "end_cum_comm_tree_root", "btr_fee", "ft_min_amount",
+ *  2) ./mcTest "create" "cert" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "epoch_number" "quality"
+ *  "constant" "end_cum_comm_tree_root", "btr_fee", "ft_min_amount"
  *  "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n"
  *  Generates a TestCertificateProof;
  *
- *  3) ./mcTest "create" "csw" <"-v"> <"-zk"> "proof_path" "params_dir" "amount" "sc_id"
- *  "mc_pk_hash" "end_cum_comm_tree_root", "cert_data_hash",
+ *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "amount" "sc_id"
+ *  "mc_pk_hash" "end_cum_comm_tree_root" "cert_data_hash",
  *  Generates a TestCSWProof.
  */
 
-void create_verify_test_cert_proof(int argc, char** argv) {
-    int arg = 3;
+void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** argv) {
+    int arg = 4;
     bool verify = false;
     if (std::string(argv[arg]) == "-v"){
         arg++;
@@ -35,6 +35,16 @@ void create_verify_test_cert_proof(int argc, char** argv) {
         zk = true;
     }
 
+    // Get ProvingSystemType
+    ProvingSystem ps_type;
+    if (ps_type_raw == "darlin") {
+        ps_type = ProvingSystem::Darlin;
+    } else if (ps_type_raw == "cob_marlin") {
+        ps_type = ProvingSystem::CoboundaryMarlin;
+    } else {
+        abort(); // Invalid ProvingSystemType
+    }
+
     // Parse inputs
     // Parse paths
     auto proof_path = std::string(argv[arg++]);
@@ -44,7 +54,7 @@ void create_verify_test_cert_proof(int argc, char** argv) {
 
     CctpErrorCode ret_code = CctpErrorCode::OK;
     // Deserialize pk
-    auto pk_path = params_path + std::string("test_pk");
+    auto pk_path = params_path + ps_type_raw + std::string("_cert_test_pk");
     size_t pk_path_len = pk_path.size();
 
     sc_pk_t* pk = zendoo_deserialize_sc_pk_from_file(
@@ -54,11 +64,6 @@ void create_verify_test_cert_proof(int argc, char** argv) {
         &ret_code
     );
     assert(pk != NULL);
-    assert(ret_code == CctpErrorCode::OK);
-
-    // Get ps_type
-    auto ps_type = zendoo_get_sc_pk_proving_system_type(pk, &ret_code);
-    assert(ps_type != ProvingSystem::Undefined);
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
@@ -144,7 +149,7 @@ void create_verify_test_cert_proof(int argc, char** argv) {
         assert(ret_code == CctpErrorCode::OK);
 
         // Deserialize vk
-        auto vk_path = params_path + std::string("test_vk");
+        auto vk_path = params_path + ps_type_raw + std::string("_cert_test_vk");
         size_t vk_path_len = vk_path.size();
         sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
             (path_char_t*)vk_path.c_str(),
@@ -201,8 +206,8 @@ void create_verify_test_cert_proof(int argc, char** argv) {
     zendoo_field_free(end_cum_comm_tree_root_f);
 }
 
-void create_verify_test_csw_proof(int argc, char** argv) {
-    int arg = 3;
+void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv) {
+    int arg = 4;
     bool verify = false;
     if (std::string(argv[arg]) == "-v"){
         arg++;
@@ -215,6 +220,16 @@ void create_verify_test_csw_proof(int argc, char** argv) {
         zk = true;
     }
 
+    // Get ProvingSystemType
+    ProvingSystem ps_type;
+    if (ps_type_raw == "darlin") {
+        ps_type = ProvingSystem::Darlin;
+    } else if (ps_type_raw == "cob_marlin") {
+        ps_type = ProvingSystem::CoboundaryMarlin;
+    } else {
+        abort(); // Invalid ProvingSystemType
+    }
+
     // Parse inputs
     // Parse paths
     auto proof_path = std::string(argv[arg++]);
@@ -224,7 +239,7 @@ void create_verify_test_csw_proof(int argc, char** argv) {
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
     // Deserialize pk
-    auto pk_path = params_path + std::string("test_pk");
+    auto pk_path = params_path + ps_type_raw + std::string("_csw_test_pk");
     size_t pk_path_len = pk_path.size();
     sc_pk_t* pk = zendoo_deserialize_sc_pk_from_file(
         (path_char_t*)pk_path.c_str(),
@@ -233,11 +248,6 @@ void create_verify_test_csw_proof(int argc, char** argv) {
         &ret_code
     );
     assert(pk != NULL);
-    assert(ret_code == CctpErrorCode::OK);
-
-    // Get ps_type
-    auto ps_type = zendoo_get_sc_pk_proving_system_type(pk, &ret_code);
-    assert(ps_type != ProvingSystem::Undefined);
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
@@ -305,7 +315,7 @@ void create_verify_test_csw_proof(int argc, char** argv) {
         assert(ret_code == CctpErrorCode::OK);
 
         // Deserialize vk
-        auto vk_path = params_path + std::string("test_vk");
+        auto vk_path = params_path + ps_type_raw + std::string("_csw_test_vk");
         size_t vk_path_len = vk_path.size();
 
         sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
@@ -356,11 +366,14 @@ void create_verify_test_csw_proof(int argc, char** argv) {
 
 void create_verify(int argc, char** argv)
 {
+    // Get ProvingSystemType
+    auto ps_type_raw = std::string(argv[3]);
+
     auto circ_type_raw = std::string(argv[2]);
     if (circ_type_raw == "cert") {
-        create_verify_test_cert_proof(argc, argv);
+        create_verify_test_cert_proof(ps_type_raw, argc, argv);
     } else if (circ_type_raw == "csw") {
-        create_verify_test_csw_proof(argc, argv);
+        create_verify_test_csw_proof(ps_type_raw, argc, argv);
     } else {
         abort(); // Invalid TestCircuitType
     }
@@ -384,7 +397,7 @@ void generate(char** argv)
     ProvingSystem ps_type;
     if (ps_type_raw == "darlin") {
         ps_type = ProvingSystem::Darlin;
-    } else if (ps_type_raw == "coboundary_marlin") {
+    } else if (ps_type_raw == "cob_marlin") {
         ps_type = ProvingSystem::CoboundaryMarlin;
     } else {
         abort(); // Invalid ProvingSystemType

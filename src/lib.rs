@@ -141,20 +141,20 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
     let rs_tx_hash      = try_get_buffer_constant_size!("tx_hash", tx_hash, UINT_256_SIZE, ret_code, false);
 
     // Mandatory and variable size parameters
-    let rs_custom_bv_elements_config = try_get_obj_list!(
+    let rs_cert_vk = try_get_buffer_variable_size!("cert_vk", cert_vk, ret_code, false);
+
+    // optional parameters
+    let rs_custom_bv_elements_config = try_get_optional_obj_list!(
         "custom_bit_vector_elements",
         custom_bv_elements_config,
         custom_bv_elements_config_len,
         ret_code,
         false
     );
-    let rs_custom_fe_conf = try_get_buffer_variable_size!("custom_field_elements_config", custom_field_elements_config, ret_code, false);
-    let rs_ccd =            try_get_buffer_variable_size!("custom_creation_data",         ccd,                          ret_code, false);
-    let rs_cert_vk =        try_get_buffer_variable_size!("cert_vk",                      cert_vk,                      ret_code, false);
-
-    // optional parameters
-    let rs_constant     = try_read_optional_raw_pointer!("constant", constant, ret_code, false);
-    let rs_csw_vk       = try_get_optional_buffer_variable_size!("csw_vk", csw_vk, ret_code, false);
+    let rs_custom_fe_conf = try_get_optional_buffer_variable_size!("custom_field_elements_config", custom_field_elements_config, ret_code, false);
+    let rs_ccd            = try_get_optional_buffer_variable_size!("custom_creation_data",         ccd,                          ret_code, false);
+    let rs_csw_vk         = try_get_optional_buffer_variable_size!("csw_vk",                       csw_vk,                       ret_code, false);
+    let rs_constant       = try_read_optional_raw_pointer!("constant", constant, ret_code, false);
 
     // Add SidechainCreation to the CommitmentTree
     let ret = cmt.add_scc(
@@ -296,8 +296,7 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(
 
     // Add certificate to ScCommitmentTree
     let ret = cmt.add_cert(
-        rs_sc_id, epoch_number, quality,
-        if rs_bt_list.is_some() { rs_bt_list.unwrap() } else { &[] },
+        rs_sc_id, epoch_number, quality, rs_bt_list,
         rs_custom_fields, rs_end_cum_comm_tree_root, btr_fee, ft_min_amount
     );
 
@@ -655,7 +654,7 @@ fn get_cert_proof_usr_ins<'a>(
         constant: rs_constant,
         epoch_number,
         quality,
-        bt_list: if rs_bt_list.is_some() { rs_bt_list.unwrap() } else { &[] },
+        bt_list: rs_bt_list,
         custom_fields: rs_custom_fields,
         end_cumulative_sc_tx_commitment_tree_root: rs_end_cum_comm_tree_root,
         btr_fee,
@@ -1503,7 +1502,7 @@ fn _zendoo_create_cert_test_proof(
         rs_constant,
         epoch_number,
         quality,
-        if rs_bt_list.is_some() { rs_bt_list.unwrap() } else { &[] },
+        rs_bt_list,
         rs_end_cum_comm_tree_root,
         btr_fee,
         ft_min_amount

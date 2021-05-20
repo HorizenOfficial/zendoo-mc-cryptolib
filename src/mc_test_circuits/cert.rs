@@ -175,7 +175,7 @@ pub fn generate_proof(
     constant:                                   &FieldElement,
     epoch_number:                               u32,
     quality:                                    u64,
-    bt_list:                                    &[BackwardTransfer],
+    bt_list:                                    Option<&[BackwardTransfer]>,
     end_cumulative_sc_tx_commitment_tree_root:  &FieldElement,
     btr_fee:                                    u64,
     ft_min_amount:                              u64

@@ -113,6 +113,11 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
+    /*
+     * Adds a Sidechain Creation to the commitment tree. Returns true if operation was successful, false otherwise.
+     * NOTE: `custom_field_elements_config`, `custom_bv_elements_config`, `custom_creation_data`, `constant` and `csw_vk`
+     *       can be NULL.
+     */
     bool zendoo_commitment_tree_add_scc(
         commitment_tree_t *ptr,
         const field_t* sc_id,
@@ -134,6 +139,9 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
+    /*
+     * Adds a Forward Transfer to the commitment tree. Returns true if operation was successful, false otherwise.
+     */
     bool zendoo_commitment_tree_add_fwt(
         commitment_tree_t *ptr,
         const field_t* sc_id,
@@ -144,6 +152,9 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
+    /*
+     * Adds a Backward Transfer Request to the commitment tree. Returns true if operation was successful, false otherwise.
+     */
     bool zendoo_commitment_tree_add_bwtr(
         commitment_tree_t *ptr,
         const field_t* sc_id,
@@ -156,6 +167,9 @@ extern "C" {
         CctpErrorCode *ret_code
     );
 
+    /*
+     * Adds a Ceased Sidechain Withdrawal to the commitment tree. Returns true if operation was successful, false otherwise.
+     */
     bool zendoo_commitment_tree_add_csw(
         commitment_tree_t *ptr,
         const field_t* sc_id,
@@ -165,6 +179,10 @@ extern "C" {
         CctpErrorCode *ret_code
     );
 
+    /*
+     * Adds a Certificate to the commitment tree. Returns true if operation was successful, false otherwise.
+     * NOTE: `bt_list` and `custom_fields` can be NULL.
+     */
     bool zendoo_commitment_tree_add_cert(
         commitment_tree_t *ptr,
         const field_t* sc_id,

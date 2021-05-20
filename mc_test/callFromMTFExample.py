@@ -30,7 +30,7 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, zk):
     amounts = [random.randint(0, 100) for i in xrange(bt_num)]
 
     # Generate and verify proof
-    args = ["./mcTest", "create", "cert", "-v"]
+    args = ["./mcTest", "create", "cert", str(ps_type), "-v"]
     if zk:
         args.append("-zk")
     args.append(str(proof_path))
@@ -43,8 +43,8 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, zk):
 
     # Delete files
     os.remove(proof_path)
-    os.remove(params_dir + str("test_pk"))
-    os.remove(params_dir + str("test_vk"))
+    os.remove(params_dir + str(ps_type) + str("_cert_test_pk"))
+    os.remove(params_dir + str(ps_type) + str("_cert_test_vk"))
 
 def csw_proof_test(proof_path, params_dir, ps_type, zk):
 
@@ -59,7 +59,7 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk):
     cert_data_hash = generate_random_field_element_hex()
 
     # Generate and verify proof
-    args = ["./mcTest", "create", "csw", "-v"]
+    args = ["./mcTest", "create", "csw", str(ps_type), "-v"]
     if zk:
         args.append("-zk")
     args.append(str(proof_path))
@@ -69,8 +69,8 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk):
 
     # Delete files
     os.remove(proof_path)
-    os.remove(params_dir + str("test_pk"))
-    os.remove(params_dir + str("test_vk"))
+    os.remove(params_dir + str(ps_type) + str("_csw_test_pk"))
+    os.remove(params_dir + str(ps_type) + str("_csw_test_vk"))
 
 
 def generate_random_field_element_hex():
@@ -81,20 +81,20 @@ if __name__ == "__main__":
     data_dir = os.getcwd() + "/";
 
     # Test certificate proof
-    cert_proof_test(data_dir + str("test_proof"), data_dir, "darlin", 10, True)
-    cert_proof_test(data_dir + str("test_proof"), data_dir, "darlin", 10, False)
-    cert_proof_test(data_dir + str("test_proof"), data_dir, "darlin", 0, True)
-    cert_proof_test(data_dir + str("test_proof"), data_dir, "darlin", 0, False)
-    cert_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 10, True)
-    cert_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 10, False)
-    cert_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 0, True)
-    cert_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 0, False)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, True)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, False)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, True)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, False)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, True)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, False)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, True)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, False)
 
     # Test csw proof
-    csw_proof_test(data_dir + str("test_proof"), data_dir, "darlin", True)
-    csw_proof_test(data_dir + str("test_proof"), data_dir, "darlin", False)
-    csw_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", True)
-    csw_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", False)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False)
 
     os.remove(data_dir + str("ck_g1"))
     os.remove(data_dir + str("ck_g2"))

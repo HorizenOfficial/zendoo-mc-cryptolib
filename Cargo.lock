@@ -103,7 +103,7 @@ checksum = "e3c69b077ad434294d3ce9f1f6143a2a4b89a8a2d54ef813d85003a4fd1137fd"
 [[package]]
 name = "cctp_primitives"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=dev#de09f2267128bf69d9d8844c4c712c8af7f068e5"
+source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=dev_integration#9ab5f7e4e20cc9b9c2f9de6f74f083d8d50e40b1"
 dependencies = [
  "algebra",
  "bench-utils",
