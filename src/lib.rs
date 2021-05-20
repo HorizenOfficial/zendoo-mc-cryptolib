@@ -1377,16 +1377,46 @@ fn _zendoo_generate_mc_test_params(
     ret_code:       &mut CctpErrorCode,
 ) -> bool
 {
+    let mut params_path = "".to_owned();
+
+    match ps_type {
+        ProvingSystem::Darlin => params_path.push_str("darlin_"),
+        ProvingSystem::CoboundaryMarlin => params_path.push_str("cob_marlin_"),
+        ProvingSystem::Undefined => {
+            println!("Error: Undefined proving system");
+            *ret_code = CctpErrorCode::InvalidValue;
+            return false;
+        }
+    }
+
     // Generate params
     let params = match circ_type {
-        TestCircuitType::Certificate => mc_test_circuits::cert::generate_parameters(ps_type),
-        TestCircuitType::CSW => mc_test_circuits::csw::generate_parameters(ps_type)
+        TestCircuitType::Certificate => {
+            params_path.push_str("cert_");
+            mc_test_circuits::cert::generate_parameters(ps_type)
+        },
+        TestCircuitType::CSW => {
+            params_path.push_str("csw_");
+            mc_test_circuits::csw::generate_parameters(ps_type)
+        }
     };
 
     match params {
         Ok((pk, vk)) => {
-            let pk_path = params_dir.join("test_pk");
-            let vk_path = params_dir.join("test_vk");
+
+            let pk_path_raw = {
+                let mut t = params_path.clone();
+                t.push_str("test_pk");
+                t
+            };
+
+            let vk_path_raw = {
+                params_path.push_str("test_vk");
+                params_path
+            };
+
+            let pk_path = params_dir.join(pk_path_raw.as_str());
+            let vk_path = params_dir.join(vk_path_raw.as_str());
 
             let pk_ser_res = write_to_file(&pk, &pk_path);
             if pk_ser_res.is_err() {

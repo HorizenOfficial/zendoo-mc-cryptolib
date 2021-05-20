@@ -14,7 +14,7 @@ def generate_params(params_dir, circuit_type, proving_system_type):
     args.append(str(params_dir))
     subprocess.check_call(args)
 
-def create_cert_test_proof(proof_path, params_dir, ps_type, bt_num, zk):
+def cert_proof_test(proof_path, params_dir, ps_type, bt_num, zk):
 
     # Setup SNARK pk and vk
     generate_params(params_dir, "cert", ps_type);
@@ -46,7 +46,7 @@ def create_cert_test_proof(proof_path, params_dir, ps_type, bt_num, zk):
     os.remove(params_dir + str("test_pk"))
     os.remove(params_dir + str("test_vk"))
 
-def create_csw_test_proof(proof_path, params_dir, ps_type, zk):
+def csw_proof_test(proof_path, params_dir, ps_type, zk):
 
     # Setup SNARK pk and vk
     generate_params(params_dir, "csw", ps_type);
@@ -81,20 +81,20 @@ if __name__ == "__main__":
     data_dir = os.getcwd() + "/";
 
     # Test certificate proof
-    create_cert_test_proof(data_dir + str("test_proof"), data_dir, "darlin", 10, True)
-    create_cert_test_proof(data_dir + str("test_proof"), data_dir, "darlin", 10, False)
-    create_cert_test_proof(data_dir + str("test_proof"), data_dir, "darlin", 0, True)
-    create_cert_test_proof(data_dir + str("test_proof"), data_dir, "darlin", 0, False)
-    create_cert_test_proof(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 10, True)
-    create_cert_test_proof(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 10, False)
-    create_cert_test_proof(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 0, True)
-    create_cert_test_proof(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 0, False)
+    cert_proof_test(data_dir + str("test_proof"), data_dir, "darlin", 10, True)
+    cert_proof_test(data_dir + str("test_proof"), data_dir, "darlin", 10, False)
+    cert_proof_test(data_dir + str("test_proof"), data_dir, "darlin", 0, True)
+    cert_proof_test(data_dir + str("test_proof"), data_dir, "darlin", 0, False)
+    cert_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 10, True)
+    cert_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 10, False)
+    cert_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 0, True)
+    cert_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", 0, False)
 
     # Test csw proof
-    create_csw_test_proof(data_dir + str("test_proof"), data_dir, "darlin", True)
-    create_csw_test_proof(data_dir + str("test_proof"), data_dir, "darlin", False)
-    create_csw_test_proof(data_dir + str("test_proof"), data_dir, "coboundary_marlin", True)
-    create_csw_test_proof(data_dir + str("test_proof"), data_dir, "coboundary_marlin", False)
+    csw_proof_test(data_dir + str("test_proof"), data_dir, "darlin", True)
+    csw_proof_test(data_dir + str("test_proof"), data_dir, "darlin", False)
+    csw_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", True)
+    csw_proof_test(data_dir + str("test_proof"), data_dir, "coboundary_marlin", False)
 
     os.remove(data_dir + str("ck_g1"))
     os.remove(data_dir + str("ck_g2"))
