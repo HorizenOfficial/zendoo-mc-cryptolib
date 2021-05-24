@@ -12,7 +12,7 @@ mapfile -t globals < <(docker run --rm -v "$workdir":/workdir mikefarah/yq e '.e
 mapfile -t runners < <(docker run --rm -v "$workdir":/workdir mikefarah/yq e '.jobs.include.[].env' .travis.yml)
 
 for i in "${!runners[@]}"; do
-  # shellcheck disable=SC1090
+  # shellcheck disable=SC1090,SC2031
   ( source <(for var in "${globals[@]}"; do echo "export $var"; done; echo "export ${runners[$i]}"); \
   { source "$workdir"/ci/before_script.sh 2>&1; "$workdir"/ci/script.sh 2>&1; } | tee -a "$workdir/ci/devtools/job-$i.log" )
 done
