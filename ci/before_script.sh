@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# store original shell options
+OLDOPTS="$(set +o); set -${-//c}"
 set -euo pipefail
 
 command -v docker &> /dev/null && have_docker="true" || have_docker="false"
@@ -24,3 +26,6 @@ else
   echo "No TESTS defined, nothing to do."
   exit 1
 fi
+
+# restore original shell options
+set +vx; eval "${OLDOPTS}"
