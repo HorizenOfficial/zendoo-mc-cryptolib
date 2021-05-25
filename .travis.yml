@@ -31,20 +31,11 @@ script: ci/script.sh
 
 jobs:
   include:
-    - name: bionic_rust-1.42.0_latest
-      env: IMAGE_TAG=bionic_rust-1.42.0_latest TESTS='*' CARGOARGS='+1.42.0' RUSTFLAGS=' '
     - name: bionic_rust-1.51.0_latest
       env: IMAGE_TAG=bionic_rust-1.51.0_latest TESTS='*' RUSTFLAGS=' '
     - name: bionic_rust-nightly-2021-04-25_latest
       env: IMAGE_TAG=bionic_rust-nightly-2021-04-25_latest TESTS='*' CARGOARGS='+nightly-2021-04-25' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: focal_rust-1.42.0_latest
-      env: IMAGE_TAG=focal_rust-1.42.0_latest TESTS='*' CARGOARGS='+1.42.0' RUSTFLAGS=' '
     - name: focal_rust-1.51.0_latest
       env: IMAGE_TAG=focal_rust-1.51.0_latest TESTS='*' RUSTFLAGS=' '
     - name: focal_rust-nightly-2021-04-25_latest
       env: IMAGE_TAG=focal_rust-nightly-2021-04-25_latest TESTS='*' CARGOARGS='+nightly-2021-04-25' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-  allow_failures:
-    - name: bionic_rust-1.42.0_latest
-      env: IMAGE_TAG=bionic_rust-1.42.0_latest TESTS='*' CARGOARGS='+1.42.0' RUSTFLAGS=' '
-    - name: focal_rust-1.42.0_latest
-      env: IMAGE_TAG=focal_rust-1.42.0_latest TESTS='*' CARGOARGS='+1.42.0' RUSTFLAGS=' '
