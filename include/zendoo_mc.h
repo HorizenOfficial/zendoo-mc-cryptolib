@@ -26,6 +26,7 @@ extern "C" {
             InvalidValue,
             InvalidBufferData,
             InvalidBufferLength,
+            InvalidListLength,
             InvalidFile,
             HashingError,
             MerkleTreeError,
@@ -73,6 +74,10 @@ extern "C" {
      */
     void zendoo_field_free(field_t* field);
 
+    /*
+     * Print field bytes
+     */
+    void zendoo_print_field(field_t* field);
 
     struct BufferWithSize {
         const unsigned char* data;
@@ -887,7 +892,10 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-    /* Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path */
+    /*
+     * Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path.
+     * Return true if operation was successful, false otherwise.
+     */
     bool zendoo_create_cert_test_proof(
         bool zk,
         const field_t* constant,
@@ -895,6 +903,8 @@ extern "C" {
         uint64_t quality,
         const backward_transfer_t* bt_list,
         size_t bt_list_len,
+        const field_t** custom_fields,
+        size_t custom_fields_len,
         const field_t* end_cum_comm_tree_root,
         uint64_t btr_fee,
         uint64_t ft_min_amount,
@@ -904,8 +914,11 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-    /* Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path */
-    bool zendoo_create_csw_test_proof(
+    /*
+     * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path.
+     * Return true if operation was successful, false otherwise.
+     */
+     bool zendoo_create_csw_test_proof(
         bool zk,
         uint64_t amount,
         const field_t* sc_id,
@@ -915,6 +928,41 @@ extern "C" {
         const sc_pk_t* pk,
         const path_char_t* proof_path,
         size_t proof_path_len,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path.
+     * Return true if operation was successful, false otherwise.
+     */
+    BufferWithSize* zendoo_create_return_cert_test_proof(
+        bool zk,
+        const field_t* constant,
+        uint32_t epoch_number,
+        uint64_t quality,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
+        const field_t** custom_fields,
+        size_t custom_fields_len,
+        const field_t* end_cum_comm_tree_root,
+        uint64_t btr_fee,
+        uint64_t ft_min_amount,
+        const sc_pk_t* pk,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path.
+     * Return true if operation was successful, false otherwise.
+     */
+     BufferWithSize* zendoo_create_return_csw_test_proof(
+        bool zk,
+        uint64_t amount,
+        const field_t* sc_id,
+        const BufferWithSize* mc_pk_hash,
+        const field_t* cert_data_hash,
+        const field_t* end_cum_comm_tree_root,
+        const sc_pk_t* pk,
         CctpErrorCode* ret_code
     );
 

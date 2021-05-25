@@ -12,6 +12,7 @@ pub enum CctpErrorCode {
     InvalidValue,
     InvalidBufferData,
     InvalidBufferLength,
+    InvalidListLength,
     InvalidFile,
     HashingError,
     MerkleTreeError,
@@ -152,8 +153,13 @@ macro_rules! try_get_optional_buffer_variable_size {
 
 /// Convert a *const T to a &[T].
 pub(crate) fn get_obj_list<'a, T>(in_list: *const T, in_list_size: usize) -> (Option<&'a [T]>, CctpErrorCode) {
+
     if in_list.is_null() {
         return (None, CctpErrorCode::NullPtr)
+    }
+
+    if in_list_size == 0 {
+        return (None, CctpErrorCode::InvalidListLength)
     }
 
     let data = Some(unsafe { slice::from_raw_parts(in_list, in_list_size)});
@@ -177,8 +183,13 @@ macro_rules! try_get_obj_list {
 
 /// Convert a *const T to a &[T].
 pub(crate) fn get_optional_obj_list<'a, T>(in_list: *const T, in_list_size: usize) -> (Option<&'a [T]>, CctpErrorCode) {
+
     if in_list.is_null() {
         return (None, CctpErrorCode::OK)
+    }
+
+    if in_list_size == 0 {
+        return (None, CctpErrorCode::InvalidListLength)
     }
 
     let data = Some(unsafe { slice::from_raw_parts(in_list, in_list_size)});
@@ -367,6 +378,11 @@ pub(crate) fn read_double_raw_pointer<'a, T>(
     if input.is_null() {
         return (None, CctpErrorCode::NullPtr);
     }
+
+    if input_len == 0 {
+        return (None, CctpErrorCode::InvalidListLength)
+    }
+
     let input_raw = unsafe { slice::from_raw_parts(input, input_len) };
 
     //Read &T from *const T
@@ -406,6 +422,11 @@ pub(crate) fn read_optional_double_raw_pointer<'a, T>(
     if input.is_null() {
         return (None, CctpErrorCode::OK);
     }
+
+    if input_len == 0 {
+        return (None, CctpErrorCode::InvalidListLength)
+    }
+
     let input_raw = unsafe { slice::from_raw_parts(input, input_len) };
 
     //Read &T from *const T

@@ -175,6 +175,7 @@ pub fn generate_proof(
     constant:                                   &FieldElement,
     epoch_number:                               u32,
     quality:                                    u64,
+    custom_fields:                              Option<Vec<&FieldElement>>,
     bt_list:                                    Option<&[BackwardTransfer]>,
     end_cumulative_sc_tx_commitment_tree_root:  &FieldElement,
     btr_fee:                                    u64,
@@ -188,7 +189,7 @@ pub fn generate_proof(
         epoch_number,
         quality,
         bt_list,
-        None,
+        custom_fields,
         end_cumulative_sc_tx_commitment_tree_root,
         btr_fee,
         ft_min_amount

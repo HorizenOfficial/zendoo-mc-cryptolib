@@ -44,6 +44,13 @@ mc-test-circuit = ["proof-systems", "r1cs-crypto", "r1cs-core", "r1cs-std"]
 #panic = 'abort'
 codegen-units = 1
 
+[profile.dev]
+opt-level = 0
+lto = "thin"
+incremental = true
+debug-assertions = true
+debug = true
+
 # Uncomment these lines for local development paths
 
 #[patch.'https://github.com/HorizenOfficial/ginger-lib.git']

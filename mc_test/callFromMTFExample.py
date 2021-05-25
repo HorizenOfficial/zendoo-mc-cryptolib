@@ -14,7 +14,7 @@ def generate_params(params_dir, circuit_type, proving_system_type):
     args.append(str(params_dir))
     subprocess.check_call(args)
 
-def cert_proof_test(proof_path, params_dir, ps_type, bt_num, zk):
+def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk):
 
     # Setup SNARK pk and vk
     generate_params(params_dir, "cert", ps_type);
@@ -28,6 +28,7 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, zk):
     end_cum_comm_tree_root = generate_random_field_element_hex()
     pks = [binascii.b2a_hex(os.urandom(20)) for i in xrange(bt_num)]
     amounts = [random.randint(0, 100) for i in xrange(bt_num)]
+    custom_fields = [generate_random_field_element_hex() for i in xrange(cf_num)]
 
     # Generate and verify proof
     args = ["./mcTest", "create", "cert", str(ps_type), "-v"]
@@ -36,10 +37,18 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, zk):
     args.append(str(proof_path))
     args.append(str(params_dir))
     args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount)]
+
+    args.append(str(bt_num))
     for (pk, amount) in zip(pks, amounts):
         args.append(str(pk))
         args.append(str(amount))
+
+    args.append(str(cf_num))
+    for cf in custom_fields:
+        args.append(str(cf))
+
     subprocess.check_call(args)
+
 
     # Delete files
     os.remove(proof_path)
@@ -81,14 +90,23 @@ if __name__ == "__main__":
     data_dir = os.getcwd() + "/";
 
     # Test certificate proof
-    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, True)
-    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, False)
-    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, True)
-    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, False)
-    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, True)
-    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, False)
-    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, True)
-    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, False)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 10, True)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 0, True)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 10, False)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 0, False)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 10, True)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 0, True)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 10, False)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 0, False)
+
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 10, True)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 0, True)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 10, False)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 0, False)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 10, True)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 0, True)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 10, False)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 0, False)
 
     # Test csw proof
     csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True)

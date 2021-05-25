@@ -1,11 +1,12 @@
-use algebra::UniformRand;
+use algebra::{UniformRand, CanonicalSerialize};
 use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
 use std::{
     convert::TryInto,
     ptr::null_mut,
     path::Path,
-    slice
+    slice,
+    fmt::Write,
 };
 
 #[cfg(not(target_os = "windows"))]
@@ -25,8 +26,8 @@ use cctp_primitives::{
     utils::{
         data_structures::{BitVectorElementsConfig, BackwardTransfer},
         poseidon_hash::*, mht::*, serialization::{deserialize_from_buffer, serialize_to_buffer},
-        compute_sc_id
-    }
+        compute_sc_id,
+    },
 };
 
 pub mod type_mapping;
@@ -49,6 +50,17 @@ pub(crate) fn free_pointer<T> (ptr: *mut T) {
     if ptr.is_null() { return };
 
     unsafe { drop( Box::from_raw(ptr)) }
+}
+
+pub(crate) fn get_hex<T: CanonicalSerialize>(elem: &T) -> String {
+    let mut hex_string = String::from("0x");
+    let elem_bytes = serialize_to_buffer(elem).unwrap();
+
+    for byte in elem_bytes {
+        write!(hex_string, "{:02x}", byte).unwrap();
+    }
+
+    hex_string
 }
 
 #[cfg(target_os = "windows")]
@@ -461,6 +473,13 @@ pub extern "C" fn zendoo_deserialize_field(
 
 #[no_mangle]
 pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(field) }
+
+#[no_mangle]
+pub extern "C" fn zendoo_print_field(field: *const FieldElement) {
+    let ret_code = &mut CctpErrorCode::OK;
+    let rs_field = try_read_raw_pointer!("field", field, ret_code, ());
+    println!("{:?}", get_hex(rs_field));
+}
 
 ////********************Sidechain SNARK functions********************
 
@@ -1515,38 +1534,114 @@ fn _zendoo_create_cert_test_proof(
     quality:                u64,
     bt_list:                *const BackwardTransfer,
     bt_list_len:            usize,
+    custom_fields:          *const *const FieldElement,
+    custom_fields_len:      usize,
     end_cum_comm_tree_root: *const FieldElement,
     btr_fee:                u64,
     ft_min_amount:          u64,
     sc_pk:                  *const ZendooProverKey,
-    proof_path:             &Path,
     ret_code:               &mut CctpErrorCode
-) -> bool
+) -> Result<ZendooProof, ProvingSystemError>
 {
     // Read bt_list
-    let rs_bt_list = try_get_optional_obj_list!("bt_list", bt_list, bt_list_len, ret_code, false);
+    let rs_bt_list = try_get_optional_obj_list!("bt_list", bt_list, bt_list_len, ret_code, Err(ProvingSystemError::Other("".to_owned())));
 
     // Read mandatory, constant size data
-    let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, false);
-    let rs_pk = try_read_raw_pointer!("sc_pk", sc_pk, ret_code, false);
+    let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, Err(ProvingSystemError::Other("".to_owned())));
+    let rs_pk = try_read_raw_pointer!("sc_pk", sc_pk, ret_code, Err(ProvingSystemError::Other("".to_owned())));
 
     // Read optional data
-    let rs_constant = try_read_raw_pointer!("constant", constant, ret_code, false);
+    let rs_constant = try_read_raw_pointer!("constant", constant, ret_code, Err(ProvingSystemError::Other("".to_owned())));
+    let rs_custom_fields = try_read_optional_double_raw_pointer!(
+        "custom_fields", custom_fields, custom_fields_len, ret_code, Err(ProvingSystemError::Other("".to_owned()))
+    );
 
     // Create proof
-    match mc_test_circuits::cert::generate_proof(
+    mc_test_circuits::cert::generate_proof(
         rs_pk,
         zk,
         rs_constant,
         epoch_number,
         quality,
+        rs_custom_fields,
         rs_bt_list,
         rs_end_cum_comm_tree_root,
         btr_fee,
         ft_min_amount
     )
-    {
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_create_cert_test_proof(
+    zk:                     bool,
+    constant:               *const FieldElement,
+    epoch_number:           u32,
+    quality:                u64,
+    bt_list:                *const BackwardTransfer,
+    bt_list_len:            usize,
+    custom_fields:          *const *const FieldElement,
+    custom_fields_len:      usize,
+    end_cum_comm_tree_root: *const FieldElement,
+    btr_fee:                u64,
+    ft_min_amount:          u64,
+    sc_pk:                  *const ZendooProverKey,
+    proof_path:             *const u8,
+    proof_path_len:         usize,
+    ret_code:               &mut CctpErrorCode
+) -> bool
+{
+    match _zendoo_create_cert_test_proof(
+        zk, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, ret_code
+    ){
         Ok(proof) => {
+            let proof_path = parse_path(proof_path, proof_path_len);
+
+            // Write proof to file
+            let proof_ser_res = write_to_file(&proof, &proof_path);
+            if proof_ser_res.is_err() {
+                println!("{:?}", format!("Error writing proof to file {:?}", proof_ser_res.unwrap_err()));
+                *ret_code = CctpErrorCode::InvalidFile;
+                return false;
+            }
+
+            true
+        },
+            Err(e) => {
+            println!("{:?}", format!("Error creating proof {:?}", e));
+            *ret_code = CctpErrorCode::TestProofCreationFailure;
+            false
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_create_cert_test_proof(
+    zk:                     bool,
+    constant:               *const FieldElement,
+    epoch_number:           u32,
+    quality:                u64,
+    bt_list:                *const BackwardTransfer,
+    bt_list_len:            usize,
+    custom_fields:          *const *const FieldElement,
+    custom_fields_len:      usize,
+    end_cum_comm_tree_root: *const FieldElement,
+    btr_fee:                u64,
+    ft_min_amount:          u64,
+    sc_pk:                  *const ZendooProverKey,
+    proof_path:             *const u16,
+    proof_path_len:         usize,
+    ret_code:               &mut CctpErrorCode
+) -> bool
+{
+    match _zendoo_create_cert_test_proof(
+        zk, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, ret_code
+    ){
+        Ok(proof) => {
+            let proof_path = parse_path(proof_path, proof_path_len);
 
             // Write proof to file
             let proof_ser_res = write_to_file(&proof, &proof_path);
@@ -1564,58 +1659,6 @@ fn _zendoo_create_cert_test_proof(
             false
         }
     }
-}
-
-#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
-#[no_mangle]
-pub extern "C" fn zendoo_create_cert_test_proof(
-    zk:                     bool,
-    constant:               *const FieldElement,
-    epoch_number:           u32,
-    quality:                u64,
-    bt_list:                *const BackwardTransfer,
-    bt_list_len:            usize,
-    end_cum_comm_tree_root: *const FieldElement,
-    btr_fee:                u64,
-    ft_min_amount:          u64,
-    sc_pk:                  *const ZendooProverKey,
-    proof_path:             *const u8,
-    proof_path_len:         usize,
-    ret_code:               &mut CctpErrorCode
-) -> bool
-{
-    let proof_path = parse_path(proof_path, proof_path_len);
-
-    _zendoo_create_cert_test_proof(
-        zk, constant, epoch_number, quality, bt_list, bt_list_len, end_cum_comm_tree_root,
-        btr_fee, ft_min_amount, sc_pk, proof_path, ret_code
-    )
-}
-
-#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
-#[no_mangle]
-pub extern "C" fn zendoo_create_cert_test_proof(
-    zk:                     bool,
-    constant:               *const FieldElement,
-    epoch_number:           u32,
-    quality:                u64,
-    bt_list:                *const BackwardTransfer,
-    bt_list_len:            usize,
-    end_cum_comm_tree_root: *const FieldElement,
-    btr_fee:                u64,
-    ft_min_amount:          u64,
-    sc_pk:                  *const ZendooProverKey,
-    proof_path:             *const u16,
-    proof_path_len:         usize,
-    ret_code:               &mut CctpErrorCode
-) -> bool
-{
-    let proof_path = parse_path(proof_path, proof_path_len);
-
-    _zendoo_create_cert_test_proof(
-        zk, constant, epoch_number, quality, bt_list, bt_list_len, end_cum_comm_tree_root,
-        btr_fee, ft_min_amount, sc_pk, proof_path, ret_code
-    )
 }
 
 #[cfg(feature = "mc-test-circuit")]
@@ -1627,19 +1670,18 @@ fn _zendoo_create_csw_test_proof(
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
     sc_pk:                  *const ZendooProverKey,
-    proof_path:             &Path,
     ret_code:               &mut CctpErrorCode
-) -> bool
+) -> Result<ZendooProof, ProvingSystemError>
 {
-    let rs_sc_id                  = try_read_raw_pointer!("sc_id",                  sc_id,                  ret_code, false);
-    let rs_cert_data_hash         = try_read_raw_pointer!("cert_data_hash",         cert_data_hash,         ret_code, false);
-    let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, false);
-    let rs_pk                     = try_read_raw_pointer!("sc_pk",                  sc_pk,                  ret_code, false);
+    let rs_sc_id                  = try_read_raw_pointer!("sc_id",                  sc_id,                  ret_code, Err(ProvingSystemError::Other("".to_owned())));
+    let rs_cert_data_hash         = try_read_raw_pointer!("cert_data_hash",         cert_data_hash,         ret_code, Err(ProvingSystemError::Other("".to_owned())));
+    let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, Err(ProvingSystemError::Other("".to_owned())));
+    let rs_pk                     = try_read_raw_pointer!("sc_pk",                  sc_pk,                  ret_code, Err(ProvingSystemError::Other("".to_owned())));
 
-    let rs_mc_pk_hash   = try_get_buffer_constant_size!("mc_pk_hash", mc_pk_hash, UINT_160_SIZE, ret_code, false);
+    let rs_mc_pk_hash   = try_get_buffer_constant_size!("mc_pk_hash", mc_pk_hash, UINT_160_SIZE, ret_code, Err(ProvingSystemError::Other("".to_owned())));
 
     // Create proof
-    match mc_test_circuits::csw::generate_proof(
+    mc_test_circuits::csw::generate_proof(
         rs_pk,
         zk,
         amount,
@@ -1648,8 +1690,29 @@ fn _zendoo_create_csw_test_proof(
         rs_cert_data_hash,
         rs_end_cum_comm_tree_root
     )
-    {
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_create_csw_test_proof(
+    zk:                     bool,
+    amount:                 u64,
+    sc_id:                  *const FieldElement,
+    mc_pk_hash:             *const BufferWithSize,
+    cert_data_hash:         *const FieldElement,
+    end_cum_comm_tree_root: *const FieldElement,
+    sc_pk:                  *const ZendooProverKey,
+    proof_path:             *const u8,
+    proof_path_len:         usize,
+    ret_code:               &mut CctpErrorCode
+) -> bool
+{
+    match _zendoo_create_csw_test_proof(
+        zk, amount, sc_id, mc_pk_hash, cert_data_hash,
+        end_cum_comm_tree_root, sc_pk, ret_code
+    ){
         Ok(proof) => {
+            let proof_path = parse_path(proof_path, proof_path_len);
 
             // Write proof to file
             let proof_ser_res = write_to_file(&proof, &proof_path);
@@ -1669,29 +1732,6 @@ fn _zendoo_create_csw_test_proof(
     }
 }
 
-#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
-#[no_mangle]
-pub extern "C" fn zendoo_create_csw_test_proof(
-    zk:                     bool,
-    amount:                 u64,
-    sc_id:                  *const FieldElement,
-    mc_pk_hash:             *const BufferWithSize,
-    cert_data_hash:         *const FieldElement,
-    end_cum_comm_tree_root: *const FieldElement,
-    sc_pk:                  *const ZendooProverKey,
-    proof_path:             *const u8,
-    proof_path_len:         usize,
-    ret_code:               &mut CctpErrorCode
-) -> bool
-{
-    let proof_path = parse_path(proof_path, proof_path_len);
-
-    _zendoo_create_csw_test_proof(
-        zk, amount, sc_id, mc_pk_hash, cert_data_hash,
-        end_cum_comm_tree_root, sc_pk, proof_path, ret_code
-    )
-}
-
 #[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
 #[no_mangle]
 pub extern "C" fn zendoo_create_csw_test_proof(
@@ -1707,12 +1747,117 @@ pub extern "C" fn zendoo_create_csw_test_proof(
     ret_code:               &mut CctpErrorCode
 ) -> bool
 {
-    let proof_path = parse_path(proof_path, proof_path_len);
-
-    _zendoo_create_csw_test_proof(
+    match _zendoo_create_csw_test_proof(
         zk, amount, sc_id, mc_pk_hash, cert_data_hash,
-        end_cum_comm_tree_root, sc_pk, proof_path, ret_code
-    )
+        end_cum_comm_tree_root, sc_pk, ret_code
+    ){
+        Ok(proof) => {
+            let proof_path = parse_path(proof_path, proof_path_len);
+
+            // Write proof to file
+            let proof_ser_res = write_to_file(&proof, &proof_path);
+            if proof_ser_res.is_err() {
+                println!("{:?}", format!("Error writing proof to file {:?}", proof_ser_res.unwrap_err()));
+                *ret_code = CctpErrorCode::InvalidFile;
+                return false;
+            }
+
+            true
+        },
+        Err(e) => {
+            println!("{:?}", format!("Error creating proof {:?}", e));
+            *ret_code = CctpErrorCode::TestProofCreationFailure;
+            false
+        }
+    }
+}
+
+#[cfg(feature = "mc-test-circuit")]
+#[no_mangle]
+pub extern "C" fn zendoo_create_return_cert_test_proof(
+    zk:                     bool,
+    constant:               *const FieldElement,
+    epoch_number:           u32,
+    quality:                u64,
+    bt_list:                *const BackwardTransfer,
+    bt_list_len:            usize,
+    custom_fields:          *const *const FieldElement,
+    custom_fields_len:      usize,
+    end_cum_comm_tree_root: *const FieldElement,
+    btr_fee:                u64,
+    ft_min_amount:          u64,
+    sc_pk:                  *const ZendooProverKey,
+    ret_code:               &mut CctpErrorCode
+) -> *mut BufferWithSize
+{
+    match _zendoo_create_cert_test_proof(
+        zk, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, ret_code
+    ){
+        Ok(sc_proof) => {
+            match serialize_to_buffer(&sc_proof) {
+                Ok(mut sc_proof_bytes) => {
+
+                    let data = sc_proof_bytes.as_mut_ptr();
+                    let len = sc_proof_bytes.len();
+                    std::mem::forget(sc_proof_bytes);
+                    Box::into_raw(Box::new(BufferWithSize { data, len }))
+                },
+                Err(e) => {
+                    println!("{:?}", format!("Error serializing proof {:?}", e));
+                    *ret_code = CctpErrorCode::InvalidValue;
+                    null_mut()
+                }
+            }
+        },
+        Err(e) => {
+            println!("{:?}", format!("Error creating proof {:?}", e));
+            *ret_code = CctpErrorCode::TestProofCreationFailure;
+            null_mut()
+        }
+    }
+}
+
+
+#[cfg(feature = "mc-test-circuit")]
+#[no_mangle]
+pub extern "C" fn zendoo_create_return_csw_test_proof(
+    zk:                     bool,
+    amount:                 u64,
+    sc_id:                  *const FieldElement,
+    mc_pk_hash:             *const BufferWithSize,
+    cert_data_hash:         *const FieldElement,
+    end_cum_comm_tree_root: *const FieldElement,
+    sc_pk:                  *const ZendooProverKey,
+    ret_code:               &mut CctpErrorCode
+) -> *mut BufferWithSize
+{
+    match _zendoo_create_csw_test_proof(
+        zk, amount, sc_id, mc_pk_hash, cert_data_hash,
+        end_cum_comm_tree_root, sc_pk, ret_code
+    ){
+        Ok(sc_proof) => {
+            match serialize_to_buffer(&sc_proof) {
+                Ok(mut sc_proof_bytes) => {
+
+                    let data = sc_proof_bytes.as_mut_ptr();
+                    let len = sc_proof_bytes.len();
+                    std::mem::forget(sc_proof_bytes);
+                    Box::into_raw(Box::new(BufferWithSize { data, len }))
+                },
+                Err(e) => {
+                    println!("{:?}", format!("Error serializing proof {:?}", e));
+                    *ret_code = CctpErrorCode::InvalidValue;
+                    null_mut()
+                }
+            }
+        },
+        Err(e) => {
+            println!("{:?}", format!("Error creating proof {:?}", e));
+            *ret_code = CctpErrorCode::TestProofCreationFailure;
+            null_mut()
+        }
+    }
 }
 
 fn check_equal<T: PartialEq>(val_1: *const T, val_2: *const T) -> bool {

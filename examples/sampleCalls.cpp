@@ -11,22 +11,6 @@
 #include <vector>
 #include <time.h>
 
-void print_bytes(unsigned char bytes[], size_t len){
-    for(int i = 0; i < len; i++){
-        std::cout << (int)bytes[i];
-        std::cout << ", ";
-    }
-}
-
-void print_field(field_t* field) {
-    CctpErrorCode ret_code = CctpErrorCode::OK;
-    unsigned char field_bytes[FIELD_SIZE];
-    zendoo_serialize_field(field, field_bytes, &ret_code);
-    std::cout << "Field: ";
-    print_bytes(field_bytes, FIELD_SIZE);
-    std::cout << "" << std::endl;
-}
-
 TEST_SUITE("Field Element") {
 
     TEST_CASE("Field Size") {
@@ -636,6 +620,9 @@ TEST_SUITE("Single Proof Verifier") {
             }
         }
 
+        // Create dummy custom_fields re-using fields we already have
+        const field_t* custom_fields[] = {constant, end_cum_comm_tree_root};
+
         // Specify paths
         auto sc_pk = zendoo_deserialize_sc_pk_from_file(
             (path_char_t*)pk_path.c_str(),
@@ -649,9 +636,8 @@ TEST_SUITE("Single Proof Verifier") {
         CHECK(
             zendoo_create_cert_test_proof(
                 zk, constant, epoch_number, quality, bt_list.data(), bt_list_len,
-                end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
-                (path_char_t*)proof_path.c_str(), proof_path.size(),
-                &ret_code
+                custom_fields, 2, end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), &ret_code
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -680,8 +666,8 @@ TEST_SUITE("Single Proof Verifier") {
         CHECK(
             zendoo_verify_certificate_proof(
                 constant, epoch_number, quality, bt_list.data(), bt_list_len,
-                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount,
-                sc_proof, sc_vk, &ret_code
+                custom_fields, 2, end_cum_comm_tree_root,
+                btr_fee, ft_min_amount, sc_proof, sc_vk, &ret_code
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -691,7 +677,7 @@ TEST_SUITE("Single Proof Verifier") {
         CHECK(
             zendoo_verify_certificate_proof(
                 wrong_constant, epoch_number, quality, bt_list.data(), bt_list_len,
-                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount,
+                custom_fields, 2, end_cum_comm_tree_root, btr_fee, ft_min_amount,
                 sc_proof, sc_vk, &ret_code
             ) == false
         );
@@ -1060,7 +1046,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(
             zendoo_create_cert_test_proof(
                 false, constant, epoch_number, quality, NULL, 0,
-                end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
+                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
                 (path_char_t*)proof_path.c_str(), proof_path.size(),
                 &ret_code
             ) == true
@@ -1318,7 +1304,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(result_6.result == false);
         // Hash of the key will differ, so we expect failure in the succinct part, e.g. we should
         // be able to get the index of the first failing proof
-        CHECK(result_6.failing_proof == 0);
+        CHECK(result_6.failing_proof != -1);
 
         // Delete files
         remove((pk_path + std::string("/darlin_csw_test_pk")).c_str());
