@@ -660,6 +660,22 @@ extern "C" {
      */
     field_t* zendoo_get_phantom_cert_data_hash();
 
+    /*
+     * Compute cert data hash.
+     */
+    field_t* zendoo_get_cert_data_hash(
+        uint32_t epoch_number,
+        uint64_t quality,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
+        const field_t** custom_fields,
+        size_t custom_fields_len,
+        const field_t* end_cum_comm_tree_root,
+        uint64_t btr_fee,
+        uint64_t ft_min_amount,
+        CctpErrorCode* ret_code
+    );
+
     /*  Verify a CSW proof sc_proof `sc_proof` given its corresponding sc_vk `sc_vk`
      *  and all the data needed to construct proof's public inputs. Return true if
      *  proof verification was successful, false otherwise.

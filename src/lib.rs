@@ -42,6 +42,7 @@ pub mod mc_test_circuits;
 
 #[cfg(feature = "mc-test-circuit")]
 use cctp_primitives::utils::serialization::write_to_file;
+use cctp_primitives::utils::get_cert_data_hash;
 
 //#[cfg(test)]
 //pub mod tests;
@@ -791,6 +792,49 @@ fn get_csw_proof_usr_ins<'a>(
 #[no_mangle]
 pub extern "C" fn zendoo_get_phantom_cert_data_hash() -> *mut FieldElement {
     Box::into_raw(Box::new(cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH))
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_cert_data_hash(
+    epoch_number:           u32,
+    quality:                u64,
+    bt_list:                *const BackwardTransfer,
+    bt_list_len:            usize,
+    custom_fields:          *const *const FieldElement,
+    custom_fields_len:      usize,
+    end_cum_comm_tree_root: *const FieldElement,
+    btr_fee:                u64,
+    ft_min_amount:          u64,
+    ret_code :              &mut CctpErrorCode
+) -> *mut FieldElement {
+
+    // Read mandatory, constant size data
+    let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, null_mut());
+
+    // Read bt_list
+    let rs_bt_list = try_get_optional_obj_list!("bt_list", bt_list, bt_list_len, ret_code, null_mut());
+
+    // Read custom fields list (if present)
+    let rs_custom_fields = try_read_optional_double_raw_pointer!(
+        "custom_fields", custom_fields, custom_fields_len, ret_code, null_mut()
+    );
+
+    match get_cert_data_hash(
+        epoch_number,
+        quality,
+        rs_bt_list,
+        rs_custom_fields,
+        rs_end_cum_comm_tree_root,
+        btr_fee,
+        ft_min_amount
+    ) {
+        Ok(hash) => Box::into_raw(Box::new(hash)),
+        Err(e) => {
+            println!("{:?}", format!("Error computing cert_data_hash: {:?}", e));
+            *ret_code = CctpErrorCode::HashingError;
+            null_mut()
+        }
+    }
 }
 
 #[no_mangle]

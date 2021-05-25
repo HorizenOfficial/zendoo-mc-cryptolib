@@ -1,8 +1,30 @@
 use algebra::{CanonicalSerialize, CanonicalDeserialize, SemanticallyValid};
-use cctp_primitives::utils::serialization::{deserialize_from_buffer_checked, deserialize_from_buffer, read_from_file_checked, read_from_file};
+use cctp_primitives::{
+    utils::serialization::{deserialize_from_buffer_checked, deserialize_from_buffer, read_from_file_checked, read_from_file},
+};
 use std::{
     slice, path::Path
 };
+
+#[allow(unused_macros)]
+
+macro_rules! log {
+    ($msg: expr) => {{
+        println!("[{}:{}] {:?}", file!(), line!(), $msg)
+    }};
+}
+
+#[cfg(debug_assertions)]
+macro_rules! log_dbg {
+    ($msg: expr) => {{
+        println!("[{}:{}] {:?}", file!(), line!(), $msg)
+    }};
+}
+
+#[cfg(not(debug_assertions))]
+macro_rules! log_dbg {
+    ($msg: expr) => {{ () }};
+}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
