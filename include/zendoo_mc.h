@@ -540,8 +540,15 @@ extern "C" {
     //SC SNARK related functions
 
     bool zendoo_init_dlog_keys(
-        ProvingSystem ps_type,
         size_t segment_size,
+        const path_char_t* params_dir,
+        size_t params_dir_len,
+        CctpErrorCode* ret_code
+    );
+
+    bool zendoo_init_dlog_keys_test_mode(
+        size_t max_segment_size,
+        size_t supported_segment_size,
         const path_char_t* params_dir,
         size_t params_dir_len,
         CctpErrorCode* ret_code

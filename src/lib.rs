@@ -465,8 +465,8 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(fie
 ////********************Sidechain SNARK functions********************
 
 fn _zendoo_init_dlog_keys(
-    ps_type: ProvingSystem,
-    segment_size: usize,
+    max_segment_size: usize,
+    supported_segment_size: usize,
     params_dir: &Path,
     ret_code: &mut CctpErrorCode
 ) -> bool
@@ -474,7 +474,13 @@ fn _zendoo_init_dlog_keys(
     let ck_g1_path = params_dir.join("ck_g1");
     let ck_g2_path = params_dir.join("ck_g2");
 
-    match init_dlog_keys(ps_type, segment_size, &ck_g1_path, &ck_g2_path) {
+    match init_dlog_keys(
+        ProvingSystem::Darlin,
+        max_segment_size,
+        supported_segment_size,
+        &ck_g1_path,
+        &ck_g2_path
+    ) {
         Ok(()) => true,
         Err(e) => {
             println!("{:?}", format!("Error bootstrapping DLOG keys: {:?}", e));
@@ -487,7 +493,6 @@ fn _zendoo_init_dlog_keys(
 #[cfg(target_os = "windows")]
 #[no_mangle]
 pub extern "C" fn zendoo_init_dlog_keys(
-    ps_type: ProvingSystem,
     segment_size: usize,
     params_dir: *const u16,
     params_dir_len: usize,
@@ -498,13 +503,12 @@ pub extern "C" fn zendoo_init_dlog_keys(
     let params_dir = parse_path(params_dir, params_dir_len);
 
     // Get DLOG keys
-    _zendoo_init_dlog_keys(ps_type, segment_size, params_dir, ret_code)
+    _zendoo_init_dlog_keys(segment_size, segment_size, params_dir, ret_code)
 }
 
 #[cfg(not(target_os = "windows"))]
 #[no_mangle]
 pub extern "C" fn zendoo_init_dlog_keys(
-    ps_type: ProvingSystem,
     segment_size: usize,
     params_dir: *const u8,
     params_dir_len: usize,
@@ -515,7 +519,41 @@ pub extern "C" fn zendoo_init_dlog_keys(
     let params_dir = parse_path(params_dir, params_dir_len);
 
     // Get DLOG keys
-    _zendoo_init_dlog_keys(ps_type, segment_size, params_dir, ret_code)
+    _zendoo_init_dlog_keys(segment_size, segment_size, params_dir, ret_code)
+}
+
+#[cfg(target_os = "windows")]
+#[no_mangle]
+pub extern "C" fn zendoo_init_dlog_keys_test_mode(
+    max_segment_size: usize,
+    supported_segment_size: usize,
+    params_dir: *const u16,
+    params_dir_len: usize,
+    ret_code: &mut CctpErrorCode
+) -> bool
+{
+    // Read params_dir
+    let params_dir = parse_path(params_dir, params_dir_len);
+
+    // Get DLOG keys
+    _zendoo_init_dlog_keys(max_segment_size, supported_segment_size, params_dir, ret_code)
+}
+
+#[cfg(not(target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_init_dlog_keys_test_mode(
+    max_segment_size: usize,
+    supported_segment_size: usize,
+    params_dir: *const u8,
+    params_dir_len: usize,
+    ret_code: &mut CctpErrorCode
+) -> bool
+{
+    // Read params_dir
+    let params_dir = parse_path(params_dir, params_dir_len);
+
+    // Get DLOG keys
+    _zendoo_init_dlog_keys(max_segment_size, supported_segment_size, params_dir, ret_code)
 }
 
 #[no_mangle]

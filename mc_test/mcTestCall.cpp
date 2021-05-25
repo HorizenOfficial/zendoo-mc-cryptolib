@@ -67,7 +67,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
-    assert(zendoo_init_dlog_keys(ps_type, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
+    assert(zendoo_init_dlog_keys(1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Parse epoch number and quality
@@ -251,7 +251,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
-    assert(zendoo_init_dlog_keys(ps_type, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
+    assert(zendoo_init_dlog_keys(1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Parse amount
@@ -408,7 +408,7 @@ void generate(char** argv)
 
     // Load DLOG keys
     CctpErrorCode ret_code = CctpErrorCode::OK;
-    assert(zendoo_init_dlog_keys(ps_type, 1 << 9, (path_char_t*)path.c_str(), path.size(), &ret_code));
+    assert(zendoo_init_dlog_keys(1 << 9, (path_char_t*)path.c_str(), path.size(), &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Generate proving and verifying key

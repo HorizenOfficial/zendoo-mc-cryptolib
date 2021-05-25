@@ -601,7 +601,6 @@ TEST_SUITE("Single Proof Verifier") {
 
         // Bootstrap keys
         bool init_result = zendoo_init_dlog_keys(
-            ProvingSystem::Darlin,
             1 << 9,
             (path_char_t*)params_dir.c_str(),
             params_dir_len,
@@ -1117,10 +1116,9 @@ TEST_SUITE("ZendooBatchProofVerifier") {
 
         CctpErrorCode ret_code = CctpErrorCode::OK;
 
-
-        // Bootstrap keys
-        bool init_result = zendoo_init_dlog_keys(
-            ProvingSystem::Darlin,
+        // Bootstrap keys used for proving
+        bool init_result = zendoo_init_dlog_keys_test_mode(
+            1 << 17,
             1 << 9,
             (path_char_t*)params_dir.c_str(),
             params_dir_len,
@@ -1227,16 +1225,32 @@ TEST_SUITE("ZendooBatchProofVerifier") {
             }
         }
 
+        // Bootstrap new keys for verification, bigger than the ones used for proving
+        // and check everything is ok
+        remove((params_dir + std::string("/ck_g1")).c_str());
+        remove((params_dir + std::string("/ck_g2")).c_str());
+
+        bool init_result_2 = zendoo_init_dlog_keys(
+            1 << 17,
+            (path_char_t*)params_dir.c_str(),
+            params_dir_len,
+            &ret_code
+        );
+        CHECK(init_result_2 == true);
+        CHECK(ret_code == CctpErrorCode::OK);
+
         // Batch verify all proofs
         auto result_1 = batch_verifier.batch_verify_all(&ret_code);
         CHECK(result_1.result == true);
         CHECK(result_1.failing_proof == -1);
+        CHECK(ret_code == CctpErrorCode::OK);
 
         // Batch verify subset
         const uint32_t ids[5] = {0, 2, 5, 7, 9};
         auto result_2 = batch_verifier.batch_verify_subset(ids, 5, &ret_code);
         CHECK(result_2.result == true);
         CHECK(result_2.failing_proof == -1);
+        CHECK(ret_code == CctpErrorCode::OK);
 
         // Add a wrong proof to the verifier
         add_random_cert_proof(
@@ -1250,6 +1264,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         // Check batch verification of all proofs fails
         auto result_3 = batch_verifier.batch_verify_all(&ret_code);
         CHECK(result_3.result == false);
+        CHECK(ret_code == CctpErrorCode::OK);
 
         // We should be able to retrieve the index of the failing proof
         CHECK(result_3.failing_proof == num_proofs);
@@ -1259,6 +1274,51 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         auto result_4 = batch_verifier.batch_verify_subset(new_ids, 10, &ret_code);
         CHECK(result_4.result == true);
         CHECK(result_4.failing_proof == -1);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Bootstrap new keys for verification, smaller than the ones used for proving
+        // and assert failure
+        remove((params_dir + std::string("/ck_g1")).c_str());
+        remove((params_dir + std::string("/ck_g2")).c_str());
+
+        bool init_result_3 = zendoo_init_dlog_keys_test_mode(
+            1 << 17,
+            1 << 8,
+            (path_char_t*)params_dir.c_str(),
+            params_dir_len,
+            &ret_code
+        );
+        CHECK(init_result_3 == true);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Check batch verification of all valid proofs fails
+        auto result_5 = batch_verifier.batch_verify_subset(new_ids, 10, &ret_code);
+        CHECK(result_5.result == false);
+        CHECK(result_5.failing_proof == -1); // Should fail in the hard part, so it won't be possible to determine the index
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Bootstrap new keys for verification, but derived from bigger keys than the original
+        // ones and check verification fails
+        remove((params_dir + std::string("/ck_g1")).c_str());
+        remove((params_dir + std::string("/ck_g2")).c_str());
+
+        bool init_result_4 = zendoo_init_dlog_keys_test_mode(
+            1 << 18,
+            1 << 17,
+            (path_char_t*)params_dir.c_str(),
+            params_dir_len,
+            &ret_code
+        );
+        CHECK(init_result_4 == true);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Check batch verification of all valid proofs fails
+        auto result_6 = batch_verifier.batch_verify_subset(new_ids, 10, &ret_code);
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(result_6.result == false);
+        // Hash of the key will differ, so we expect failure in the succinct part, e.g. we should
+        // be able to get the index of the first failing proof
+        CHECK(result_6.failing_proof == 0);
 
         // Delete files
         remove((pk_path + std::string("/darlin_csw_test_pk")).c_str());
