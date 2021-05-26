@@ -773,6 +773,7 @@ TEST_SUITE("Single Proof Verifier") {
 
         // Generate random data
         auto sc_id = zendoo_get_field_from_long(1);
+        auto nullifier = zendoo_get_field_from_long(11);
         auto end_cum_comm_tree_root = zendoo_get_field_from_long(2);
         field_t* cert_data_hash;
         if (phantomCertDataHash) {
@@ -796,7 +797,7 @@ TEST_SUITE("Single Proof Verifier") {
 
         CHECK(
             zendoo_create_csw_test_proof(
-                zk, amount, sc_id, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
+                zk, amount, sc_id, nullifier, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
                 sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(),
                 &ret_code
             ) == true
@@ -825,7 +826,7 @@ TEST_SUITE("Single Proof Verifier") {
         // Positive verification
         CHECK(
             zendoo_verify_csw_proof(
-                amount, sc_id, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
+                amount, sc_id, nullifier, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
                 sc_proof, sc_vk, &ret_code
             ) == true
         );
@@ -835,7 +836,7 @@ TEST_SUITE("Single Proof Verifier") {
         auto wrong_sc_id = zendoo_get_field_from_long(4);
         CHECK(
             zendoo_verify_csw_proof(
-                amount, wrong_sc_id, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
+                amount, wrong_sc_id, nullifier, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
                 sc_proof, sc_vk, &ret_code
             ) == false
         );
@@ -941,6 +942,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
 
         // Generate random data
         auto sc_id = zendoo_get_field_from_long(1);
+        auto nullifier = zendoo_get_field_from_long(11);
         auto end_cum_comm_tree_root = zendoo_get_field_from_long(2);
         auto cert_data_hash = zendoo_get_phantom_cert_data_hash();
 
@@ -962,7 +964,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         auto proof_path = params_dir + std::string("/test_proof");
         CHECK(
             zendoo_create_csw_test_proof(
-                false, amount, sc_id, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
+                false, amount, sc_id, nullifier, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
                 sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(),
                 &ret_code
             ) == true
@@ -995,7 +997,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         }
         CHECK(
             batch_verifier->add_csw_proof(
-                proof_id, amount, sc_id, &mc_pk_hash, cert_data_hash,
+                proof_id, amount, sc_id, nullifier, &mc_pk_hash, cert_data_hash,
                 end_cum_comm_tree_root, sc_proof, sc_vk, &ret_code
             ) == true
         );

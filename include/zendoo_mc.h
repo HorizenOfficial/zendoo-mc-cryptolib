@@ -87,6 +87,9 @@ extern "C" {
         BufferWithSize(const unsigned char* dataIn, size_t lenIn): data(dataIn), len(lenIn) {}
     };
 
+    /* Free a BufferWithSize allocated Rust-side */
+    void zendoo_free_bws(BufferWithSize* buf);
+
     // Commitment Tree related declarations
 
     typedef enum ProvingSystem {
@@ -234,7 +237,9 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-    void zendoo_free_bit_vector(BufferWithSize* buf);
+    void zendoo_free_bit_vector(BufferWithSize* buf) {
+        zendoo_free_bws(buf);
+    }
 
     //Poseidon hash related functions
 
@@ -648,8 +653,8 @@ extern "C" {
         const field_t* end_cum_comm_tree_root,
         uint64_t btr_fee,
         uint64_t ft_min_amount,
-        sc_proof_t* sc_proof,
-        sc_vk_t*    sc_vk,
+        const sc_proof_t* sc_proof,
+        const sc_vk_t*    sc_vk,
         CctpErrorCode* ret_code
     );
 
@@ -683,11 +688,12 @@ extern "C" {
     bool zendoo_verify_csw_proof(
         uint64_t amount,
         const field_t* sc_id,
+        const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
-        sc_proof_t* sc_proof,
-        sc_vk_t*    sc_vk,
+        const sc_proof_t* sc_proof,
+        const sc_vk_t*    sc_vk,
         CctpErrorCode* ret_code
     );
 
@@ -720,8 +726,8 @@ extern "C" {
         const field_t* end_cum_comm_tree_root,
         uint64_t btr_fee,
         uint64_t ft_min_amount,
-        sc_proof_t* sc_proof,
-        sc_vk_t*    sc_vk,
+        const sc_proof_t* sc_proof,
+        const sc_vk_t*    sc_vk,
         CctpErrorCode* ret_code
     );
 
@@ -737,11 +743,12 @@ extern "C" {
         uint32_t proof_id,
         uint64_t amount,
         const field_t* sc_id,
+        const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
-        sc_proof_t* sc_proof,
-        sc_vk_t*    sc_vk,
+        const sc_proof_t* sc_proof,
+        const sc_vk_t*    sc_vk,
         CctpErrorCode* ret_code
     );
 
@@ -805,8 +812,8 @@ extern "C" {
             const field_t* end_cum_comm_tree_root,
             uint64_t btr_fee,
             uint64_t ft_min_amount,
-            sc_proof_t* sc_proof,
-            sc_vk_t*    sc_vk,
+            const sc_proof_t* sc_proof,
+            const sc_vk_t*    sc_vk,
             CctpErrorCode* ret_code
         )
         {
@@ -822,18 +829,18 @@ extern "C" {
             uint32_t proof_id,
             uint64_t amount,
             const field_t* sc_id,
+            const field_t* nullifier,
             const BufferWithSize* mc_pk_hash,
             const field_t* cert_data_hash,
             const field_t* end_cum_comm_tree_root,
-            sc_proof_t* sc_proof,
-            sc_vk_t*    sc_vk,
+            const sc_proof_t* sc_proof,
+            const sc_vk_t*    sc_vk,
             CctpErrorCode* ret_code
         )
         {
             return zendoo_add_csw_proof_to_batch_verifier(
-                batch_verifier, proof_id, amount, sc_id, mc_pk_hash,
-                cert_data_hash, end_cum_comm_tree_root, sc_proof,
-                sc_vk, ret_code
+                batch_verifier, proof_id, amount, sc_id, nullifier, mc_pk_hash,
+                cert_data_hash, end_cum_comm_tree_root, sc_proof, sc_vk, ret_code
             );
         }
 
@@ -938,6 +945,7 @@ extern "C" {
         bool zk,
         uint64_t amount,
         const field_t* sc_id,
+        const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
@@ -975,6 +983,7 @@ extern "C" {
         bool zk,
         uint64_t amount,
         const field_t* sc_id,
+        const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
@@ -982,12 +991,12 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-     /* Return `true` if the vks pointed by `sc_vk_1` and `sc_vk_2` are
+     /* Return `true` if the proofs pointed by `sc_proof_1` and `sc_proof_2` are
       * equal, and `false` otherwise.
       */
-     bool zendoo_sc_vk_assert_eq(
-         const sc_vk_t* sc_vk_1,
-         const sc_vk_t* sc_vk_2
+     bool zendoo_sc_proof_assert_eq(
+         const sc_proof_t* sc_proof_1,
+         const sc_proof_t* sc_proof_2
      );
 
 }

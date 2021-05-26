@@ -63,6 +63,7 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk):
     # Generate random test data
     amount = random.randint(0, 1000)
     sc_id = generate_random_field_element_hex()
+    nullifier = generate_random_field_element_hex()
     mc_pk_hash = binascii.b2a_hex(os.urandom(20))
     end_cum_comm_tree_root = generate_random_field_element_hex()
     cert_data_hash = generate_random_field_element_hex()
@@ -73,7 +74,7 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk):
         args.append("-zk")
     args.append(str(proof_path))
     args.append(str(params_dir))
-    args += [str(amount), str(sc_id), str(mc_pk_hash), str(end_cum_comm_tree_root), str(cert_data_hash)]
+    args += [str(amount), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root), str(cert_data_hash)]
     subprocess.check_call(args)
 
     # Delete files

@@ -87,6 +87,11 @@ fn parse_path<'a>(
     }))
 }
 
+#[no_mangle]
+pub extern "C" fn zendoo_free_bws(buffer: *mut BufferWithSize) {
+    free_buffer_with_size(buffer)
+}
+
 //*********** Commitment Tree functions ****************
 
 #[no_mangle]
@@ -342,11 +347,6 @@ pub extern "C" fn zendoo_commitment_tree_get_commitment(
 
 //***********Bit Vector functions****************
 
-
-#[no_mangle]
-pub extern "C" fn zendoo_free_bit_vector(buffer: *mut BufferWithSize) {
-    free_buffer_with_size(buffer)
-}
 
 #[no_mangle]
 pub extern "C" fn zendoo_compress_bit_vector(
@@ -765,6 +765,7 @@ pub extern "C" fn zendoo_verify_certificate_proof(
 fn get_csw_proof_usr_ins<'a>(
     amount:                 u64,
     sc_id:                  *const FieldElement,
+    nullifier:              *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
@@ -773,6 +774,7 @@ fn get_csw_proof_usr_ins<'a>(
 {
     // Read constant size data
     let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, None);
+    let rs_nullifier = try_read_raw_pointer!("nullifier", nullifier, ret_code, None);
     let rs_mc_pk_hash = try_get_buffer_constant_size!("mc_pk_hash", mc_pk_hash, UINT_160_SIZE, ret_code, None);
 
     // Read field element
@@ -783,6 +785,7 @@ fn get_csw_proof_usr_ins<'a>(
     Some(CSWProofUserInputs{
         amount,
         sc_id: rs_sc_id,
+        nullifier: rs_nullifier,
         pub_key_hash: rs_mc_pk_hash,
         cert_data_hash: rs_cert_data_hash,
         end_cumulative_sc_tx_commitment_tree_root: rs_end_cum_comm_tree_root
@@ -841,6 +844,7 @@ pub extern "C" fn zendoo_get_cert_data_hash(
 pub extern "C" fn zendoo_verify_csw_proof(
     amount:                 u64,
     sc_id:                  *const FieldElement,
+    nullifier:              *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
@@ -851,7 +855,7 @@ pub extern "C" fn zendoo_verify_csw_proof(
 {
     // Get usr_ins
     let usr_ins = get_csw_proof_usr_ins(
-        amount, sc_id, mc_pk_hash, cert_data_hash,
+        amount, sc_id, nullifier, mc_pk_hash, cert_data_hash,
         end_cum_comm_tree_root, ret_code
     );
     if usr_ins.is_none() { return false; }
@@ -945,6 +949,7 @@ pub extern "C" fn zendoo_add_csw_proof_to_batch_verifier(
     proof_id:               u32,
     amount:                 u64,
     sc_id:                  *const FieldElement,
+    nullifier:              *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
@@ -955,7 +960,7 @@ pub extern "C" fn zendoo_add_csw_proof_to_batch_verifier(
 {
     // Get usr_ins
     let usr_ins = get_csw_proof_usr_ins(
-        amount, sc_id, mc_pk_hash, cert_data_hash,
+        amount, sc_id, nullifier, mc_pk_hash, cert_data_hash,
         end_cum_comm_tree_root, ret_code
     );
     if usr_ins.is_none() { return false; }
@@ -1710,6 +1715,7 @@ fn _zendoo_create_csw_test_proof(
     zk:                     bool,
     amount:                 u64,
     sc_id:                  *const FieldElement,
+    nullifier:              *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
@@ -1718,6 +1724,7 @@ fn _zendoo_create_csw_test_proof(
 ) -> Result<ZendooProof, ProvingSystemError>
 {
     let rs_sc_id                  = try_read_raw_pointer!("sc_id",                  sc_id,                  ret_code, Err(ProvingSystemError::Other("".to_owned())));
+    let rs_nullifier              = try_read_raw_pointer!("nullifier",              nullifier,              ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_cert_data_hash         = try_read_raw_pointer!("cert_data_hash",         cert_data_hash,         ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_pk                     = try_read_raw_pointer!("sc_pk",                  sc_pk,                  ret_code, Err(ProvingSystemError::Other("".to_owned())));
@@ -1730,6 +1737,7 @@ fn _zendoo_create_csw_test_proof(
         zk,
         amount,
         rs_sc_id,
+        rs_nullifier,
         rs_mc_pk_hash,
         rs_cert_data_hash,
         rs_end_cum_comm_tree_root
@@ -1742,6 +1750,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
     zk:                     bool,
     amount:                 u64,
     sc_id:                  *const FieldElement,
+    nullifier:              *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
@@ -1752,7 +1761,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
 ) -> bool
 {
     match _zendoo_create_csw_test_proof(
-        zk, amount, sc_id, mc_pk_hash, cert_data_hash,
+        zk, amount, sc_id, nullifier, mc_pk_hash, cert_data_hash,
         end_cum_comm_tree_root, sc_pk, ret_code
     ){
         Ok(proof) => {
@@ -1782,6 +1791,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
     zk:                     bool,
     amount:                 u64,
     sc_id:                  *const FieldElement,
+    nullifier:              *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
@@ -1792,7 +1802,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
 ) -> bool
 {
     match _zendoo_create_csw_test_proof(
-        zk, amount, sc_id, mc_pk_hash, cert_data_hash,
+        zk, amount, sc_id, nullifier, mc_pk_hash, cert_data_hash,
         end_cum_comm_tree_root, sc_pk, ret_code
     ){
         Ok(proof) => {
@@ -1869,6 +1879,7 @@ pub extern "C" fn zendoo_create_return_csw_test_proof(
     zk:                     bool,
     amount:                 u64,
     sc_id:                  *const FieldElement,
+    nullifier:              *const FieldElement,
     mc_pk_hash:             *const BufferWithSize,
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
@@ -1877,7 +1888,7 @@ pub extern "C" fn zendoo_create_return_csw_test_proof(
 ) -> *mut BufferWithSize
 {
     match _zendoo_create_csw_test_proof(
-        zk, amount, sc_id, mc_pk_hash, cert_data_hash,
+        zk, amount, sc_id, nullifier, mc_pk_hash, cert_data_hash,
         end_cum_comm_tree_root, sc_pk, ret_code
     ){
         Ok(sc_proof) => {
@@ -1931,10 +1942,16 @@ pub extern "C" fn zendoo_field_assert_eq(
     check_equal(field_1, field_2)
 }
 
-//#[no_mangle]
-//pub extern "C" fn zendoo_sc_vk_assert_eq(
-//    sc_vk_1: *const SCVk,
-//    sc_vk_2: *const SCVk,
-//) -> bool {
-//    check_equal(sc_vk_1, sc_vk_2)
-//}
+#[no_mangle]
+pub extern "C" fn zendoo_sc_proof_assert_eq(
+    sc_proof_1: *const ZendooProof,
+    sc_proof_2: *const ZendooProof,
+) -> bool {
+    let proof_1 = unsafe { &*sc_proof_1 };
+    let proof_2 = unsafe { &*sc_proof_2 };
+    match (proof_1, proof_2) {
+        (ZendooProof::CoboundaryMarlin(cob_marlin_proof_1), ZendooProof::CoboundaryMarlin(cob_marlin_proof_2)) => cob_marlin_proof_1 == cob_marlin_proof_2,
+        (ZendooProof::Darlin(darlin_proof_1), ZendooProof::Darlin(darlin_proof_2)) => darlin_proof_1 == darlin_proof_2,
+        _ => false
+    }
+}
