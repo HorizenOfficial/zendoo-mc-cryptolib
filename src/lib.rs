@@ -440,8 +440,8 @@ fn compress_decompress() {
         let processed_bit_vector = unsafe { slice::from_raw_parts((*uncompressed_buffer).data, (*uncompressed_buffer).len) };
         assert_eq!((0..100).collect::<Vec<u8>>(), processed_bit_vector);
 
-        zendoo_free_bit_vector(compressed_buffer);
-        zendoo_free_bit_vector(uncompressed_buffer);
+        zendoo_free_bws(compressed_buffer);
+        zendoo_free_bws(uncompressed_buffer);
     }
 }
 

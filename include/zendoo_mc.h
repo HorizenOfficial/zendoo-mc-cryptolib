@@ -237,10 +237,6 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-    void zendoo_free_bit_vector(BufferWithSize* buf) {
-        zendoo_free_bws(buf);
-    }
-
     //Poseidon hash related functions
 
     typedef struct poseidon_hash poseidon_hash_t;
