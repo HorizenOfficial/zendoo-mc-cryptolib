@@ -565,8 +565,8 @@ TEST_SUITE("Bit Vector") {
         }
 
         // Free memory
-        zendoo_free_bit_vector(compressed_bit_vec_bwt);
-        zendoo_free_bit_vector(decompressed_bit_vec_bwt);
+        zendoo_free_bws(compressed_bit_vec_bwt);
+        zendoo_free_bws(decompressed_bit_vec_bwt);
     }
 
     TEST_CASE("Compress/Decompress") {
