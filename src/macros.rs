@@ -7,13 +7,13 @@ use std::{
 };
 
 #[allow(unused_macros)]
-
 macro_rules! log {
     ($msg: expr) => {{
         println!("[{}:{}] {:?}", file!(), line!(), $msg)
     }};
 }
 
+#[allow(unused_macros)]
 #[cfg(debug_assertions)]
 macro_rules! log_dbg {
     ($msg: expr) => {{
@@ -21,6 +21,7 @@ macro_rules! log_dbg {
     }};
 }
 
+#[allow(unused_macros)]
 #[cfg(not(debug_assertions))]
 macro_rules! log_dbg {
     ($msg: expr) => {{ () }};

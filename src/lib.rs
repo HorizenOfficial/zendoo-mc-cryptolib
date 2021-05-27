@@ -12,6 +12,9 @@ use std::{
 #[cfg(not(target_os = "windows"))]
 use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
 
+#[cfg(target_os = "windows")]
+use std::{ffi::OsString, os::windows::ffi::OsStringExt};
+
 use cctp_primitives::{
     bit_vector::{compression::*, merkle_tree::*},
     commitment_tree::CommitmentTree,
@@ -62,18 +65,6 @@ pub(crate) fn get_hex<T: CanonicalSerialize>(elem: &T) -> String {
     }
 
     hex_string
-}
-
-#[cfg(target_os = "windows")]
-fn parse_path<'a>(
-    path:       *const u16,
-    path_len:   usize,
-) -> &'a Path
-{
-    let path_str = OsString::from_wide(unsafe {
-        slice::from_raw_parts(path, path_len)
-    });
-    Path::new(&path_str)
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -520,7 +511,10 @@ pub extern "C" fn zendoo_init_dlog_keys(
 ) -> bool
 {
     // Read params_dir
-    let params_dir = parse_path(params_dir, params_dir_len);
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    });
+    let params_dir = Path::new(&path_str);
 
     // Get DLOG keys
     _zendoo_init_dlog_keys(segment_size, segment_size, params_dir, ret_code)
@@ -553,7 +547,10 @@ pub extern "C" fn zendoo_init_dlog_keys_test_mode(
 ) -> bool
 {
     // Read params_dir
-    let params_dir = parse_path(params_dir, params_dir_len);
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    });
+    let params_dir = Path::new(&path_str);
 
     // Get DLOG keys
     _zendoo_init_dlog_keys(max_segment_size, supported_segment_size, params_dir, ret_code)
@@ -647,10 +644,14 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     vk_path: *const u16,
     vk_path_len: usize,
     semantic_checks: bool,
+    ret_code: &mut CctpErrorCode
 ) -> *mut ZendooVerifierKey
 {
     // Read file path
-    let vk_path = parse_path(vk_path, vk_path_len);
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(vk_path, vk_path_len)
+    });
+    let vk_path = Path::new(&path_str);
 
     // Deserialize vk
     try_deserialize_to_raw_pointer_from_file!("vk", vk_path, semantic_checks, ret_code, null_mut())
@@ -1422,7 +1423,11 @@ pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
 ) -> *mut ZendooProof
 {
     // Read file path
-    let proof_path = parse_path(proof_path, proof_path_len);
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    });
+    let proof_path = Path::new(&path_str);
+
     try_deserialize_to_raw_pointer_from_file!("sc_proof", proof_path, semantic_checks, ret_code, null_mut())
 }
 
@@ -1450,7 +1455,11 @@ pub extern "C" fn zendoo_deserialize_sc_pk_from_file(
 ) -> *mut ZendooProverKey
 {
     // Read file path
-    let pk_path = parse_path(pk_path, pk_path_len);
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(pk_path, pk_path_len)
+    });
+    let pk_path = Path::new(&path_str);
+
     try_deserialize_to_raw_pointer_from_file!("sc_pk", pk_path, semantic_checks, ret_code, null_mut())
 }
 
@@ -1557,7 +1566,12 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     ret_code:       &mut CctpErrorCode,
 ) -> bool
 {
-    let params_dir = parse_path(params_dir, params_dir_len);
+    // Read params_dir
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(params_dir, params_dir_len)
+    });
+    let params_dir = Path::new(&path_str);
+
     _zendoo_generate_mc_test_params(circ_type, ps_type, params_dir, ret_code)
 }
 
@@ -1690,7 +1704,10 @@ pub extern "C" fn zendoo_create_cert_test_proof(
         end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, ret_code
     ){
         Ok(proof) => {
-            let proof_path = parse_path(proof_path, proof_path_len);
+            let path_str = OsString::from_wide(unsafe {
+                slice::from_raw_parts(proof_path, proof_path_len)
+            });
+            let proof_path = Path::new(&path_str);
 
             // Write proof to file
             let proof_ser_res = write_to_file(&proof, &proof_path);
@@ -1806,7 +1823,10 @@ pub extern "C" fn zendoo_create_csw_test_proof(
         end_cum_comm_tree_root, sc_pk, ret_code
     ){
         Ok(proof) => {
-            let proof_path = parse_path(proof_path, proof_path_len);
+            let path_str = OsString::from_wide(unsafe {
+                slice::from_raw_parts(proof_path, proof_path_len)
+            });
+            let proof_path = Path::new(&path_str);
 
             // Write proof to file
             let proof_ser_res = write_to_file(&proof, &proof_path);
