@@ -26,6 +26,7 @@ extern "C" {
             InvalidValue,
             InvalidBufferData,
             InvalidBufferLength,
+            InvalidListLength,
             InvalidFile,
             HashingError,
             MerkleTreeError,
@@ -73,6 +74,10 @@ extern "C" {
      */
     void zendoo_field_free(field_t* field);
 
+    /*
+     * Print field bytes
+     */
+    void zendoo_print_field(field_t* field);
 
     struct BufferWithSize {
         const unsigned char* data;
@@ -81,6 +86,9 @@ extern "C" {
         BufferWithSize(): data(NULL), len(0) {}
         BufferWithSize(const unsigned char* dataIn, size_t lenIn): data(dataIn), len(lenIn) {}
     };
+
+    /* Free a BufferWithSize allocated Rust-side */
+    void zendoo_free_bws(BufferWithSize* buf);
 
     // Commitment Tree related declarations
 
@@ -113,6 +121,11 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
+    /*
+     * Adds a Sidechain Creation to the commitment tree. Returns true if operation was successful, false otherwise.
+     * NOTE: `custom_field_elements_config`, `custom_bv_elements_config`, `custom_creation_data`, `constant` and `csw_vk`
+     *       can be NULL.
+     */
     bool zendoo_commitment_tree_add_scc(
         commitment_tree_t *ptr,
         const field_t* sc_id,
@@ -134,6 +147,9 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
+    /*
+     * Adds a Forward Transfer to the commitment tree. Returns true if operation was successful, false otherwise.
+     */
     bool zendoo_commitment_tree_add_fwt(
         commitment_tree_t *ptr,
         const field_t* sc_id,
@@ -144,6 +160,9 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
+    /*
+     * Adds a Backward Transfer Request to the commitment tree. Returns true if operation was successful, false otherwise.
+     */
     bool zendoo_commitment_tree_add_bwtr(
         commitment_tree_t *ptr,
         const field_t* sc_id,
@@ -156,6 +175,9 @@ extern "C" {
         CctpErrorCode *ret_code
     );
 
+    /*
+     * Adds a Ceased Sidechain Withdrawal to the commitment tree. Returns true if operation was successful, false otherwise.
+     */
     bool zendoo_commitment_tree_add_csw(
         commitment_tree_t *ptr,
         const field_t* sc_id,
@@ -165,6 +187,10 @@ extern "C" {
         CctpErrorCode *ret_code
     );
 
+    /*
+     * Adds a Certificate to the commitment tree. Returns true if operation was successful, false otherwise.
+     * NOTE: `bt_list` and `custom_fields` can be NULL.
+     */
     bool zendoo_commitment_tree_add_cert(
         commitment_tree_t *ptr,
         const field_t* sc_id,
@@ -210,8 +236,6 @@ extern "C" {
         size_t expected_decomp_len,
         CctpErrorCode* ret_code
     );
-
-    void zendoo_free_bit_vector(BufferWithSize* buf);
 
     //Poseidon hash related functions
 
@@ -522,8 +546,15 @@ extern "C" {
     //SC SNARK related functions
 
     bool zendoo_init_dlog_keys(
-        ProvingSystem ps_type,
         size_t segment_size,
+        const path_char_t* params_dir,
+        size_t params_dir_len,
+        CctpErrorCode* ret_code
+    );
+
+    bool zendoo_init_dlog_keys_test_mode(
+        size_t max_segment_size,
+        size_t supported_segment_size,
         const path_char_t* params_dir,
         size_t params_dir_len,
         CctpErrorCode* ret_code
@@ -618,8 +649,8 @@ extern "C" {
         const field_t* end_cum_comm_tree_root,
         uint64_t btr_fee,
         uint64_t ft_min_amount,
-        sc_proof_t* sc_proof,
-        sc_vk_t*    sc_vk,
+        const sc_proof_t* sc_proof,
+        const sc_vk_t*    sc_vk,
         CctpErrorCode* ret_code
     );
 
@@ -630,6 +661,22 @@ extern "C" {
      */
     field_t* zendoo_get_phantom_cert_data_hash();
 
+    /*
+     * Compute cert data hash.
+     */
+    field_t* zendoo_get_cert_data_hash(
+        uint32_t epoch_number,
+        uint64_t quality,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
+        const field_t** custom_fields,
+        size_t custom_fields_len,
+        const field_t* end_cum_comm_tree_root,
+        uint64_t btr_fee,
+        uint64_t ft_min_amount,
+        CctpErrorCode* ret_code
+    );
+
     /*  Verify a CSW proof sc_proof `sc_proof` given its corresponding sc_vk `sc_vk`
      *  and all the data needed to construct proof's public inputs. Return true if
      *  proof verification was successful, false otherwise.
@@ -637,11 +684,12 @@ extern "C" {
     bool zendoo_verify_csw_proof(
         uint64_t amount,
         const field_t* sc_id,
+        const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
-        sc_proof_t* sc_proof,
-        sc_vk_t*    sc_vk,
+        const sc_proof_t* sc_proof,
+        const sc_vk_t*    sc_vk,
         CctpErrorCode* ret_code
     );
 
@@ -674,8 +722,8 @@ extern "C" {
         const field_t* end_cum_comm_tree_root,
         uint64_t btr_fee,
         uint64_t ft_min_amount,
-        sc_proof_t* sc_proof,
-        sc_vk_t*    sc_vk,
+        const sc_proof_t* sc_proof,
+        const sc_vk_t*    sc_vk,
         CctpErrorCode* ret_code
     );
 
@@ -691,11 +739,12 @@ extern "C" {
         uint32_t proof_id,
         uint64_t amount,
         const field_t* sc_id,
+        const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
-        sc_proof_t* sc_proof,
-        sc_vk_t*    sc_vk,
+        const sc_proof_t* sc_proof,
+        const sc_vk_t*    sc_vk,
         CctpErrorCode* ret_code
     );
 
@@ -759,8 +808,8 @@ extern "C" {
             const field_t* end_cum_comm_tree_root,
             uint64_t btr_fee,
             uint64_t ft_min_amount,
-            sc_proof_t* sc_proof,
-            sc_vk_t*    sc_vk,
+            const sc_proof_t* sc_proof,
+            const sc_vk_t*    sc_vk,
             CctpErrorCode* ret_code
         )
         {
@@ -776,18 +825,18 @@ extern "C" {
             uint32_t proof_id,
             uint64_t amount,
             const field_t* sc_id,
+            const field_t* nullifier,
             const BufferWithSize* mc_pk_hash,
             const field_t* cert_data_hash,
             const field_t* end_cum_comm_tree_root,
-            sc_proof_t* sc_proof,
-            sc_vk_t*    sc_vk,
+            const sc_proof_t* sc_proof,
+            const sc_vk_t*    sc_vk,
             CctpErrorCode* ret_code
         )
         {
             return zendoo_add_csw_proof_to_batch_verifier(
-                batch_verifier, proof_id, amount, sc_id, mc_pk_hash,
-                cert_data_hash, end_cum_comm_tree_root, sc_proof,
-                sc_vk, ret_code
+                batch_verifier, proof_id, amount, sc_id, nullifier, mc_pk_hash,
+                cert_data_hash, end_cum_comm_tree_root, sc_proof, sc_vk, ret_code
             );
         }
 
@@ -862,7 +911,10 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-    /* Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path */
+    /*
+     * Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path.
+     * Return true if operation was successful, false otherwise.
+     */
     bool zendoo_create_cert_test_proof(
         bool zk,
         const field_t* constant,
@@ -870,6 +922,8 @@ extern "C" {
         uint64_t quality,
         const backward_transfer_t* bt_list,
         size_t bt_list_len,
+        const field_t** custom_fields,
+        size_t custom_fields_len,
         const field_t* end_cum_comm_tree_root,
         uint64_t btr_fee,
         uint64_t ft_min_amount,
@@ -879,11 +933,15 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-    /* Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path */
-    bool zendoo_create_csw_test_proof(
+    /*
+     * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path.
+     * Return true if operation was successful, false otherwise.
+     */
+     bool zendoo_create_csw_test_proof(
         bool zk,
         uint64_t amount,
         const field_t* sc_id,
+        const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
@@ -893,12 +951,48 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-     /* Return `true` if the vks pointed by `sc_vk_1` and `sc_vk_2` are
+    /*
+     * Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path.
+     * Return true if operation was successful, false otherwise.
+     */
+    BufferWithSize* zendoo_create_return_cert_test_proof(
+        bool zk,
+        const field_t* constant,
+        uint32_t epoch_number,
+        uint64_t quality,
+        const backward_transfer_t* bt_list,
+        size_t bt_list_len,
+        const field_t** custom_fields,
+        size_t custom_fields_len,
+        const field_t* end_cum_comm_tree_root,
+        uint64_t btr_fee,
+        uint64_t ft_min_amount,
+        const sc_pk_t* pk,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path.
+     * Return true if operation was successful, false otherwise.
+     */
+     BufferWithSize* zendoo_create_return_csw_test_proof(
+        bool zk,
+        uint64_t amount,
+        const field_t* sc_id,
+        const field_t* nullifier,
+        const BufferWithSize* mc_pk_hash,
+        const field_t* cert_data_hash,
+        const field_t* end_cum_comm_tree_root,
+        const sc_pk_t* pk,
+        CctpErrorCode* ret_code
+    );
+
+     /* Return `true` if the proofs pointed by `sc_proof_1` and `sc_proof_2` are
       * equal, and `false` otherwise.
       */
-     bool zendoo_sc_vk_assert_eq(
-         const sc_vk_t* sc_vk_1,
-         const sc_vk_t* sc_vk_2
+     bool zendoo_sc_proof_assert_eq(
+         const sc_proof_t* sc_proof_1,
+         const sc_proof_t* sc_proof_2
      );
 
 }

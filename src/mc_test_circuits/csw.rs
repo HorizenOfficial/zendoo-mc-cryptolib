@@ -139,6 +139,7 @@ pub fn generate_proof(
     zk:                                         bool,
     amount:                                     u64,
     sc_id:                                      &FieldElement,
+    nullifier:                                  &FieldElement,
     pub_key_hash:                               &[u8; UINT_160_SIZE],
     cert_data_hash:                             &FieldElement,
     end_cumulative_sc_tx_commitment_tree_root:  &FieldElement,
@@ -152,7 +153,7 @@ pub fn generate_proof(
         .get_field_elements().map_err(|e| ProvingSystemError::Other(format!("{:?}", e)))?;
 
     fes.append(&mut vec![
-        *sc_id, *cert_data_hash, *end_cumulative_sc_tx_commitment_tree_root
+        *sc_id, *nullifier, *cert_data_hash, *end_cumulative_sc_tx_commitment_tree_root
     ]);
 
     let aggregated_input = hash_vec(fes).map_err(|e| ProvingSystemError::Other(format!("{:?}", e)))?;
