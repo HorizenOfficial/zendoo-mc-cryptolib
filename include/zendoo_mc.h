@@ -547,16 +547,12 @@ extern "C" {
 
     bool zendoo_init_dlog_keys(
         size_t segment_size,
-        const path_char_t* params_dir,
-        size_t params_dir_len,
         CctpErrorCode* ret_code
     );
 
     bool zendoo_init_dlog_keys_test_mode(
         size_t max_segment_size,
         size_t supported_segment_size,
-        const path_char_t* params_dir,
-        size_t params_dir_len,
         CctpErrorCode* ret_code
     );
 
@@ -680,6 +676,7 @@ extern "C" {
     /*  Verify a CSW proof sc_proof `sc_proof` given its corresponding sc_vk `sc_vk`
      *  and all the data needed to construct proof's public inputs. Return true if
      *  proof verification was successful, false otherwise.
+     *  `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
      */
     bool zendoo_verify_csw_proof(
         uint64_t amount,
@@ -730,6 +727,7 @@ extern "C" {
     /*  Verify a CSW proof sc_proof `sc_proof` given its corresponding sc_vk `sc_vk`
      *  and all the data needed to construct proof's public inputs. Return true if
      *  proof verification was successful, false otherwise.
+     *  `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
      *  NOTE: proof, vk and the public input derived from the other data will be
      *        copied in order to store them in `batch_verifier` state, so they
      *        can be immediately freed afterwards.
@@ -936,6 +934,7 @@ extern "C" {
     /*
      * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path.
      * Return true if operation was successful, false otherwise.
+     *  `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
      */
      bool zendoo_create_csw_test_proof(
         bool zk,
@@ -974,6 +973,7 @@ extern "C" {
     /*
      * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path.
      * Return true if operation was successful, false otherwise.
+     *  `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
      */
      BufferWithSize* zendoo_create_return_csw_test_proof(
         bool zk,

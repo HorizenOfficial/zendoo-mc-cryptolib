@@ -478,19 +478,15 @@ pub extern "C" fn zendoo_print_field(field: *const FieldElement) {
 fn _zendoo_init_dlog_keys(
     max_segment_size: usize,
     supported_segment_size: usize,
-    params_dir: &Path,
     ret_code: &mut CctpErrorCode
 ) -> bool
 {
-    let ck_g1_path = params_dir.join("ck_g1");
-    let ck_g2_path = params_dir.join("ck_g2");
+    *ret_code = CctpErrorCode::OK;
 
     match init_dlog_keys(
         ProvingSystem::Darlin,
         max_segment_size,
         supported_segment_size,
-        &ck_g1_path,
-        &ck_g2_path
     ) {
         Ok(()) => true,
         Err(e) => {
@@ -501,76 +497,25 @@ fn _zendoo_init_dlog_keys(
     }
 }
 
-#[cfg(target_os = "windows")]
 #[no_mangle]
 pub extern "C" fn zendoo_init_dlog_keys(
     segment_size: usize,
-    params_dir: *const u16,
-    params_dir_len: usize,
     ret_code: &mut CctpErrorCode
 ) -> bool
 {
-    // Read params_dir
-    let path_str = OsString::from_wide(unsafe {
-        slice::from_raw_parts(params_dir, params_dir_len)
-    });
-    let params_dir = Path::new(&path_str);
-
     // Get DLOG keys
-    _zendoo_init_dlog_keys(segment_size, segment_size, params_dir, ret_code)
+    _zendoo_init_dlog_keys(segment_size, segment_size, ret_code)
 }
 
-#[cfg(not(target_os = "windows"))]
-#[no_mangle]
-pub extern "C" fn zendoo_init_dlog_keys(
-    segment_size: usize,
-    params_dir: *const u8,
-    params_dir_len: usize,
-    ret_code: &mut CctpErrorCode
-) -> bool
-{
-    // Read params_dir
-    let params_dir = parse_path(params_dir, params_dir_len);
-
-    // Get DLOG keys
-    _zendoo_init_dlog_keys(segment_size, segment_size, params_dir, ret_code)
-}
-
-#[cfg(target_os = "windows")]
 #[no_mangle]
 pub extern "C" fn zendoo_init_dlog_keys_test_mode(
     max_segment_size: usize,
     supported_segment_size: usize,
-    params_dir: *const u16,
-    params_dir_len: usize,
     ret_code: &mut CctpErrorCode
 ) -> bool
 {
-    // Read params_dir
-    let path_str = OsString::from_wide(unsafe {
-        slice::from_raw_parts(params_dir, params_dir_len)
-    });
-    let params_dir = Path::new(&path_str);
-
     // Get DLOG keys
-    _zendoo_init_dlog_keys(max_segment_size, supported_segment_size, params_dir, ret_code)
-}
-
-#[cfg(not(target_os = "windows"))]
-#[no_mangle]
-pub extern "C" fn zendoo_init_dlog_keys_test_mode(
-    max_segment_size: usize,
-    supported_segment_size: usize,
-    params_dir: *const u8,
-    params_dir_len: usize,
-    ret_code: &mut CctpErrorCode
-) -> bool
-{
-    // Read params_dir
-    let params_dir = parse_path(params_dir, params_dir_len);
-
-    // Get DLOG keys
-    _zendoo_init_dlog_keys(max_segment_size, supported_segment_size, params_dir, ret_code)
+    _zendoo_init_dlog_keys(max_segment_size, supported_segment_size, ret_code)
 }
 
 #[no_mangle]
@@ -763,6 +708,8 @@ pub extern "C" fn zendoo_verify_certificate_proof(
     }
 }
 
+use cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH;
+
 fn get_csw_proof_usr_ins<'a>(
     amount:                 u64,
     sc_id:                  *const FieldElement,
@@ -779,7 +726,7 @@ fn get_csw_proof_usr_ins<'a>(
     let rs_mc_pk_hash = try_get_buffer_constant_size!("mc_pk_hash", mc_pk_hash, UINT_160_SIZE, ret_code, None);
 
     // Read field element
-    let rs_cert_data_hash =         try_read_raw_pointer!("cert_data_hash",         cert_data_hash,         ret_code, None);
+    let rs_cert_data_hash = try_read_optional_raw_pointer!("cert_data_hash", cert_data_hash, ret_code, None);
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, None);
 
     // Create and return usr ins
@@ -788,14 +735,14 @@ fn get_csw_proof_usr_ins<'a>(
         sc_id: rs_sc_id,
         nullifier: rs_nullifier,
         pub_key_hash: rs_mc_pk_hash,
-        cert_data_hash: rs_cert_data_hash,
+        cert_data_hash: if rs_cert_data_hash.is_some() { rs_cert_data_hash.unwrap() } else { &PHANTOM_CERT_DATA_HASH },
         end_cumulative_sc_tx_commitment_tree_root: rs_end_cum_comm_tree_root
     })
 }
 
 #[no_mangle]
 pub extern "C" fn zendoo_get_phantom_cert_data_hash() -> *mut FieldElement {
-    Box::into_raw(Box::new(cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH))
+    Box::into_raw(Box::new(PHANTOM_CERT_DATA_HASH))
 }
 
 #[no_mangle]
@@ -1742,7 +1689,7 @@ fn _zendoo_create_csw_test_proof(
 {
     let rs_sc_id                  = try_read_raw_pointer!("sc_id",                  sc_id,                  ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_nullifier              = try_read_raw_pointer!("nullifier",              nullifier,              ret_code, Err(ProvingSystemError::Other("".to_owned())));
-    let rs_cert_data_hash         = try_read_raw_pointer!("cert_data_hash",         cert_data_hash,         ret_code, Err(ProvingSystemError::Other("".to_owned())));
+    let rs_cert_data_hash         = try_read_optional_raw_pointer!("cert_data_hash",         cert_data_hash,         ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_pk                     = try_read_raw_pointer!("sc_pk",                  sc_pk,                  ret_code, Err(ProvingSystemError::Other("".to_owned())));
 
@@ -1756,7 +1703,7 @@ fn _zendoo_create_csw_test_proof(
         rs_sc_id,
         rs_nullifier,
         rs_mc_pk_hash,
-        rs_cert_data_hash,
+        if rs_cert_data_hash.is_some() { rs_cert_data_hash.unwrap() } else { &PHANTOM_CERT_DATA_HASH },
         rs_end_cum_comm_tree_root
     )
 }

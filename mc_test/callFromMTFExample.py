@@ -55,7 +55,7 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk):
     os.remove(params_dir + str(ps_type) + str("_cert_test_pk"))
     os.remove(params_dir + str(ps_type) + str("_cert_test_vk"))
 
-def csw_proof_test(proof_path, params_dir, ps_type, zk):
+def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present):
 
     # Setup SNARK pk and vk
     generate_params(params_dir, "csw", ps_type);
@@ -66,7 +66,6 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk):
     nullifier = generate_random_field_element_hex()
     mc_pk_hash = binascii.b2a_hex(os.urandom(20))
     end_cum_comm_tree_root = generate_random_field_element_hex()
-    cert_data_hash = generate_random_field_element_hex()
 
     # Generate and verify proof
     args = ["./mcTest", "create", "csw", str(ps_type), "-v"]
@@ -74,7 +73,9 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk):
         args.append("-zk")
     args.append(str(proof_path))
     args.append(str(params_dir))
-    args += [str(amount), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root), str(cert_data_hash)]
+    args += [str(amount), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root)]
+    if cert_data_hash_present:
+        args.append(str(generate_random_field_element_hex()))
     subprocess.check_call(args)
 
     # Delete files
@@ -110,10 +111,11 @@ if __name__ == "__main__":
     cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 0, False)
 
     # Test csw proof
-    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True)
-    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False)
-    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True)
-    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False)
-
-    os.remove(data_dir + str("ck_g1"))
-    os.remove(data_dir + str("ck_g2"))
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True, True)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True, False)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False, True)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False, False)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True, True)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True, False)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, True)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, False)
