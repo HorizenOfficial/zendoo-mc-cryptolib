@@ -752,14 +752,22 @@ extern "C" {
      * if it's possibile to estabilish it, to -1 otherwise.
      */
     struct ZendooBatchProofVerifierResult {
-        bool result;
-        int64_t failing_proof;
+        bool            result;
+        const uint32_t* failing_proofs;
+        size_t          failing_proofs_len;
+
+        ZendooBatchProofVerifierResult(): failing_proofs(NULL), failing_proofs_len(0) {}
+        ZendooBatchProofVerifierResult(const uint32_t* failing_proofs, size_t failing_proofs_len):
+            failing_proofs(failing_proofs), failing_proofs_len(failing_proofs_len) {}
     };
+
+    /* Free a BufferWithSize allocated Rust-side */
+    void zendoo_free_batch_proof_verifier_result(ZendooBatchProofVerifierResult* result);
 
     /*
      * Perform batch verification of all the proofs added to `batch_verifier`.
      */
-    ZendooBatchProofVerifierResult zendoo_batch_verify_all_proofs(
+    ZendooBatchProofVerifierResult* zendoo_batch_verify_all_proofs(
         const sc_batch_proof_verifier_t* batch_verifier,
         CctpErrorCode* ret_code
     );
@@ -767,7 +775,7 @@ extern "C" {
     /*
      * Perform batch verification of the proofs added to `batch_verifier` whose id is contained in `ids_list`.
      */
-    ZendooBatchProofVerifierResult zendoo_batch_verify_proofs_by_id(
+    ZendooBatchProofVerifierResult* zendoo_batch_verify_proofs_by_id(
         const sc_batch_proof_verifier_t* batch_verifier,
         const uint32_t* ids_list,
         size_t ids_list_len,
@@ -838,11 +846,11 @@ extern "C" {
             );
         }
 
-        ZendooBatchProofVerifierResult batch_verify_all(CctpErrorCode* ret_code) {
+        ZendooBatchProofVerifierResult* batch_verify_all(CctpErrorCode* ret_code) {
             return zendoo_batch_verify_all_proofs(batch_verifier, ret_code);
         }
 
-        ZendooBatchProofVerifierResult batch_verify_subset(const uint32_t* ids_list, size_t ids_list_len, CctpErrorCode* ret_code) {
+        ZendooBatchProofVerifierResult* batch_verify_subset(const uint32_t* ids_list, size_t ids_list_len, CctpErrorCode* ret_code) {
             return zendoo_batch_verify_proofs_by_id(batch_verifier, ids_list, ids_list_len, ret_code);
         }
         
