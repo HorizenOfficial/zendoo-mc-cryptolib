@@ -1216,39 +1216,51 @@ TEST_SUITE("ZendooBatchProofVerifier") {
 
         // Batch verify all proofs
         auto result_1 = batch_verifier.batch_verify_all(&ret_code);
-        CHECK(result_1.result == true);
-        CHECK(result_1.failing_proof == -1);
+        CHECK(result_1->result == true);
+        CHECK(result_1->failing_proofs == NULL);
+        CHECK(result_1->failing_proofs_len == 0);
         CHECK(ret_code == CctpErrorCode::OK);
+        zendoo_free_batch_proof_verifier_result(result_1);
 
         // Batch verify subset
         const uint32_t ids[5] = {0, 2, 5, 7, 9};
         auto result_2 = batch_verifier.batch_verify_subset(ids, 5, &ret_code);
-        CHECK(result_2.result == true);
-        CHECK(result_2.failing_proof == -1);
+        CHECK(result_2->result == true);
+        CHECK(result_2->failing_proofs == NULL);
+        CHECK(result_2->failing_proofs_len == 0);
         CHECK(ret_code == CctpErrorCode::OK);
+        zendoo_free_batch_proof_verifier_result(result_2);
 
-        // Add a wrong proof to the verifier
-        add_random_cert_proof(
-            &batch_verifier,
-            num_proofs,
-            pk_path + std::string("/cob_marlin_cert_test_pk"),
-            vk_path + std::string("/cob_marlin_cert_test_vk"),
-            true
-        );
+        // Add wrong proofs to the verifier
+        for(uint32_t i = num_proofs; i < num_proofs + 10; i++) {
+            add_random_cert_proof(
+                &batch_verifier,
+                i,
+                pk_path + std::string("/cob_marlin_cert_test_pk"),
+                vk_path + std::string("/cob_marlin_cert_test_vk"),
+                true
+            );
+        }
 
         // Check batch verification of all proofs fails
         auto result_3 = batch_verifier.batch_verify_all(&ret_code);
-        CHECK(result_3.result == false);
+        CHECK(result_3->result == false);
+        CHECK(result_3->failing_proofs != NULL);
+        CHECK(result_3->failing_proofs_len == 10);
         CHECK(ret_code == CctpErrorCode::OK);
 
-        // We should be able to retrieve the index of the failing proof
-        CHECK(result_3.failing_proof == num_proofs);
+        // We should be able to retrieve the indices of the failing proof
+        for(uint32_t i = 0; i < num_proofs; i++){
+            CHECK(result_3->failing_proofs[i] == i + 10);
+        }
+        zendoo_free_batch_proof_verifier_result(result_3);
 
         // Check batch verification of all proofs minus the new one passes
         const uint32_t new_ids[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         auto result_4 = batch_verifier.batch_verify_subset(new_ids, 10, &ret_code);
-        CHECK(result_4.result == true);
-        CHECK(result_4.failing_proof == -1);
+        CHECK(result_4->result == true);
+        CHECK(result_4->failing_proofs == NULL);
+        CHECK(result_4->failing_proofs_len == 0);
         CHECK(ret_code == CctpErrorCode::OK);
 
         bool init_result_3 = zendoo_init_dlog_keys_test_mode(
@@ -1261,8 +1273,9 @@ TEST_SUITE("ZendooBatchProofVerifier") {
 
         // Check batch verification of all valid proofs fails
         auto result_5 = batch_verifier.batch_verify_subset(new_ids, 10, &ret_code);
-        CHECK(result_5.result == false);
-        CHECK(result_5.failing_proof == -1); // Should fail in the hard part, so it won't be possible to determine the index
+        CHECK(result_5->result == false);
+        CHECK(result_5->result == NULL);
+        CHECK(result_5->failing_proofs_len == 0); // Should fail in the hard part, so it won't be possible to determine the index
         CHECK(ret_code == CctpErrorCode::OK);
 
         bool init_result_4 = zendoo_init_dlog_keys_test_mode(
@@ -1275,11 +1288,17 @@ TEST_SUITE("ZendooBatchProofVerifier") {
 
         // Check batch verification of all valid proofs fails
         auto result_6 = batch_verifier.batch_verify_subset(new_ids, 10, &ret_code);
+        CHECK(result_6->result == false);
+        CHECK(result_6->failing_proofs != NULL);
+        CHECK(result_6->failing_proofs_len == 10);
         CHECK(ret_code == CctpErrorCode::OK);
-        CHECK(result_6.result == false);
-        // Hash of the key will differ, so we expect failure in the succinct part, e.g. we should
-        // be able to get the index of the first failing proof
-        CHECK(result_6.failing_proof != -1);
+
+        // Hash of the key will differ, so we expect failure in the succinct part,
+        // all proofs will fail, therefore we should get all their indices
+        for(uint32_t i = 0; i < num_proofs; i++){
+            CHECK(result_6->failing_proofs[i] == i);
+        }
+        zendoo_free_batch_proof_verifier_result(result_6);
 
         // Delete files
         remove((pk_path + std::string("/darlin_csw_test_pk")).c_str());

@@ -351,9 +351,10 @@ pub extern "C" fn zendoo_compress_bit_vector(
 
     match compress_bit_vector(bit_vector, algorithm) {
         Ok(mut compressed_bit_vector) => {
-            let data = compressed_bit_vector.as_mut_ptr();
+            compressed_bit_vector.shrink_to_fit();
             let len = compressed_bit_vector.len();
             assert_eq!(len, compressed_bit_vector.capacity());
+            let data = compressed_bit_vector.as_mut_ptr();
             std::mem::forget(compressed_bit_vector);
             let bit_vector_buffer = BufferWithSize {data, len};
 
@@ -378,8 +379,10 @@ pub extern "C" fn zendoo_decompress_bit_vector(
 
     match decompress_bit_vector(compressed_slice, expected_uncompressed_size) {
         Ok(mut decompressed_bit_vector) => {
-            let data = decompressed_bit_vector.as_mut_ptr();
+            decompressed_bit_vector.shrink_to_fit();
             let len = decompressed_bit_vector.len();
+            assert_eq!(len, decompressed_bit_vector.capacity());
+            let data = decompressed_bit_vector.as_mut_ptr();
             std::mem::forget(decompressed_bit_vector);
             let bit_vector_buffer = BufferWithSize {data, len};
 
@@ -527,9 +530,10 @@ pub extern "C" fn zendoo_serialize_sc_proof(
     let sc_proof = try_read_raw_pointer!("proof", sc_proof, ret_code, null_mut());
     match serialize_to_buffer(sc_proof) {
         Ok(mut sc_proof_bytes) => {
-
-            let data = sc_proof_bytes.as_mut_ptr();
+            sc_proof_bytes.shrink_to_fit();
             let len = sc_proof_bytes.len();
+            assert_eq!(len, sc_proof_bytes.capacity());
+            let data = sc_proof_bytes.as_mut_ptr();
             std::mem::forget(sc_proof_bytes);
             Box::into_raw(Box::new(BufferWithSize { data, len }))
         },
@@ -830,14 +834,24 @@ pub extern "C" fn zendoo_verify_csw_proof(
 
 #[repr(C)]
 pub struct ZendooBatchProofVerifierResult {
-    pub result:         bool,
-    pub failing_proof:  i64,
+    pub result:             bool,
+    pub failing_proofs:     *mut u32,
+    pub num_failing_proofs: usize,
 }
 
 impl Default for ZendooBatchProofVerifierResult {
     fn default() -> Self {
-        Self { result: false, failing_proof: -1 }
+        Self { result: false, failing_proofs: null_mut(), num_failing_proofs: 0 }
     }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_free_batch_proof_verifier_result(raw_result: *mut ZendooBatchProofVerifierResult) {
+    if raw_result.is_null() { return };
+    unsafe {
+        let result = Box::from_raw(raw_result);
+        Vec::from_raw_parts((*result).failing_proofs, (*result).num_failing_proofs, (*result).num_failing_proofs);
+    };
 }
 
 #[no_mangle]
@@ -937,34 +951,42 @@ pub extern "C" fn zendoo_add_csw_proof_to_batch_verifier(
 pub extern "C" fn zendoo_batch_verify_all_proofs(
     batch_verifier: *const ZendooBatchVerifier,
     ret_code: &mut CctpErrorCode
-) -> ZendooBatchProofVerifierResult
+) -> *mut ZendooBatchProofVerifierResult
 {
     // Read batch verifier
-    let rs_batch_verifier = try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, ZendooBatchProofVerifierResult::default());
+    let rs_batch_verifier = try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, null_mut());
+
+    let mut ret = ZendooBatchProofVerifierResult::default();
 
     // Trigger batch verification
     match rs_batch_verifier.batch_verify_all(&mut OsRng::default()) {
 
-        // If success, return the result (of course there will be no failing_proof so set the value to -1)
-        Ok(result) => ZendooBatchProofVerifierResult { result, failing_proof: -1 },
+        // If success, return the result
+        Ok(result) => ret.result = result,
 
-        // Otherwise, return the index of the failing proof if it's possible to estabilish it.
+        // Otherwise, return the indices of the failing proofs if it's possible to estabilish it.
         Err(e) => {
             println!("{:?}", format!("Batch proof verification failure: {:?}", e));
-            let mut result = ZendooBatchProofVerifierResult { result: false, failing_proof: -1 };
-
             match e {
-                ProvingSystemError::FailedBatchVerification(maybe_id) => {
+                ProvingSystemError::FailedBatchVerification(maybe_ids) => {
                     *ret_code = CctpErrorCode::OK;
-                    if maybe_id.is_some() {
-                        result.failing_proof = maybe_id.unwrap() as i64;
+                    if maybe_ids.is_some() {
+                        // Return ids
+                        let mut ids = maybe_ids.unwrap();
+                        ids.shrink_to_fit();
+                        let len = ids.len();
+                        assert_eq!(len, ids.capacity());
+                        let ids_ptr = ids.as_mut_ptr();
+                        ret.failing_proofs = ids_ptr;
+                        ret.num_failing_proofs = len;
+                        std::mem::forget(ids);
                     }
                 },
                 _ => *ret_code = CctpErrorCode::BatchVerifierFailure
             }
-            result
         }
     }
+    Box::into_raw(Box::new(ret))
 }
 
 #[no_mangle]
@@ -973,37 +995,47 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     ids_list: *const u32,
     ids_list_len: usize,
     ret_code: &mut CctpErrorCode
-) -> ZendooBatchProofVerifierResult
+) -> *mut ZendooBatchProofVerifierResult
 {
     // Read batch verifier
-    let rs_batch_verifier = try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, ZendooBatchProofVerifierResult::default());
+    let rs_batch_verifier = try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, null_mut());
 
     // Get ids_list
-    let rs_ids_list = try_get_obj_list!("ids_list", ids_list, ids_list_len, ret_code, ZendooBatchProofVerifierResult::default());
+    let rs_ids_list = try_get_obj_list!("ids_list", ids_list, ids_list_len, ret_code, null_mut());
+
+    let mut ret = ZendooBatchProofVerifierResult::default();
 
     // Trigger batch verification of the proofs with specified id
     match rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default()) {
 
-        // If success, return the result (of course there will be no failing_proof so set the value to -1)
-        Ok(result) => ZendooBatchProofVerifierResult { result, failing_proof: -1 },
+        // If success, return the result
+        Ok(result) => {
+            ret.result = result;
+        },
 
-        // Otherwise, return the index of the failing proof if it's possible to estabilish it.
+        // Otherwise, return the indices of the failing proofs if it's possible to estabilish it.
         Err(e) => {
             println!("{:?}", format!("Batch proof verification failure: {:?}", e));
-            let mut result = ZendooBatchProofVerifierResult { result: false, failing_proof: -1 };
-
             match e {
-                ProvingSystemError::FailedBatchVerification(maybe_id) => {
+                ProvingSystemError::FailedBatchVerification(maybe_ids) => {
                     *ret_code = CctpErrorCode::OK;
-                    if maybe_id.is_some() {
-                        result.failing_proof = maybe_id.unwrap() as i64;
+                    if maybe_ids.is_some() {
+                        // Return ids
+                        let mut ids = maybe_ids.unwrap();
+                        ids.shrink_to_fit();
+                        let len = ids.len();
+                        assert_eq!(len, ids.capacity());
+                        let ids_ptr = ids.as_mut_ptr();
+                        ret.failing_proofs = ids_ptr;
+                        ret.num_failing_proofs = len;
+                        std::mem::forget(ids);
                     }
                 },
                 _ => *ret_code = CctpErrorCode::BatchVerifierFailure
             }
-            result
         }
     }
+    Box::into_raw(Box::new(ret))
 }
 
 #[no_mangle]
@@ -1818,9 +1850,10 @@ pub extern "C" fn zendoo_create_return_cert_test_proof(
         Ok(sc_proof) => {
             match serialize_to_buffer(&sc_proof) {
                 Ok(mut sc_proof_bytes) => {
-
-                    let data = sc_proof_bytes.as_mut_ptr();
+                    sc_proof_bytes.shrink_to_fit();
                     let len = sc_proof_bytes.len();
+                    assert_eq!(len, sc_proof_bytes.capacity());
+                    let data = sc_proof_bytes.as_mut_ptr();
                     std::mem::forget(sc_proof_bytes);
                     Box::into_raw(Box::new(BufferWithSize { data, len }))
                 },
@@ -1861,9 +1894,10 @@ pub extern "C" fn zendoo_create_return_csw_test_proof(
         Ok(sc_proof) => {
             match serialize_to_buffer(&sc_proof) {
                 Ok(mut sc_proof_bytes) => {
-
-                    let data = sc_proof_bytes.as_mut_ptr();
+                    sc_proof_bytes.shrink_to_fit();
                     let len = sc_proof_bytes.len();
+                    assert_eq!(len, sc_proof_bytes.capacity());
+                    let data = sc_proof_bytes.as_mut_ptr();
                     std::mem::forget(sc_proof_bytes);
                     Box::into_raw(Box::new(BufferWithSize { data, len }))
                 },

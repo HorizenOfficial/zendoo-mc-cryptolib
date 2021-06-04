@@ -44,6 +44,11 @@ version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
 
 [[package]]
+name = "bench-utils"
+version = "0.1.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes#f27a799fea2cb5b10a45827327ee72810d49aa23"
+
+[[package]]
 name = "bit-vec"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -103,10 +108,10 @@ checksum = "e3c69b077ad434294d3ce9f1f6143a2a4b89a8a2d54ef813d85003a4fd1137fd"
 [[package]]
 name = "cctp_primitives"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=dev_integration_2#b46b9587f612b60c841066d5aa4556f6e50ca8eb"
+source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=proofs_idx#9f4abcb8470d28a42dc81384c0cbc121a180ed63"
 dependencies = [
  "algebra",
- "bench-utils",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
  "bit-vec",
  "blake2",
  "byteorder",
@@ -297,12 +302,12 @@ version = "0.1.0"
 source = "git+https://github.com/HorizenLabs/marlin?branch=dev#514c309906f277da19cbdfeca039830a379b5174"
 dependencies = [
  "algebra",
- "bench-utils",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
  "derivative",
  "digest",
  "poly-commit",
  "r1cs-core",
- "r1cs-std",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
  "rand",
  "rand_chacha",
  "rand_core",
@@ -377,7 +382,7 @@ version = "0.1.0"
 source = "git+https://github.com/HorizenLabs/poly-commit?branch=dev#7d8a0f38c218229288c8885fb416b4005f9f7d59"
 dependencies = [
  "algebra",
- "bench-utils",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
  "derivative",
  "digest",
  "rand",
@@ -398,7 +403,7 @@ version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
 dependencies = [
  "algebra",
- "bench-utils",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
  "derivative",
  "hex",
  "rand",
@@ -418,17 +423,17 @@ dependencies = [
 [[package]]
 name = "proof-systems"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes#f27a799fea2cb5b10a45827327ee72810d49aa23"
 dependencies = [
  "algebra",
- "bench-utils",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes)",
  "byteorder",
  "derivative",
  "digest",
  "marlin",
  "poly-commit",
  "r1cs-core",
- "r1cs-std",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes)",
  "rand",
  "rayon",
  "serde",
@@ -459,11 +464,11 @@ version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
 dependencies = [
  "algebra",
- "bench-utils",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
  "derivative",
  "primitives",
  "r1cs-core",
- "r1cs-std",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
  "rand",
  "rayon",
 ]
@@ -472,6 +477,17 @@ dependencies = [
 name = "r1cs-std"
 version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
+dependencies = [
+ "algebra",
+ "derivative",
+ "r1cs-core",
+ "radix_trie",
+]
+
+[[package]]
+name = "r1cs-std"
+version = "0.1.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes#f27a799fea2cb5b10a45827327ee72810d49aa23"
 dependencies = [
  "algebra",
  "derivative",
@@ -701,7 +717,7 @@ dependencies = [
  "proof-systems",
  "r1cs-core",
  "r1cs-crypto",
- "r1cs-std",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
  "rand",
  "winapi",
 ]

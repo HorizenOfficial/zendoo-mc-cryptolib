@@ -96,6 +96,7 @@ pub(crate) fn check_buffer_length(buffer: *const BufferWithSize, len: usize) -> 
 
 
 pub(crate) fn free_buffer_with_size(buffer: *mut BufferWithSize) {
+    if buffer.is_null() { return };
     unsafe {
         let buffer = Box::from_raw(buffer);
         Vec::from_raw_parts((*buffer).data, (*buffer).len, (*buffer).len);
