@@ -5,16 +5,18 @@ import subprocess
 import os.path, os, binascii
 import random
 
-def generate_params(params_dir, circuit_type, proving_system_type):
+def generate_params(params_dir, circuit_type, proving_system_type, segment_size = 1 << 9, num_constraints = 1 << 10):
     args = [];
     args.append("./mcTest")
     args.append("generate")
     args.append(str(circuit_type))
     args.append(str(proving_system_type))
     args.append(str(params_dir))
+    args.append(str(segment_size))
+    args.append(str(num_constraints))
     subprocess.check_call(args)
 
-def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk):
+def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, segment_size = 1 << 9, num_constraints = 1 << 10):
 
     # Setup SNARK pk and vk
     generate_params(params_dir, "cert", ps_type);
@@ -36,7 +38,8 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk):
         args.append("-zk")
     args.append(str(proof_path))
     args.append(str(params_dir))
-    args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount)]
+    args.append(str(segment_size))
+    args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount), str(num_constraints)]
 
     args.append(str(bt_num))
     for (pk, amount) in zip(pks, amounts):
@@ -55,7 +58,7 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk):
     os.remove(params_dir + str(ps_type) + str("_cert_test_pk"))
     os.remove(params_dir + str(ps_type) + str("_cert_test_vk"))
 
-def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present):
+def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, segment_size = 1 << 9, num_constraints = 1 << 10):
 
     # Setup SNARK pk and vk
     generate_params(params_dir, "csw", ps_type);
@@ -73,7 +76,8 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present):
         args.append("-zk")
     args.append(str(proof_path))
     args.append(str(params_dir))
-    args += [str(amount), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root)]
+    args.append(str(segment_size))
+    args += [str(amount), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root), str(num_constraints)]
     if cert_data_hash_present:
         args.append(str(generate_random_field_element_hex()))
     subprocess.check_call(args)

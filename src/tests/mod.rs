@@ -31,13 +31,17 @@ fn path_as_ptr(path: &str) -> *const u16 {
 
 #[test]
 fn zendoo_batch_verifier_multiple_threads_with_priority() {
+    let segment_size = 1 << 9;
+    let num_constraints = 1 << 9;
+
     // Init DLOG keys
-    assert!(zendoo_init_dlog_keys(1 << 9, &mut CctpErrorCode::OK));
+    assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
 
     // Generate SNARK keys
     assert!(zendoo_generate_mc_test_params(
         TestCircuitType::Certificate,
         ProvingSystem::Darlin,
+        num_constraints,
         path_as_ptr("./src/tests"),
         11,
         &mut CctpErrorCode::OK
@@ -71,6 +75,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
         0,
         0,
         pk,
+        num_constraints,
         &mut CctpErrorCode::OK
     );
     assert!(proof_buff != null_mut());

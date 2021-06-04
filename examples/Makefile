@@ -18,7 +18,7 @@ all: clean example
 
 .PHONY: clean-cargo
 clean-cargo:
-	#RUSTFLAGS='$(RUSTFLAGS)' $(CARGO_BIN) $(CARGOARGS) clean
+	RUSTFLAGS='$(RUSTFLAGS)' $(CARGO_BIN) $(CARGOARGS) clean
 
 .PHONY: clean-test
 clean-test:

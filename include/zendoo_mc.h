@@ -925,6 +925,7 @@ extern "C" {
     bool zendoo_generate_mc_test_params(
         TestCircuitType circ_type,
         ProvingSystem ps_type,
+        uint32_t num_constraints,
         const path_char_t* params_dir,
         size_t params_dir_len,
         CctpErrorCode* ret_code
@@ -949,6 +950,7 @@ extern "C" {
         const sc_pk_t* pk,
         const path_char_t* proof_path,
         size_t proof_path_len,
+        uint32_t num_constraints,
         CctpErrorCode* ret_code
     );
 
@@ -968,6 +970,7 @@ extern "C" {
         const sc_pk_t* pk,
         const path_char_t* proof_path,
         size_t proof_path_len,
+        uint32_t num_constraints,
         CctpErrorCode* ret_code
     );
 
@@ -988,6 +991,7 @@ extern "C" {
         uint64_t btr_fee,
         uint64_t ft_min_amount,
         const sc_pk_t* pk,
+        uint32_t num_constraints,
         CctpErrorCode* ret_code
     );
 
@@ -1005,6 +1009,7 @@ extern "C" {
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
         const sc_pk_t* pk,
+        uint32_t num_constraints,
         CctpErrorCode* ret_code
     );
 

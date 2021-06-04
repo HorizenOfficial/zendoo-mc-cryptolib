@@ -637,7 +637,7 @@ TEST_SUITE("Single Proof Verifier") {
             zendoo_create_cert_test_proof(
                 zk, constant, epoch_number, quality, bt_list_ptr, bt_list_len,
                 custom_fields, 2, end_cum_comm_tree_root, btr_fee, ft_min_amount,
-                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), &ret_code
+                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), 1 << 10, &ret_code
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -706,6 +706,7 @@ TEST_SUITE("Single Proof Verifier") {
             zendoo_generate_mc_test_params(
                 TestCircuitType::Certificate,
                 ProvingSystem::CoboundaryMarlin,
+                1 << 10,
                 (path_char_t*)params_dir.c_str(),
                 params_dir_len,
                 &ret_code
@@ -739,6 +740,7 @@ TEST_SUITE("Single Proof Verifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::Certificate,
                ProvingSystem::Darlin,
+               1 << 10,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -798,7 +800,7 @@ TEST_SUITE("Single Proof Verifier") {
         CHECK(
             zendoo_create_csw_test_proof(
                 zk, amount, sc_id, nullifier, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
-                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(),
+                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), 1 << 10,
                 &ret_code
             ) == true
         );
@@ -866,6 +868,7 @@ TEST_SUITE("Single Proof Verifier") {
             zendoo_generate_mc_test_params(
                 TestCircuitType::CSW,
                 ProvingSystem::CoboundaryMarlin,
+                1 << 10,
                 (path_char_t*)params_dir.c_str(),
                 params_dir_len,
                 &ret_code
@@ -899,6 +902,7 @@ TEST_SUITE("Single Proof Verifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::CSW,
                ProvingSystem::Darlin,
+               1 << 10,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -961,7 +965,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(
             zendoo_create_csw_test_proof(
                 false, amount, sc_id, nullifier, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
-                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(),
+                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), 1 << 10,
                 &ret_code
             ) == true
         );
@@ -1045,7 +1049,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
             zendoo_create_cert_test_proof(
                 false, constant, epoch_number, quality, NULL, 0,
                 NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
-                (path_char_t*)proof_path.c_str(), proof_path.size(),
+                (path_char_t*)proof_path.c_str(), proof_path.size(), 1 << 10,
                 &ret_code
             ) == true
         );
@@ -1114,6 +1118,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::CSW,
                ProvingSystem::Darlin,
+               1 << 10,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -1126,6 +1131,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::CSW,
                ProvingSystem::CoboundaryMarlin,
+               1 << 10,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -1138,6 +1144,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::Certificate,
                ProvingSystem::Darlin,
+               1 << 10,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -1151,6 +1158,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::Certificate,
                ProvingSystem::CoboundaryMarlin,
+               1 << 10,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
