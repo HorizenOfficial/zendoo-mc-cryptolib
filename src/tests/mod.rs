@@ -1,4 +1,137 @@
 use crate::{
+    zendoo_create_return_cert_test_proof, zendoo_get_random_field, zendoo_init_dlog_keys,
+    zendoo_generate_mc_test_params, TestCircuitType, zendoo_deserialize_sc_pk_from_file,
+    zendoo_deserialize_sc_proof, zendoo_add_certificate_proof_to_batch_verifier,
+    zendoo_deserialize_sc_vk_from_file, zendoo_batch_verify_all_proofs,
+    macros::CctpErrorCode,
+};
+use std::{
+    ptr::{null, null_mut},
+    sync::Arc
+};
+use cctp_primitives::proving_system::{
+    ProvingSystem, verifier::batch_verifier::ZendooBatchVerifier
+};
+use rand::{thread_rng, Rng};
+
+#[cfg(target_os = "windows")]
+use std::ffi::OsString;
+#[cfg(target_os = "windows")]
+use std::os::windows::ffi::OsStrExt;
+
+
+#[cfg(not(target_os = "windows"))]
+fn path_as_ptr(path: &str) -> *const u8 { path.as_ptr() }
+
+#[cfg(target_os = "windows")]
+fn path_as_ptr(path: &str) -> *const u16 {
+    let tmp: Vec<u16> = OsString::from(path).encode_wide().collect();
+    tmp.as_ptr()
+}
+
+#[test]
+fn zendoo_batch_verifier_multiple_threads_with_priority() {
+    // Init DLOG keys
+    assert!(zendoo_init_dlog_keys(1 << 9, &mut CctpErrorCode::OK));
+
+    // Generate SNARK keys
+    assert!(zendoo_generate_mc_test_params(
+        TestCircuitType::Certificate,
+        ProvingSystem::Darlin,
+        path_as_ptr("./src/tests"),
+        11,
+        &mut CctpErrorCode::OK
+    ));
+
+    // Create test proof
+    let constant = zendoo_get_random_field();
+    assert!(constant != null_mut());
+
+    let end_cum_comm_tree_root = zendoo_get_random_field();
+    assert!(end_cum_comm_tree_root != null_mut());
+
+    let pk = zendoo_deserialize_sc_pk_from_file(
+        path_as_ptr("./src/tests/darlin_cert_test_pk"),
+        31,
+        false,
+        &mut CctpErrorCode::OK
+    );
+    assert!(pk != null_mut());
+
+    let proof_buff = zendoo_create_return_cert_test_proof(
+        true,
+        constant,
+        0,
+        0,
+        null(),
+        0,
+        null(),
+        0,
+        end_cum_comm_tree_root,
+        0,
+        0,
+        pk,
+        &mut CctpErrorCode::OK
+    );
+    assert!(proof_buff != null_mut());
+
+    let proof = zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK);
+    assert!(proof != null_mut());
+
+    // Get batch verifier
+    let mut bv = ZendooBatchVerifier::create();
+
+    let vk = zendoo_deserialize_sc_vk_from_file(
+        path_as_ptr("./src/tests/darlin_cert_test_vk"),
+        31,
+        false,
+        &mut CctpErrorCode::OK
+    );
+    assert!(vk != null_mut());
+
+    for i in 0..100 {
+        assert!(zendoo_add_certificate_proof_to_batch_verifier(
+            &mut bv,
+            i,
+            constant,
+            0,
+            0,
+            null(),
+            0,
+            null(),
+            0,
+            end_cum_comm_tree_root,
+            0,
+            0,
+            proof,
+            vk,
+            &mut CctpErrorCode::OK
+        ));
+    }
+
+    let bv = Arc::new(bv);
+
+    // Spawn batch verification threads
+    let rng = &mut thread_rng();
+    let mut handles = vec![];
+    for i in 0..10 {
+        let priority: bool = rng.gen();
+        let bv_ref = bv.clone();
+        let handle = std::thread::spawn(move || {
+            let result = zendoo_batch_verify_all_proofs(&*bv_ref, priority, &mut CctpErrorCode::OK);
+            unsafe { assert!((*result).result); }
+            println!("Thread {} finished", i);
+        });
+        println!("Spawned batch verification thread {} with priority {}", i, priority);
+        handles.push(handle);
+    }
+    handles.into_iter().for_each(|handle| handle.join().unwrap());
+
+    std::fs::remove_file("./src/tests/darlin_cert_test_pk").unwrap();
+    std::fs::remove_file("./src/tests/darlin_cert_test_vk").unwrap();
+}
+
+/*use crate::{
     zendoo_deserialize_field,
     // zendoo_deserialize_sc_proof,
     // zendoo_verify_sc_proof,
@@ -490,4 +623,4 @@ fn poseidon_hash_test() {
 
     zendoo_field_free(lhs_field);
     zendoo_field_free(rhs_field);
-}
+}*/

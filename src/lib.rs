@@ -8,6 +8,11 @@ use std::{
     slice,
     fmt::Write,
 };
+use lazy_static::lazy_static;
+use std::sync::{Arc, Mutex, Condvar};
+lazy_static! {
+    pub static ref STOP_CTR: Arc<(Mutex<usize>, Condvar)> = Arc::new((Mutex::new(0), Condvar::new()));
+}
 
 #[cfg(not(target_os = "windows"))]
 use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
@@ -47,8 +52,8 @@ pub mod mc_test_circuits;
 use cctp_primitives::utils::serialization::write_to_file;
 use cctp_primitives::utils::get_cert_data_hash;
 
-//#[cfg(test)]
-//pub mod tests;
+#[cfg(test)]
+pub mod tests;
 
 pub(crate) fn free_pointer<T> (ptr: *mut T) {
     if ptr.is_null() { return };
@@ -947,19 +952,66 @@ pub extern "C" fn zendoo_add_csw_proof_to_batch_verifier(
     }
 }
 
+/// Build thread pool in which executing batch verification according to prioritization
+fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
+    if !prioritize {
+        // If prioritize is false, this means that this batch verification can be stopped by
+        // other ones with higher priority. We oblige each thread of this thread pool, upon starting,
+        // checking the STOP_CTR: if != 0 this means that one or more higher priority thread pools are
+        // executing (or shall be executed), therefore new threads from this thread pool must
+        // wait before starting.
+        rayon::ThreadPoolBuilder::new()
+            .start_handler( move |_| {
+                // Acquire the lock on STOP_FLAG and read its value
+                let stop_ref = STOP_CTR.clone();
+                let (lock, cvar) = &*stop_ref;
+                let mut stop = lock.lock().unwrap();
+
+                // If stop is != 0, release the lock and wait until stop becomes 0
+                while *stop != 0 {
+                    stop = cvar.wait(stop).unwrap();
+                }
+            }).build().unwrap()
+    } else {
+
+        // High priority verification: increment STOP_CTR and notify all threads
+        {
+            let stop_ref = STOP_CTR.clone();
+            let (lock, cvar) = &*stop_ref;
+            let mut stop = lock.lock().unwrap();
+            *stop += 1;
+            cvar.notify_all();
+        }
+
+        // If prioritize is true, construct a normal thread pool
+        rayon::ThreadPoolBuilder::new().build().unwrap()
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn zendoo_batch_verify_all_proofs(
     batch_verifier: *const ZendooBatchVerifier,
+    prioritize: bool,
     ret_code: &mut CctpErrorCode
 ) -> *mut ZendooBatchProofVerifierResult
 {
     // Read batch verifier
     let rs_batch_verifier = try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, null_mut());
 
+    // Execute batch verification
+    let result = get_batch_verifier_thread_pool(prioritize).install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default()));
+
+    // Decrement STOP_CTR and notify all threads
+    if prioritize {
+        let stop_ref = STOP_CTR.clone();
+        let (lock, cvar) = &*stop_ref;
+        let mut stop = lock.lock().unwrap();
+        *stop -= 1;
+        cvar.notify_all();
+    }
     let mut ret = ZendooBatchProofVerifierResult::default();
 
-    // Trigger batch verification
-    match rs_batch_verifier.batch_verify_all(&mut OsRng::default()) {
+    match result {
 
         // If success, return the result
         Ok(result) => ret.result = result,
@@ -994,6 +1046,7 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     batch_verifier: *const ZendooBatchVerifier,
     ids_list: *const u32,
     ids_list_len: usize,
+    prioritize: bool,
     ret_code: &mut CctpErrorCode
 ) -> *mut ZendooBatchProofVerifierResult
 {
@@ -1003,10 +1056,23 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     // Get ids_list
     let rs_ids_list = try_get_obj_list!("ids_list", ids_list, ids_list_len, ret_code, null_mut());
 
+    // Execute batch verification of the proofs with specified id
+    let result = get_batch_verifier_thread_pool(prioritize)
+        .install(|| rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default()));
+
+    // Decrement STOP_CTR and notify all threads
+    if prioritize {
+        let stop_ref = STOP_CTR.clone();
+        let (lock, cvar) = &*stop_ref;
+        let mut stop = lock.lock().unwrap();
+        *stop -= 1;
+        cvar.notify_all();
+    }
+
     let mut ret = ZendooBatchProofVerifierResult::default();
 
     // Trigger batch verification of the proofs with specified id
-    match rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default()) {
+    match result {
 
         // If success, return the result
         Ok(result) => {

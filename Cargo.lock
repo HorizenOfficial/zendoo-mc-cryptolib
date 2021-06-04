@@ -719,5 +719,6 @@ dependencies = [
  "r1cs-crypto",
  "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
  "rand",
+ "rayon",
  "winapi",
 ]

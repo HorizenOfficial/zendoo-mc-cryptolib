@@ -766,19 +766,25 @@ extern "C" {
 
     /*
      * Perform batch verification of all the proofs added to `batch_verifier`.
+     * If `prioritize` is set to true, pauses other batch verifications (if any)
+     * happening in other threads, asap, to give priority to this one.
      */
     ZendooBatchProofVerifierResult* zendoo_batch_verify_all_proofs(
         const sc_batch_proof_verifier_t* batch_verifier,
+        bool prioritize,
         CctpErrorCode* ret_code
     );
 
     /*
      * Perform batch verification of the proofs added to `batch_verifier` whose id is contained in `ids_list`.
+     * If `prioritize` is set to true, pauses other batch verifications (if any) happening in other threads,
+     * asap, to give priority to this one.
      */
     ZendooBatchProofVerifierResult* zendoo_batch_verify_proofs_by_id(
         const sc_batch_proof_verifier_t* batch_verifier,
         const uint32_t* ids_list,
         size_t ids_list_len,
+        bool prioritize,
         CctpErrorCode* ret_code
     );
 
@@ -795,11 +801,18 @@ extern "C" {
      */
     struct ZendooBatchProofVerifier {
         sc_batch_proof_verifier_t* batch_verifier;
+        bool highPriorityVerification;
 
-        ZendooBatchProofVerifier(sc_batch_proof_verifier_t* batch_verifier): batch_verifier(batch_verifier) {}
+        ZendooBatchProofVerifier(sc_batch_proof_verifier_t* batch_verifier, bool highPriorityVerification):
+         batch_verifier(batch_verifier), highPriorityVerification(highPriorityVerification) {}
+
+        ZendooBatchProofVerifier(bool highPriorityVerification): highPriorityVerification(highPriorityVerification) {
+            batch_verifier = zendoo_create_batch_proof_verifier();
+        }
 
         ZendooBatchProofVerifier() {
             batch_verifier = zendoo_create_batch_proof_verifier();
+            highPriorityVerification = false;
         }
 
         bool add_certificate_proof(
@@ -847,11 +860,11 @@ extern "C" {
         }
 
         ZendooBatchProofVerifierResult* batch_verify_all(CctpErrorCode* ret_code) {
-            return zendoo_batch_verify_all_proofs(batch_verifier, ret_code);
+            return zendoo_batch_verify_all_proofs(batch_verifier, highPriorityVerification, ret_code);
         }
 
         ZendooBatchProofVerifierResult* batch_verify_subset(const uint32_t* ids_list, size_t ids_list_len, CctpErrorCode* ret_code) {
-            return zendoo_batch_verify_proofs_by_id(batch_verifier, ids_list, ids_list_len, ret_code);
+            return zendoo_batch_verify_proofs_by_id(batch_verifier, ids_list, ids_list_len, highPriorityVerification, ret_code);
         }
         
         ~ZendooBatchProofVerifier() {
