@@ -1915,7 +1915,7 @@ pub extern "C" fn zendoo_create_return_cert_test_proof(
 ) -> *mut BufferWithSize
 {
     match _zendoo_create_cert_test_proof(
-        zk, sc_id, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        zk, constant, sc_id, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
         end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, num_constraints, ret_code
     ){
         Ok(sc_proof) => {

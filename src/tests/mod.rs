@@ -1,13 +1,8 @@
-use crate::{
-    zendoo_create_return_cert_test_proof, zendoo_get_random_field, zendoo_init_dlog_keys,
-    zendoo_generate_mc_test_params, TestCircuitType, zendoo_deserialize_sc_pk_from_file,
-    zendoo_deserialize_sc_proof, zendoo_add_certificate_proof_to_batch_verifier,
-    zendoo_deserialize_sc_vk_from_file, zendoo_batch_verify_all_proofs,
-    macros::CctpErrorCode,
-};
+use crate::{zendoo_create_return_cert_test_proof, zendoo_get_random_field, zendoo_init_dlog_keys, zendoo_generate_mc_test_params, TestCircuitType, zendoo_deserialize_sc_pk_from_file, zendoo_deserialize_sc_proof, zendoo_add_certificate_proof_to_batch_verifier, zendoo_deserialize_sc_vk_from_file, zendoo_batch_verify_all_proofs, macros::CctpErrorCode, zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws};
 use std::{
     ptr::{null, null_mut},
-    sync::Arc
+    sync::Arc,
+    slice
 };
 use cctp_primitives::proving_system::{
     ProvingSystem, verifier::batch_verifier::ZendooBatchVerifier
@@ -18,6 +13,8 @@ use rand::{thread_rng, Rng};
 use std::ffi::OsString;
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
+use crate::macros::BufferWithSize;
+use cctp_primitives::bit_vector::compression::CompressionAlgorithm;
 
 
 #[cfg(not(target_os = "windows"))]
@@ -139,6 +136,26 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
 
     std::fs::remove_file("./src/tests/darlin_cert_test_pk").unwrap();
     std::fs::remove_file("./src/tests/darlin_cert_test_vk").unwrap();
+}
+
+#[test]
+fn compress_decompress() {
+    for _ in 0..10 {
+        let mut bit_vector: Vec<u8> = (0..100).collect();
+        let data = bit_vector.as_mut_ptr();
+        let len = bit_vector.len();
+
+        let buffer = BufferWithSize { data, len };
+        let mut ret_code = CctpErrorCode::OK;
+        let compressed_buffer = zendoo_compress_bit_vector(&buffer, CompressionAlgorithm::Bzip2, &mut ret_code);
+        let uncompressed_buffer = zendoo_decompress_bit_vector(compressed_buffer, len, &mut ret_code);
+
+        let processed_bit_vector = unsafe { slice::from_raw_parts((*uncompressed_buffer).data, (*uncompressed_buffer).len) };
+        assert_eq!((0..100).collect::<Vec<u8>>(), processed_bit_vector);
+
+        zendoo_free_bws(compressed_buffer);
+        zendoo_free_bws(uncompressed_buffer);
+    }
 }
 
 /*use crate::{
