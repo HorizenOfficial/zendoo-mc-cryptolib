@@ -636,6 +636,7 @@ extern "C" {
      */
     bool zendoo_verify_certificate_proof(
         const field_t* constant,
+        const field_t* sc_id,
         uint32_t epoch_number,
         uint64_t quality,
         const backward_transfer_t* bt_list,
@@ -661,6 +662,7 @@ extern "C" {
      * Compute cert data hash.
      */
     field_t* zendoo_get_cert_data_hash(
+        const field_t* sc_id,
         uint32_t epoch_number,
         uint64_t quality,
         const backward_transfer_t* bt_list,
@@ -710,6 +712,7 @@ extern "C" {
         sc_batch_proof_verifier_t* batch_verifier,
         uint32_t proof_id,
         const field_t* constant,
+        const field_t* sc_id,
         uint32_t epoch_number,
         uint64_t quality,
         const backward_transfer_t* bt_list,
@@ -818,6 +821,7 @@ extern "C" {
         bool add_certificate_proof(
             uint32_t proof_id,
             const field_t* constant,
+            const field_t* sc_id,
             uint32_t epoch_number,
             uint64_t quality,
             const backward_transfer_t* bt_list,
@@ -833,7 +837,7 @@ extern "C" {
         )
         {
             return zendoo_add_certificate_proof_to_batch_verifier(
-                batch_verifier, proof_id, constant, epoch_number, quality,
+                batch_verifier, proof_id, constant, sc_id, epoch_number, quality,
                 bt_list, bt_list_len, custom_fields, custom_fields_len,
                 end_cum_comm_tree_root, btr_fee, ft_min_amount,
                 sc_proof, sc_vk, ret_code
@@ -938,6 +942,7 @@ extern "C" {
     bool zendoo_create_cert_test_proof(
         bool zk,
         const field_t* constant,
+        const field_t* sc_id,
         uint32_t epoch_number,
         uint64_t quality,
         const backward_transfer_t* bt_list,
@@ -981,6 +986,7 @@ extern "C" {
     BufferWithSize* zendoo_create_return_cert_test_proof(
         bool zk,
         const field_t* constant,
+        const field_t* sc_id,
         uint32_t epoch_number,
         uint64_t quality,
         const backward_transfer_t* bt_list,
