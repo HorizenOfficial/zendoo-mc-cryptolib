@@ -1,18 +1,32 @@
 use crate::{
-    zendoo_create_return_cert_test_proof, zendoo_get_random_field, zendoo_init_dlog_keys,
-    zendoo_generate_mc_test_params, TestCircuitType, zendoo_deserialize_sc_pk_from_file,
-    zendoo_deserialize_sc_proof, zendoo_add_certificate_proof_to_batch_verifier,
-    zendoo_deserialize_sc_vk_from_file, zendoo_batch_verify_all_proofs,
-    macros::CctpErrorCode,
+    zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws,
+    macros::{BufferWithSize, CctpErrorCode}
 };
+use cctp_primitives::bit_vector::compression::CompressionAlgorithm;
+use std::slice;
+
+#[cfg(feature = "mc-test-circuit")]
+use crate::{
+    zendoo_init_dlog_keys, zendoo_generate_mc_test_params, TestCircuitType, zendoo_get_random_field,
+    zendoo_deserialize_sc_pk_from_file, zendoo_create_return_cert_test_proof,
+    zendoo_deserialize_sc_proof, zendoo_deserialize_sc_vk_from_file,
+    zendoo_add_certificate_proof_to_batch_verifier, zendoo_field_free, zendoo_sc_pk_free,
+    zendoo_sc_proof_free, zendoo_sc_vk_free, zendoo_create_return_csw_test_proof,
+    zendoo_add_csw_proof_to_batch_verifier, zendoo_batch_verify_all_proofs,
+    zendoo_free_batch_proof_verifier_result
+};
+
+#[cfg(feature = "mc-test-circuit")]
+use cctp_primitives::proving_system::{
+    verifier::batch_verifier::ZendooBatchVerifier,
+    ProvingSystem
+};
+
+#[cfg(feature = "mc-test-circuit")]
 use std::{
     ptr::{null, null_mut},
-    sync::Arc
+    sync::{ Arc, RwLock }
 };
-use cctp_primitives::proving_system::{
-    ProvingSystem, verifier::batch_verifier::ZendooBatchVerifier
-};
-use rand::{thread_rng, Rng};
 
 #[cfg(target_os = "windows")]
 use std::ffi::OsString;
@@ -29,231 +43,285 @@ fn path_as_ptr(path: &str) -> *const u16 {
     tmp.as_ptr()
 }
 
+#[cfg(feature = "mc-test-circuit")]
 #[test]
-fn zendoo_batch_verifier_cert_multiple_threads_with_priority() {
-    let segment_size = 1 << 9;
-    let num_constraints = 1 << 9;
+fn zendoo_batch_verifier_multiple_threads_with_priority() {
+
+    let segment_size = 1 << 17;
+    let num_proofs = 100;
 
     // Init DLOG keys
+    println!("Setup DLOG keys...");
     assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
 
-    // Generate SNARK keys
-    assert!(zendoo_generate_mc_test_params(
-        TestCircuitType::Certificate,
-        ProvingSystem::Darlin,
-        num_constraints,
-        path_as_ptr("./src/tests"),
-        11,
-        &mut CctpErrorCode::OK
-    ));
+    for j in 15..=16 {
 
-    // Create test proof
-    let constant = zendoo_get_random_field();
-    assert!(constant != null_mut());
+        // Get batch verifier
+        let mut bv = ZendooBatchVerifier::create();
 
-    let end_cum_comm_tree_root = zendoo_get_random_field();
-    assert!(end_cum_comm_tree_root != null_mut());
+        // Certificate proof
+        {
+            let num_constraints = 1 << (j + 1);
 
-    let pk = zendoo_deserialize_sc_pk_from_file(
-        path_as_ptr("./src/tests/darlin_cert_test_pk"),
-        31,
-        false,
-        &mut CctpErrorCode::OK
-    );
-    assert!(pk != null_mut());
+            println!("Generating {} cert proofs with {} constraints...", num_proofs/2, num_constraints);
 
-    let proof_buff = zendoo_create_return_cert_test_proof(
-        true,
-        constant,
-        0,
-        0,
-        null(),
-        0,
-        null(),
-        0,
-        end_cum_comm_tree_root,
-        0,
-        0,
-        pk,
-        num_constraints,
-        &mut CctpErrorCode::OK
-    );
-    assert!(proof_buff != null_mut());
+            // Generate SNARK keys
+            println!("Generate SNARK pk and vk...");
+            assert!(zendoo_generate_mc_test_params(
+                TestCircuitType::Certificate,
+                ProvingSystem::Darlin,
+                num_constraints,
+                path_as_ptr("./src/tests"),
+                11,
+                &mut CctpErrorCode::OK
+            ));
 
-    let proof = zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK);
-    assert!(proof != null_mut());
+            // Create test proof
+            let constant = zendoo_get_random_field();
+            assert!(constant != null_mut());
 
-    // Get batch verifier
-    let mut bv = ZendooBatchVerifier::create();
+            let end_cum_comm_tree_root = zendoo_get_random_field();
+            assert!(end_cum_comm_tree_root != null_mut());
 
-    let vk = zendoo_deserialize_sc_vk_from_file(
-        path_as_ptr("./src/tests/darlin_cert_test_vk"),
-        31,
-        false,
-        &mut CctpErrorCode::OK
-    );
-    assert!(vk != null_mut());
+            let pk = zendoo_deserialize_sc_pk_from_file(
+                path_as_ptr("./src/tests/darlin_cert_test_pk"),
+                31,
+                false,
+                &mut CctpErrorCode::OK
+            );
+            assert!(pk != null_mut());
 
-    for i in 0..100 {
-        assert!(zendoo_add_certificate_proof_to_batch_verifier(
-            &mut bv,
-            i,
-            constant,
-            0,
-            0,
-            null(),
-            0,
-            null(),
-            0,
-            end_cum_comm_tree_root,
-            0,
-            0,
-            proof,
-            vk,
-            &mut CctpErrorCode::OK
-        ));
+            println!("Generate proof...");
+            let proof_buff = zendoo_create_return_cert_test_proof(
+                true,
+                constant,
+                0,
+                0,
+                null(),
+                0,
+                null(),
+                0,
+                end_cum_comm_tree_root,
+                0,
+                0,
+                pk,
+                num_constraints,
+                &mut CctpErrorCode::OK
+            );
+            assert!(proof_buff != null_mut());
+
+            let proof = zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK);
+            assert!(proof != null_mut());
+
+            let vk = zendoo_deserialize_sc_vk_from_file(
+                path_as_ptr("./src/tests/darlin_cert_test_vk"),
+                31,
+                false,
+                &mut CctpErrorCode::OK
+            );
+            assert!(vk != null_mut());
+
+            println!("Add proofs to batch verifier...");
+            for i in 0..num_proofs / 2 {
+                assert!(zendoo_add_certificate_proof_to_batch_verifier(
+                    &mut bv,
+                    i,
+                    constant,
+                    0,
+                    0,
+                    null(),
+                    0,
+                    null(),
+                    0,
+                    end_cum_comm_tree_root,
+                    0,
+                    0,
+                    proof,
+                    vk,
+                    &mut CctpErrorCode::OK
+                ));
+            }
+
+            // Free memory
+            println!("Cleaning up...");
+            zendoo_field_free(constant);
+            zendoo_field_free(end_cum_comm_tree_root);
+            zendoo_sc_pk_free(pk);
+            zendoo_free_bws(proof_buff);
+            zendoo_sc_proof_free(proof);
+            zendoo_sc_vk_free(vk);
+        }
+
+        // CSW proof
+        {
+            let num_constraints = 1 << j;
+
+            println!("Generating {} CSW proofs with {} constraints...", num_proofs/2, num_constraints);
+
+            // Generate SNARK keys
+            println!("Generate SNARK pk and vk...");
+            assert!(zendoo_generate_mc_test_params(
+                TestCircuitType::CSW,
+                ProvingSystem::Darlin,
+                num_constraints,
+                path_as_ptr("./src/tests"),
+                11,
+                &mut CctpErrorCode::OK
+            ));
+
+            // Create test proof
+            let sc_id = zendoo_get_random_field();
+            assert!(sc_id != null_mut());
+
+            let nullifier = zendoo_get_random_field();
+            assert!(nullifier != null_mut());
+
+            let mut mc_pk_hash = vec![0u8; 20];
+            let data = mc_pk_hash.as_mut_ptr();
+            let len = mc_pk_hash.len();
+
+            let buffer = BufferWithSize { data, len };
+
+            let cert_data_hash = zendoo_get_random_field();
+            assert!(cert_data_hash != null_mut());
+
+            let end_cum_comm_tree_root = zendoo_get_random_field();
+            assert!(end_cum_comm_tree_root != null_mut());
+
+            let pk = zendoo_deserialize_sc_pk_from_file(
+                path_as_ptr("./src/tests/darlin_csw_test_pk"),
+                30,
+                false,
+                &mut CctpErrorCode::OK
+            );
+            assert!(pk != null_mut());
+
+            println!("Generate proof...");
+            let proof_buff = zendoo_create_return_csw_test_proof(
+                true,
+                0,
+                sc_id,
+                nullifier,
+                &buffer,
+                cert_data_hash,
+                end_cum_comm_tree_root,
+                pk,
+                num_constraints,
+                &mut CctpErrorCode::OK
+            );
+            assert!(proof_buff != null_mut());
+
+            let proof = zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK);
+            assert!(proof != null_mut());
+
+            let vk = zendoo_deserialize_sc_vk_from_file(
+                path_as_ptr("./src/tests/darlin_csw_test_vk"),
+                30,
+                false,
+                &mut CctpErrorCode::OK
+            );
+            assert!(vk != null_mut());
+
+            println!("Add proofs to batch verifier...");
+            for i in num_proofs/2..num_proofs {
+                assert!(zendoo_add_csw_proof_to_batch_verifier(
+                    &mut bv,
+                    i,
+                    0,
+                    sc_id,
+                    nullifier,
+                    &buffer,
+                    cert_data_hash,
+                    end_cum_comm_tree_root,
+                    proof,
+                    vk,
+                    &mut CctpErrorCode::OK
+                ));
+            }
+
+            // Free memory
+            println!("Cleaning up...");
+            zendoo_field_free(sc_id);
+            zendoo_field_free(nullifier);
+            zendoo_field_free(cert_data_hash);
+            zendoo_field_free(end_cum_comm_tree_root);
+            zendoo_sc_pk_free(pk);
+            zendoo_free_bws(proof_buff);
+            zendoo_sc_proof_free(proof);
+            zendoo_sc_vk_free(vk);
+        }
+
+        let bv_arc = Arc::new(bv);
+
+        println!("Perform two separate batch verifications with different priority...");
+
+        // Spawn batch verification threads
+        let num_threads = 2;
+        let priorities = vec![false, true];
+        // let priorities = (0..num_threads).map(|_| rng.gen()).collect::<Vec<bool>>();
+        let mut handles = vec![];
+        let low_priority_timings = Arc::new(RwLock::new(vec![]));
+        let high_priority_timings = Arc::new(RwLock::new(vec![]));
+
+        for i in 0..num_threads {
+            let priority = priorities[i];
+            let bv_ref = bv_arc.clone();
+            let timings_vec_ref = if priority { high_priority_timings.clone() } else { low_priority_timings.clone() };
+            let handle = std::thread::spawn(move || {
+                println!("Thread {} started", i);
+
+                // Execute batch verification and take the time
+                let start = std::time::Instant::now();
+                let result = zendoo_batch_verify_all_proofs(&*bv_ref, priority, &mut CctpErrorCode::OK);
+                let time = start.elapsed();
+
+                // Assert verification successfull
+                unsafe { assert!((*result).result); }
+                zendoo_free_batch_proof_verifier_result(result);
+
+                println!("Thread {} finished in: {:?}", i, time);
+
+                // Push execution time in timings vec
+                timings_vec_ref.write().unwrap().push(time.as_millis());
+            });
+            println!("Spawned batch verification thread {} with priority {}", i, priority);
+            handles.push(handle);
+        }
+        handles.into_iter().for_each(|handle| handle.join().unwrap());
+
+        // Assert high priority verifications finished before low priority verifications
+        assert!(
+            high_priority_timings.clone().read().unwrap().iter().sum::<u128>() <=
+                low_priority_timings.clone().read().unwrap().iter().sum::<u128>()
+        );
+
+        println!("Cleaning up...");
+        std::fs::remove_file("./src/tests/darlin_cert_test_pk").unwrap();
+        std::fs::remove_file("./src/tests/darlin_cert_test_vk").unwrap();
+        std::fs::remove_file("./src/tests/darlin_csw_test_pk").unwrap();
+        std::fs::remove_file("./src/tests/darlin_csw_test_vk").unwrap();
     }
-
-    let bv = Arc::new(bv);
-
-    // Spawn batch verification threads
-    let rng = &mut thread_rng();
-    let priorities = vec![false, true];
-    let mut handles = vec![];
-    for i in 0..2 {
-        //let priority: bool = rng.gen();
-        let priority = priorities[i];
-        let bv_ref = bv.clone();
-        let handle = std::thread::spawn(move || {
-            println!("Thread {} started", i);
-            let start = std::time::Instant::now();
-            let result = zendoo_batch_verify_all_proofs(&*bv_ref, priority, &mut CctpErrorCode::OK);
-            unsafe { assert!((*result).result); }
-            println!("Thread {} finished in: {:?}", i, start.elapsed());
-        });
-        println!("Spawned batch verification thread {} with priority {}", i, priority);
-        handles.push(handle);
-    }
-    handles.into_iter().for_each(|handle| handle.join().unwrap());
-
-    std::fs::remove_file("./src/tests/darlin_cert_test_pk").unwrap();
-    std::fs::remove_file("./src/tests/darlin_cert_test_vk").unwrap();
 }
 
-/*
 #[test]
-fn zendoo_batch_verifier_csw_multiple_threads_with_priority() {
-    let segment_size = 1 << 17;
-    let num_constraints = 1 << 19;
+fn compress_decompress() {
+    for _ in 0..10 {
+        let mut bit_vector: Vec<u8> = (0..100).collect();
+        let data = bit_vector.as_mut_ptr();
+        let len = bit_vector.len();
 
-    // Init DLOG keys
-    assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
+        let buffer = BufferWithSize { data, len };
+        let mut ret_code = CctpErrorCode::OK;
+        let compressed_buffer = zendoo_compress_bit_vector(&buffer, CompressionAlgorithm::Bzip2, &mut ret_code);
+        let uncompressed_buffer = zendoo_decompress_bit_vector(compressed_buffer, len, &mut ret_code);
 
-    // Generate SNARK keys
-    assert!(zendoo_generate_mc_test_params(
-        TestCircuitType::CSW,
-        ProvingSystem::Darlin,
-        num_constraints,
-        path_as_ptr("./src/tests"),
-        11,
-        &mut CctpErrorCode::OK
-    ));
+        let processed_bit_vector = unsafe { slice::from_raw_parts((*uncompressed_buffer).data, (*uncompressed_buffer).len) };
+        assert_eq!((0..100).collect::<Vec<u8>>(), processed_bit_vector);
 
-    // Create test proof
-    let sc_id = zendoo_get_random_field();
-    assert!(sc_id != null_mut());
-
-    let nullifier = zendoo_get_random_field();
-    assert!(nullifier != null_mut());
-
-    let mut mc_pk_hash = vec![0u8; 20];
-    let data = mc_pk_hash.as_mut_ptr();
-    let len = mc_pk_hash.len();
-
-    let buffer = BufferWithSize { data, len };
-
-    let cert_data_hash = zendoo_get_random_field();
-    assert!(cert_data_hash != null_mut());
-
-    let end_cum_comm_tree_root = zendoo_get_random_field();
-    assert!(end_cum_comm_tree_root != null_mut());
-
-    let pk = zendoo_deserialize_sc_pk_from_file(
-        path_as_ptr("./src/tests/darlin_csw_test_pk"),
-        30,
-        false,
-        &mut CctpErrorCode::OK
-    );
-    assert!(pk != null_mut());
-
-    let proof_buff = zendoo_create_return_csw_test_proof(
-        true,
-        0,
-        sc_id,
-        nullifier,
-        &buffer,
-        cert_data_hash,
-        end_cum_comm_tree_root,
-        pk,
-        num_constraints,
-        &mut CctpErrorCode::OK
-    );
-    assert!(proof_buff != null_mut());
-
-    let proof = zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK);
-    assert!(proof != null_mut());
-
-    // Get batch verifier
-    let mut bv = ZendooBatchVerifier::create();
-
-    let vk = zendoo_deserialize_sc_vk_from_file(
-        path_as_ptr("./src/tests/darlin_csw_test_vk"),
-        30,
-        false,
-        &mut CctpErrorCode::OK
-    );
-    assert!(vk != null_mut());
-
-    for i in 0..100 {
-        assert!(zendoo_add_csw_proof_to_batch_verifier(
-            &mut bv,
-            i,
-            0,
-            sc_id,
-            nullifier,
-            &buffer,
-            cert_data_hash,
-            end_cum_comm_tree_root,
-            proof,
-            vk,
-            &mut CctpErrorCode::OK
-        ));
+        zendoo_free_bws(compressed_buffer);
+        zendoo_free_bws(uncompressed_buffer);
     }
-
-    let bv = Arc::new(bv);
-
-    // Spawn batch verification threads
-    let rng = &mut thread_rng();
-    let priorities = vec![false, true];
-    let mut handles = vec![];
-    for i in 0..2 {
-        //let priority: bool = rng.gen();
-        let priority = priorities[i];
-        let bv_ref = bv.clone();
-        let handle = std::thread::spawn(move || {
-            let start = std::time::Instant::now();
-            let result = zendoo_batch_verify_all_proofs(&*bv_ref, priority, &mut CctpErrorCode::OK);
-            unsafe { assert!((*result).result); }
-            println!("Thread {} finished in: {:?}", i, start.elapsed());
-        });
-        println!("Spawned batch verification thread {} with priority {}", i, priority);
-        handles.push(handle);
-    }
-    handles.into_iter().for_each(|handle| handle.join().unwrap());
-
-    std::fs::remove_file("./src/tests/darlin_csw_test_pk").unwrap();
-    std::fs::remove_file("./src/tests/darlin_csw_test_vk").unwrap();
-}*/
+}
 
 /*use crate::{
     zendoo_deserialize_field,

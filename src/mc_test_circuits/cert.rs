@@ -7,18 +7,20 @@ use r1cs_std::{
     alloc::AllocGadget,
     eq::EqGadget,
     instantiated::tweedle::FrGadget,
+    bits::boolean::Boolean,
 };
 use cctp_primitives::{
     type_mapping::FieldElement,
     proving_system::{
         ProvingSystem, ZendooProverKey, ZendooProof, ZendooVerifierKey,
         error::ProvingSystemError, init::{get_g1_committer_key, get_g2_committer_key}
+    },
+    utils::{
+        data_structures::BackwardTransfer, get_cert_data_hash
     }
 };
 use crate::type_mapping::*;
 use rand::rngs::OsRng;
-use cctp_primitives::utils::data_structures::BackwardTransfer;
-use cctp_primitives::utils::get_cert_data_hash;
 
 type FieldElementGadget = FrGadget;
 
@@ -39,10 +41,14 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
         || constant.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
-    for _ in 0..(num_constraints - 1)/2 {
-        constant_g.enforce_equal(
-            cs.ns(|| "check 1"),
+    for i in 0..(num_constraints - 1)/8 {
+        let b = constant_g.is_eq(
+            cs.ns(|| format!("expected_constant_is_eq_actual_{}", i)),
             &expected_constant_g
+        )?;
+        b.enforce_equal(
+            cs.ns(|| format!("expected_constant_must_be_eq_actual_{}", i)),
+            &Boolean::Constant(true)
         )?;
     }
 
@@ -56,10 +62,14 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
         || cert_data_hash.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
-    for _ in 0..(num_constraints - 1)/2 {
-        cert_data_hash_g.enforce_equal(
-            cs.ns(|| "check 2"),
+    for i in 0..(num_constraints - 1)/8 {
+        let b = cert_data_hash_g.is_eq(
+            cs.ns(|| format!("expected_cert_data_hash_is_eq_actual_{}", i)),
             &expected_cert_data_hash_g
+        )?;
+        b.enforce_equal(
+            cs.ns(|| format!("expected_cert_data_hash_must_be_eq_actual_{}", i)),
+            &Boolean::Constant(true)
         )?;
     }
 

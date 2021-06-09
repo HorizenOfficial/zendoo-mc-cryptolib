@@ -7,6 +7,7 @@ use r1cs_std::{
     alloc::AllocGadget,
     eq::EqGadget,
     instantiated::tweedle::FrGadget,
+    bits::boolean::Boolean
 };
 use cctp_primitives::{
     type_mapping::FieldElement,
@@ -14,10 +15,10 @@ use cctp_primitives::{
         ProvingSystem, ZendooProverKey, ZendooProof, ZendooVerifierKey,
         error::ProvingSystemError, init::{get_g1_committer_key, get_g2_committer_key},
     },
+    utils::commitment_tree::{ByteAccumulator, hash_vec},
 };
 use crate::type_mapping::*;
 use rand::rngs::OsRng;
-use cctp_primitives::utils::commitment_tree::{ByteAccumulator, hash_vec};
 
 type FieldElementGadget = FrGadget;
 
@@ -37,10 +38,14 @@ fn enforce_csw_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
         || aggregated_input.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
-    for _ in 0..(num_constraints - 1){
-        aggregated_input_g.enforce_equal(
-            cs.ns(|| "check 1"),
+    for i in 0..(num_constraints - 1)/4{
+        let b = aggregated_input_g.is_eq(
+            cs.ns(|| format!("expected_is_eq_actual_{}", i)),
             &expected_aggregated_input_g
+        )?;
+        b.enforce_equal(
+            cs.ns(|| format!("expected_must_be_eq_actual_{}", i)),
+            &Boolean::Constant(true)
         )?;
     }
     
@@ -76,7 +81,8 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
     fn generate_constraints<CS: ConstraintSystem<FieldElement>>(self, cs: &mut CS) -> Result<(), SynthesisError>
     {
         assert!(self.num_constraints > 2);
-        assert!(self.num_constraints - 1 > self.deferred.len() as u32);
+        let deferred_len = self.deferred.len() as u32;
+        assert!(self.num_constraints - 1 > deferred_len);
 
         // convert the FinalDarlinDeferred efficiently to circuit inputs
         let deferred_as_native_fes = self.deferred;
@@ -114,7 +120,7 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
         enforce_csw_inputs_gadget(
             cs.ns(|| "enforce witnesses == pub_ins"),
             self.aggregated_input,
-            self.num_constraints
+            self.num_constraints - deferred_len
         )
     }
 }
