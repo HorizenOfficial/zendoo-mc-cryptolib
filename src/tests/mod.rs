@@ -145,6 +145,7 @@ fn serialization_deserialization_bench_vk_proof() {
             &pk,
             true,
             &FieldElement::rand(&mut rng),
+            &FieldElement::rand(&mut rng),
             0,
             0,
             None,
