@@ -9,7 +9,7 @@ checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 [[package]]
 name = "algebra"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 dependencies = [
  "algebra-derive",
  "byteorder",
@@ -25,7 +25,7 @@ dependencies = [
 [[package]]
 name = "algebra-derive"
 version = "0.2.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -41,12 +41,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "bench-utils"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
-
-[[package]]
-name = "bench-utils"
-version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes#f27a799fea2cb5b10a45827327ee72810d49aa23"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 
 [[package]]
 name = "bit-vec"
@@ -108,10 +103,10 @@ checksum = "e3c69b077ad434294d3ce9f1f6143a2a4b89a8a2d54ef813d85003a4fd1137fd"
 [[package]]
 name = "cctp_primitives"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=cert_sc_id#c3567ee80825ce21c00f0bdda5eb49ecaeb6ef80"
+source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=cert_sc_id#1bb9a77d66975456da205bacf947de3335005ec9"
 dependencies = [
  "algebra",
- "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
+ "bench-utils",
  "bit-vec",
  "blake2",
  "byteorder",
@@ -232,7 +227,7 @@ checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 [[package]]
 name = "field-assembly"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 dependencies = [
  "mince",
 ]
@@ -299,15 +294,15 @@ checksum = "3baa92041a6fec78c687fa0cc2b3fae8884f743d672cf551bed1d6dac6988d0f"
 [[package]]
 name = "marlin"
 version = "0.1.0"
-source = "git+https://github.com/HorizenLabs/marlin?branch=dev#eaf2a6a4ebfbb8034f158583f29179765a2f5297"
+source = "git+https://github.com/HorizenLabs/marlin?branch=ser_deser#44e493a19fc824dc0ed8d1bdfcbef0577a67e240"
 dependencies = [
  "algebra",
- "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
+ "bench-utils",
  "derivative",
  "digest",
  "poly-commit",
  "r1cs-core",
- "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
+ "r1cs-std",
  "rand",
  "rand_chacha",
  "rand_core",
@@ -332,7 +327,7 @@ dependencies = [
 [[package]]
 name = "mince"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 dependencies = [
  "quote",
  "syn",
@@ -379,10 +374,10 @@ checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 [[package]]
 name = "poly-commit"
 version = "0.1.0"
-source = "git+https://github.com/HorizenLabs/poly-commit?branch=dev#7d8a0f38c218229288c8885fb416b4005f9f7d59"
+source = "git+https://github.com/HorizenLabs/poly-commit?branch=ser_deser#486d22cef526e4123703a98796405948bbdc3207"
 dependencies = [
  "algebra",
- "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
+ "bench-utils",
  "derivative",
  "digest",
  "rand",
@@ -400,10 +395,10 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 [[package]]
 name = "primitives"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 dependencies = [
  "algebra",
- "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
+ "bench-utils",
  "derivative",
  "hex",
  "rand",
@@ -423,17 +418,17 @@ dependencies = [
 [[package]]
 name = "proof-systems"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes#f27a799fea2cb5b10a45827327ee72810d49aa23"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 dependencies = [
  "algebra",
- "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes)",
+ "bench-utils",
  "byteorder",
  "derivative",
  "digest",
  "marlin",
  "poly-commit",
  "r1cs-core",
- "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes)",
+ "r1cs-std",
  "rand",
  "rayon",
  "serde",
@@ -452,7 +447,7 @@ dependencies = [
 [[package]]
 name = "r1cs-core"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 dependencies = [
  "algebra",
  "smallvec",
@@ -461,14 +456,14 @@ dependencies = [
 [[package]]
 name = "r1cs-crypto"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 dependencies = [
  "algebra",
- "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
+ "bench-utils",
  "derivative",
  "primitives",
  "r1cs-core",
- "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
+ "r1cs-std",
  "rand",
  "rayon",
 ]
@@ -476,18 +471,7 @@ dependencies = [
 [[package]]
 name = "r1cs-std"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp#b8b3a9feb8f1c4dde5ce3a3f2e951d597ec9d696"
-dependencies = [
- "algebra",
- "derivative",
- "r1cs-core",
- "radix_trie",
-]
-
-[[package]]
-name = "r1cs-std"
-version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=misc_changes#f27a799fea2cb5b10a45827327ee72810d49aa23"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=ser_deser_changes#896dbeef44e720f987ef86f4de2692c1c0c86a0e"
 dependencies = [
  "algebra",
  "derivative",
@@ -717,7 +701,7 @@ dependencies = [
  "proof-systems",
  "r1cs-core",
  "r1cs-crypto",
- "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=development_tmp)",
+ "r1cs-std",
  "rand",
  "rayon",
  "winapi",
