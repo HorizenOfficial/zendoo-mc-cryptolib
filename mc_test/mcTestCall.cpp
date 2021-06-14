@@ -116,7 +116,6 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
             std::copy(pk_dest.begin(), pk_dest.end(), std::begin(bt.pk_dest));
 
             uint64_t amount = strtoull(argv[arg++], NULL, 0);
-            assert(amount >= 0);
             bt.amount = amount;
 
             bt_list.push_back(bt);
@@ -420,6 +419,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
 
     zendoo_sc_pk_free(pk);
     zendoo_field_free(sc_id_f);
+    zendoo_field_free(nullifier_f);
     zendoo_field_free(cert_data_hash_f);
     zendoo_field_free(end_cum_comm_tree_root_f);
 }
