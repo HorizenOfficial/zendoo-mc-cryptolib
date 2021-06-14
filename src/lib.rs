@@ -487,6 +487,22 @@ fn _zendoo_init_dlog_keys(
 }
 
 #[no_mangle]
+pub extern "C" fn zendoo_get_proving_system_type(
+    byte: u8,
+    ret_code: &mut CctpErrorCode
+) -> ProvingSystem
+{
+    match deserialize_from_buffer::<ProvingSystem>(&[byte], None, None) {
+        Ok(ps_type) => ps_type,
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn zendoo_init_dlog_keys(
     segment_size: usize,
     ret_code: &mut CctpErrorCode
@@ -555,6 +571,83 @@ pub extern "C" fn zendoo_get_sc_proof_proving_system_type(
 }
 
 #[no_mangle]
+pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_buffer(
+    sc_proof_bytes:  *const BufferWithSize,
+    ret_code:        &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    let sc_proof_bytes = try_get_buffer_variable_size!("sc_proof_buffer", sc_proof_bytes, ret_code, ProvingSystem::Undefined);
+    match deserialize_from_buffer::<ProvingSystem>(&sc_proof_bytes[..1], None, None) {
+        Ok(ps_type) => ps_type,
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_file(
+    proof_path:         *const u8,
+    proof_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let proof_path = parse_path(proof_path, proof_path_len);
+    match read_from_file::<ProvingSystem>(
+        proof_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_file(
+    proof_path:         *const u16,
+    proof_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    });
+    let proof_path = Path::new(&path_str);
+
+    match read_from_file::<ProvingSystem>(
+        proof_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn zendoo_sc_proof_free(proof: *mut ZendooProof) {
     free_pointer(proof)
 }
@@ -615,6 +708,83 @@ pub extern "C" fn zendoo_get_sc_vk_proving_system_type(
 {
     let sc_vk = try_read_raw_pointer!("sc_vk", sc_vk, ret_code, ProvingSystem::Undefined);
     sc_vk.get_proving_system_type()
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_buffer(
+    sc_vk_bytes:  *const BufferWithSize,
+    ret_code:        &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    let sc_vk_bytes = try_get_buffer_variable_size!("sc_vk_buffer", sc_vk_bytes, ret_code, ProvingSystem::Undefined);
+    match deserialize_from_buffer::<ProvingSystem>(&sc_vk_bytes[..1], None, None) {
+        Ok(ps_type) => ps_type,
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_file(
+    vk_path:         *const u8,
+    vk_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let vk_path = parse_path(vk_path, vk_path_len);
+    match read_from_file::<ProvingSystem>(
+        vk_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_file(
+    vk_path:         *const u16,
+    vk_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(vk_path, vk_path_len)
+    });
+    let vk_path = Path::new(&path_str);
+
+    match read_from_file::<ProvingSystem>(
+        vk_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
 }
 
 #[no_mangle]
@@ -704,6 +874,7 @@ pub extern "C" fn zendoo_verify_certificate_proof(
 }
 
 use cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH;
+use cctp_primitives::utils::serialization::read_from_file;
 
 fn get_csw_proof_usr_ins<'a>(
     amount:                 u64,
@@ -1507,6 +1678,83 @@ pub extern "C" fn zendoo_get_sc_pk_proving_system_type(
 {
     let sc_pk = try_read_raw_pointer!("sc_pk", sc_pk, ret_code, ProvingSystem::Undefined);
     sc_pk.get_proving_system_type()
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_buffer(
+    sc_pk_bytes:  *const BufferWithSize,
+    ret_code:        &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    let sc_pk_bytes = try_get_buffer_variable_size!("sc_pk_buffer", sc_pk_bytes, ret_code, ProvingSystem::Undefined);
+    match deserialize_from_buffer::<ProvingSystem>(&sc_pk_bytes[..1], None, None) {
+        Ok(ps_type) => ps_type,
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_file(
+    pk_path:         *const u8,
+    pk_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let pk_path = parse_path(pk_path, pk_path_len);
+    match read_from_file::<ProvingSystem>(
+        pk_path,
+        None,
+        None,
+    )
+        {
+            Ok(ps_type) => {
+                *ret_code = CctpErrorCode::OK;
+                ps_type
+            },
+            Err(e) => {
+                println!("Error reading ProvingSystem: {:?}", e);
+                *ret_code = CctpErrorCode::InvalidValue;
+                ProvingSystem::Undefined
+            }
+        }
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_file(
+    pk_path:         *const u16,
+    pk_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(pk_path, pk_path_len)
+    });
+    let pk_path = Path::new(&path_str);
+
+    match read_from_file::<ProvingSystem>(
+        pk_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
 }
 
 #[cfg(feature = "mc-test-circuit")]

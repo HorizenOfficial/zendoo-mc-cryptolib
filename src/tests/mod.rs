@@ -31,10 +31,10 @@ use std::ffi::OsString;
 use std::os::windows::ffi::OsStrExt;
 
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
 fn path_as_ptr(path: &str) -> *const u8 { path.as_ptr() }
 
-#[cfg(target_os = "windows")]
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
 fn path_as_ptr(path: &str) -> *const u16 {
     let tmp: Vec<u16> = OsString::from(path).encode_wide().collect();
     tmp.as_ptr()
