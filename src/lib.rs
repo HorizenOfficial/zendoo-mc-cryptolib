@@ -1760,7 +1760,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
             let proof_path = Path::new(&path_str);
 
             // Write proof to file
-            let proof_ser_res = write_to_file(&proof, &proof_path, compressed);
+            let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
                 println!("{:?}", format!("Error writing proof to file {:?}", proof_ser_res.unwrap_err()));
                 *ret_code = CctpErrorCode::InvalidFile;
@@ -1885,7 +1885,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
             let proof_path = Path::new(&path_str);
 
             // Write proof to file
-            let proof_ser_res = write_to_file(&proof, &proof_path, compressed);
+            let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
                 println!("{:?}", format!("Error writing proof to file {:?}", proof_ser_res.unwrap_err()));
                 *ret_code = CctpErrorCode::InvalidFile;
