@@ -300,6 +300,7 @@ macro_rules! try_read_mut_raw_pointer {
 pub(crate) fn serialize_from_raw_pointer<T: CanonicalSerialize>(
     to_write: *const T,
     buffer: &mut [u8],
+    compressed: Option<bool>
 ) -> CctpErrorCode
 {
     // Read &T from raw_pointer `to_write`
@@ -310,16 +311,19 @@ pub(crate) fn serialize_from_raw_pointer<T: CanonicalSerialize>(
 
     // Serialize to `buffer`
     let to_write = to_write.unwrap();
-    if CanonicalSerialize::serialize(to_write, buffer).is_err() {
-        return CctpErrorCode::InvalidValue;
-    }
+    let compressed = compressed.unwrap_or(false);
+    let result = if compressed {
+        CanonicalSerialize::serialize(to_write, buffer)
+    } else {
+        CanonicalSerialize::serialize_uncompressed(to_write, buffer)
+    };
 
-    CctpErrorCode::OK
+    if result.is_err() { CctpErrorCode::InvalidValue } else { CctpErrorCode::OK }
 }
 
 macro_rules! try_serialize_from_raw_pointer {
-    ($param_name: expr, $to_write:expr, $buffer:expr, $ret_code:expr, $err_ret:expr) => {{
-        let ret_code = serialize_from_raw_pointer($to_write, $buffer);
+    ($param_name: expr, $to_write:expr, $buffer:expr, $compressed:expr, $ret_code:expr, $err_ret:expr) => {{
+        let ret_code = serialize_from_raw_pointer($to_write, $buffer, $compressed);
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
@@ -331,8 +335,8 @@ macro_rules! try_serialize_from_raw_pointer {
 
 pub(crate) fn deserialize_to_raw_pointer<T: CanonicalDeserialize + SemanticallyValid>(
     buffer: &[u8],
-    checked: bool,
-    compressed: bool,
+    checked: Option<bool>,
+    compressed: Option<bool>,
 ) -> (Option<*mut T>, CctpErrorCode)
 {
     match deserialize_from_buffer(buffer, checked, compressed){
@@ -360,8 +364,8 @@ macro_rules! try_deserialize_to_raw_pointer {
 
 pub(crate) fn deserialize_to_raw_pointer_from_file<T: CanonicalDeserialize + SemanticallyValid>(
     path: &Path,
-    checked: bool,
-    compressed: bool,
+    checked: Option<bool>,
+    compressed: Option<bool>,
 ) -> (Option<*mut T>, CctpErrorCode)
 {
     match read_from_file(path, checked, compressed){

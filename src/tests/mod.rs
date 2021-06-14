@@ -89,7 +89,7 @@ fn serialization_deserialization_bench_vk_proof() {
         for compressed in vec![true, false].into_iter() {
 
             // Serialize vk and proof in compressed/uncompressed form
-            let mut vk_bytes = serialize_to_buffer(&vk, compressed).unwrap();
+            let mut vk_bytes = serialize_to_buffer(&vk, Some(compressed)).unwrap();
             let data_vk = vk_bytes.as_mut_ptr();
             let len_vk = vk_bytes.len();
             let vk_bws = BufferWithSize { data: data_vk, len: len_vk };
@@ -159,7 +159,7 @@ fn serialization_deserialization_bench_vk_proof() {
         for compressed in vec![true, false].into_iter() {
 
             // Serialize vk and proof in compressed/uncompressed form
-            let mut vk_bytes = serialize_to_buffer(&vk, compressed).unwrap();
+            let mut vk_bytes = serialize_to_buffer(&vk, Some(compressed)).unwrap();
             let data_vk = vk_bytes.as_mut_ptr();
             let len_vk = vk_bytes.len();
             let vk_bws = BufferWithSize { data: data_vk, len: len_vk };
