@@ -248,6 +248,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
 
     zendoo_sc_pk_free(pk);
     zendoo_field_free(constant_f);
+    zendoo_field_free(sc_id_f);
     zendoo_field_free(end_cum_comm_tree_root_f);
 
     for(int i = 0; i < custom_fields_list_length; i ++){
