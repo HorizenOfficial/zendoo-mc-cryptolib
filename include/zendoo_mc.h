@@ -765,6 +765,16 @@ extern "C" {
     void zendoo_free_batch_proof_verifier_result(ZendooBatchProofVerifierResult* result);
 
     /*
+     * Pause all running low priority threads (currently is possible only for the batch verifier threads).
+     */
+    void zendoo_pause_low_priority_threads();
+
+    /*
+     * Unpause all running low priority threads (currently is possible only for the batch verifier threads).
+     */
+    void zendoo_unpause_low_priority_threads();
+
+    /*
      * Perform batch verification of all the proofs added to `batch_verifier`.
      * If `prioritize` is set to true, pauses other NON high priority batch
      * verifications (if any) happening in other threads as soon as possible;

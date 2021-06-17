@@ -1,7 +1,4 @@
-use crate::{
-    zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws,
-    macros::{BufferWithSize, CctpErrorCode}
-};
+use crate::{zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws, macros::{BufferWithSize, CctpErrorCode}};
 use cctp_primitives::bit_vector::compression::CompressionAlgorithm;
 use std::slice;
 
@@ -13,7 +10,7 @@ use crate::{
     zendoo_add_certificate_proof_to_batch_verifier, zendoo_field_free, zendoo_sc_pk_free,
     zendoo_sc_proof_free, zendoo_sc_vk_free, zendoo_create_return_csw_test_proof,
     zendoo_add_csw_proof_to_batch_verifier, zendoo_batch_verify_all_proofs,
-    zendoo_free_batch_proof_verifier_result
+    zendoo_free_batch_proof_verifier_result,
 };
 
 #[cfg(feature = "mc-test-circuit")]
@@ -27,6 +24,9 @@ use std::{
     ptr::{null, null_mut},
     sync::{ Arc, RwLock }
 };
+
+#[cfg(feature = "mc-test-circuit")]
+use rand::{thread_rng, Rng};
 
 #[cfg(target_os = "windows")]
 use std::ffi::OsString;
@@ -253,12 +253,19 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
 
         let bv_arc = Arc::new(bv);
 
-        println!("Perform two separate batch verifications with different priority...");
-
         // Spawn batch verification threads
-        let num_threads = 2;
-        let priorities = vec![false, true];
-        // let priorities = (0..num_threads).map(|_| rng.gen()).collect::<Vec<bool>>();
+        let rng = &mut thread_rng();
+        let num_threads: usize = rng.gen_range(2, 11);
+
+        println!("Perform {} separate batch verifications with different priority...", num_threads);
+
+        // Keep generating priorities at random, until at least one thread is low priority
+        // and at least one thread is high priority
+        let mut priorities = (0..num_threads).map(|_| rng.gen()).collect::<Vec<bool>>();
+        while priorities.iter().all(|&b| b) || priorities.iter().all(|&b| !b) {
+            priorities = (0..num_threads).map(|_| rng.gen()).collect::<Vec<bool>>()
+        }
+
         let mut handles = vec![];
         let low_priority_timings = Arc::new(RwLock::new(vec![]));
         let high_priority_timings = Arc::new(RwLock::new(vec![]));
@@ -291,8 +298,9 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
 
         // Assert high priority verifications finished before low priority verifications
         assert!(
-            high_priority_timings.clone().read().unwrap().iter().sum::<u128>() <=
-                low_priority_timings.clone().read().unwrap().iter().sum::<u128>()
+            high_priority_timings.clone().read().unwrap().iter().sum::<u128>()/high_priority_timings.clone().read().unwrap().len() as u128
+                <=
+            low_priority_timings.clone().read().unwrap().iter().sum::<u128>()/low_priority_timings.clone().read().unwrap().len() as u128
         );
 
         println!("Cleaning up...");

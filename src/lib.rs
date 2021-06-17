@@ -931,6 +931,30 @@ pub extern "C" fn zendoo_add_csw_proof_to_batch_verifier(
     }
 }
 
+#[no_mangle]
+pub extern "C" fn zendoo_pause_low_priority_threads() {
+    let stop_ref = STOP_CTR.clone();
+    let (lock, cvar) = &*stop_ref;
+    let mut stop = match lock.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    *stop += 1;
+    cvar.notify_all();
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_unpause_low_priority_threads() {
+    let stop_ref = STOP_CTR.clone();
+    let (lock, cvar) = &*stop_ref;
+    let mut stop = match lock.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    *stop -= 1;
+    cvar.notify_all();
+}
+
 /// Build thread pool in which executing batch verification according to prioritization
 fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
     if !prioritize {
@@ -944,7 +968,10 @@ fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
                 // Acquire the lock on STOP_FLAG and read its value
                 let stop_ref = STOP_CTR.clone();
                 let (lock, cvar) = &*stop_ref;
-                let mut stop = lock.lock().unwrap();
+                let mut stop = match lock.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
 
                 // If stop is != 0, release the lock and wait until stop becomes 0
                 while *stop != 0 {
@@ -952,16 +979,6 @@ fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
                 }
             }).build().unwrap()
     } else {
-
-        // High priority verification: increment STOP_CTR and notify all threads
-        {
-            let stop_ref = STOP_CTR.clone();
-            let (lock, cvar) = &*stop_ref;
-            let mut stop = lock.lock().unwrap();
-            *stop += 1;
-            cvar.notify_all();
-        }
-
         // If prioritize is true, construct a normal thread pool
         rayon::ThreadPoolBuilder::new().build().unwrap()
     }
@@ -977,17 +994,15 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
     // Read batch verifier
     let rs_batch_verifier = try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, null_mut());
 
+    // If prioritize, pause all low priority threads
+    if prioritize { zendoo_pause_low_priority_threads(); }
+
     // Execute batch verification
     let result = get_batch_verifier_thread_pool(prioritize).install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default()));
 
-    // Decrement STOP_CTR and notify all threads
-    if prioritize {
-        let stop_ref = STOP_CTR.clone();
-        let (lock, cvar) = &*stop_ref;
-        let mut stop = lock.lock().unwrap();
-        *stop -= 1;
-        cvar.notify_all();
-    }
+    // If prioritize, Unpause all low priority threads
+    if prioritize { zendoo_unpause_low_priority_threads(); }
+
     let mut ret = ZendooBatchProofVerifierResult::default();
 
     match result {
@@ -1035,9 +1050,15 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     // Get ids_list
     let rs_ids_list = try_get_obj_list!("ids_list", ids_list, ids_list_len, ret_code, null_mut());
 
+    // If prioritize, pause all low priority threads
+    if prioritize { zendoo_pause_low_priority_threads(); }
+
     // Execute batch verification of the proofs with specified id
     let result = get_batch_verifier_thread_pool(prioritize)
         .install(|| rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default()));
+
+    // If prioritize, Unpause all low priority threads
+    if prioritize { zendoo_unpause_low_priority_threads(); }
 
     // Decrement STOP_CTR and notify all threads
     if prioritize {
