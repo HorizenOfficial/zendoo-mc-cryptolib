@@ -545,11 +545,25 @@ extern "C" {
 
     //SC SNARK related functions
 
+    /*
+     * Returns the ProvingSystem instance for which `type_bytes` encodes for.
+     */
+    ProvingSystem zendoo_get_proving_system_type(
+        unsigned char type_byte,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Initialize DLOG keys of specified `segment_size` in memory .
+     */
     bool zendoo_init_dlog_keys(
         size_t segment_size,
         CctpErrorCode* ret_code
     );
 
+    /*
+     * Initialize DLOG keys of specified `supported_segment_size` in memory, derived from keys of size `max_segment_size` .
+     */
     bool zendoo_init_dlog_keys_test_mode(
         size_t max_segment_size,
         size_t supported_segment_size,
@@ -585,6 +599,23 @@ extern "C" {
      */
     ProvingSystem zendoo_get_sc_proof_proving_system_type(
         const sc_proof_t* sc_proof,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_proof serialized to `sc_proof_bytes` BufferWithSize.
+     */
+    ProvingSystem zendoo_get_sc_proof_proving_system_type_from_buffer(
+        const BufferWithSize* sc_proof_bytes,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_proof serialized to file at `proof_path`.
+     */
+    ProvingSystem zendoo_get_sc_proof_proving_system_type_from_file(
+        const path_char_t* proof_path,
+        size_t proof_path_len,
         CctpErrorCode* ret_code
     );
 
@@ -626,6 +657,23 @@ extern "C" {
      */
     ProvingSystem zendoo_get_sc_vk_proving_system_type(
         const sc_vk_t* sc_vk,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_vk serialized to `sc_vk_bytes` BufferWithSize.
+     */
+    ProvingSystem zendoo_get_sc_vk_proving_system_type_from_buffer(
+        const BufferWithSize* sc_vk_bytes,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_vk serialized to file at `vk_path`.
+     */
+    ProvingSystem zendoo_get_sc_vk_proving_system_type_from_file(
+        const path_char_t* vk_path,
+        size_t vk_path_len,
         CctpErrorCode* ret_code
     );
 
@@ -901,10 +949,27 @@ extern "C" {
     );
 
     /*
-     * Get the ProvingSystem of `sc_proof`.
+     * Get the ProvingSystem of `sc_pk`.
      */
     ProvingSystem zendoo_get_sc_pk_proving_system_type(
         const sc_pk_t* pk,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_pk serialized to `sc_pk_bytes` BufferWithSize.
+     */
+    ProvingSystem zendoo_get_sc_pk_proving_system_type_from_buffer(
+        const BufferWithSize* sc_pk_bytes,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_pk serialized to file at `pk_path`.
+     */
+    ProvingSystem zendoo_get_sc_pk_proving_system_type_from_file(
+        const path_char_t* pk_path,
+        size_t pk_path_len,
         CctpErrorCode* ret_code
     );
 

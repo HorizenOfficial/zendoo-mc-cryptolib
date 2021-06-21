@@ -625,6 +625,14 @@ TEST_SUITE("Single Proof Verifier") {
         const field_t* custom_fields[] = {constant, end_cum_comm_tree_root};
 
         // Specify paths
+        auto pk_ps_type = zendoo_get_sc_pk_proving_system_type_from_file(
+            (path_char_t*)pk_path.c_str(),
+            pk_path.size(),
+            &ret_code
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(pk_ps_type != ProvingSystem::Undefined);
+
         auto sc_pk = zendoo_deserialize_sc_pk_from_file(
             (path_char_t*)pk_path.c_str(),
             pk_path.size(),
@@ -644,6 +652,14 @@ TEST_SUITE("Single Proof Verifier") {
         CHECK(ret_code == CctpErrorCode::OK);
 
         // Verify proof with correct data
+        auto proof_ps_type = zendoo_get_sc_proof_proving_system_type_from_file(
+            (path_char_t*)proof_path.c_str(),
+            proof_path.size(),
+            &ret_code
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(proof_ps_type != ProvingSystem::Undefined);
+        CHECK(proof_ps_type == pk_ps_type);
 
         auto sc_proof = zendoo_deserialize_sc_proof_from_file(
             (path_char_t*)proof_path.c_str(),
@@ -653,6 +669,15 @@ TEST_SUITE("Single Proof Verifier") {
         );
         CHECK(sc_proof != NULL);
         CHECK(ret_code == CctpErrorCode::OK);
+
+        auto vk_ps_type = zendoo_get_sc_vk_proving_system_type_from_file(
+            (path_char_t*)vk_path.c_str(),
+            vk_path.size(),
+            &ret_code
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(vk_ps_type != ProvingSystem::Undefined);
+        CHECK(proof_ps_type == vk_ps_type);
 
         auto sc_vk = zendoo_deserialize_sc_vk_from_file(
             (path_char_t*)vk_path.c_str(),
@@ -789,6 +814,14 @@ TEST_SUITE("Single Proof Verifier") {
         auto mc_pk_hash = BufferWithSize(mc_pk_hash_vec.data(), mc_pk_hash_vec.size());
 
         // Specify paths
+        auto pk_ps_type = zendoo_get_sc_pk_proving_system_type_from_file(
+            (path_char_t*)pk_path.c_str(),
+            pk_path.size(),
+            &ret_code
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(pk_ps_type != ProvingSystem::Undefined);
+
         auto sc_pk = zendoo_deserialize_sc_pk_from_file(
             (path_char_t*)pk_path.c_str(),
             pk_path.size(),
@@ -808,6 +841,15 @@ TEST_SUITE("Single Proof Verifier") {
         CHECK(ret_code == CctpErrorCode::OK);
 
         // Verify proof with correct data
+        auto proof_ps_type = zendoo_get_sc_proof_proving_system_type_from_file(
+            (path_char_t*)proof_path.c_str(),
+            proof_path.size(),
+            &ret_code
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(proof_ps_type != ProvingSystem::Undefined);
+        CHECK(proof_ps_type == pk_ps_type);
+
         auto sc_proof = zendoo_deserialize_sc_proof_from_file(
             (path_char_t*)proof_path.c_str(),
             proof_path.size(),
@@ -816,6 +858,15 @@ TEST_SUITE("Single Proof Verifier") {
         );
         CHECK(sc_proof != NULL);
         CHECK(ret_code == CctpErrorCode::OK);
+
+        auto vk_ps_type = zendoo_get_sc_vk_proving_system_type_from_file(
+            (path_char_t*)vk_path.c_str(),
+            vk_path.size(),
+            &ret_code
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+        CHECK(vk_ps_type != ProvingSystem::Undefined);
+        CHECK(proof_ps_type == vk_ps_type);
 
         auto sc_vk = zendoo_deserialize_sc_vk_from_file(
             (path_char_t*)vk_path.c_str(),
