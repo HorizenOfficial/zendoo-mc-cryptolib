@@ -1287,7 +1287,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         // Check batch verification of all valid proofs fails
         auto result_5 = batch_verifier.batch_verify_subset(new_ids, 10, &ret_code);
         CHECK(result_5->result == false);
-        CHECK(result_5->result == NULL);
+        CHECK(result_5->failing_proofs == NULL);
         CHECK(result_5->failing_proofs_len == 0); // Should fail in the hard part, so it won't be possible to determine the index
         CHECK(ret_code == CctpErrorCode::OK);
 
