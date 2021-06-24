@@ -820,9 +820,20 @@ extern "C" {
     void zendoo_free_batch_proof_verifier_result(ZendooBatchProofVerifierResult* result);
 
     /*
+     * Pause all running low priority threads (currently is possible only for the batch verifier threads).
+     */
+    void zendoo_pause_low_priority_threads();
+
+    /*
+     * Unpause all running low priority threads (currently is possible only for the batch verifier threads).
+     */
+    void zendoo_unpause_low_priority_threads();
+
+    /*
      * Perform batch verification of all the proofs added to `batch_verifier`.
-     * If `prioritize` is set to true, pauses other batch verifications (if any)
-     * happening in other threads, asap, to give priority to this one.
+     * If `prioritize` is set to true, pauses other NON high priority batch
+     * verifications (if any) happening in other threads as soon as possible;
+     * this means also that a high priority verification cannot be paused.
      */
     ZendooBatchProofVerifierResult* zendoo_batch_verify_all_proofs(
         const sc_batch_proof_verifier_t* batch_verifier,
@@ -831,9 +842,11 @@ extern "C" {
     );
 
     /*
-     * Perform batch verification of the proofs added to `batch_verifier` whose id is contained in `ids_list`.
-     * If `prioritize` is set to true, pauses other batch verifications (if any) happening in other threads,
-     * asap, to give priority to this one.
+     * Perform batch verification of the proofs added to `batch_verifier`
+     * whose id is contained in `ids_list`. If `prioritize` is set to true,
+     * pauses other NON high priority batch verifications (if any) happening
+     * in other threads as soon as possible; this means also that a high priority
+     * verification cannot be paused.
      */
     ZendooBatchProofVerifierResult* zendoo_batch_verify_proofs_by_id(
         const sc_batch_proof_verifier_t* batch_verifier,

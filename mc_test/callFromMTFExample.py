@@ -5,7 +5,12 @@ import subprocess
 import os.path, os, binascii
 import random
 
-def generate_params(params_dir, circuit_type, proving_system_type, segment_size = 1 << 9, num_constraints = 1 << 10):
+NUM_CONSTRAINTS = 1 << 10
+SEGMENT_SIZE = 1 << 9
+FIELD_SIZE = 32
+MC_PK_HASH_SIZE = 20
+
+def generate_params(params_dir, circuit_type, proving_system_type, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
     args = [];
     args.append("./mcTest")
     args.append("generate")
@@ -16,7 +21,7 @@ def generate_params(params_dir, circuit_type, proving_system_type, segment_size 
     args.append(str(num_constraints))
     subprocess.check_call(args)
 
-def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, segment_size = 1 << 9, num_constraints = 1 << 10):
+def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
 
     # Setup SNARK pk and vk
     generate_params(params_dir, "cert", ps_type);
@@ -28,7 +33,7 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, segment
     ft_min_amount = random.randint(0, 5000)
     constant = generate_random_field_element_hex()
     end_cum_comm_tree_root = generate_random_field_element_hex()
-    pks = [binascii.b2a_hex(os.urandom(20)) for i in xrange(bt_num)]
+    pks = [binascii.b2a_hex(os.urandom(MC_PK_HASH_SIZE)) for i in xrange(bt_num)]
     amounts = [random.randint(0, 100) for i in xrange(bt_num)]
     custom_fields = [generate_random_field_element_hex() for i in xrange(cf_num)]
 
@@ -58,7 +63,7 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, segment
     os.remove(params_dir + str(ps_type) + str("_cert_test_pk"))
     os.remove(params_dir + str(ps_type) + str("_cert_test_vk"))
 
-def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, segment_size = 1 << 9, num_constraints = 1 << 10):
+def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
 
     # Setup SNARK pk and vk
     generate_params(params_dir, "csw", ps_type);
@@ -67,7 +72,7 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
     amount = random.randint(0, 1000)
     sc_id = generate_random_field_element_hex()
     nullifier = generate_random_field_element_hex()
-    mc_pk_hash = binascii.b2a_hex(os.urandom(20))
+    mc_pk_hash = binascii.b2a_hex(os.urandom(MC_PK_HASH_SIZE))
     end_cum_comm_tree_root = generate_random_field_element_hex()
 
     # Generate and verify proof
@@ -89,7 +94,7 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
 
 
 def generate_random_field_element_hex():
-    return (binascii.b2a_hex(os.urandom(31)) + "00")
+    return (binascii.b2a_hex(os.urandom(FIELD_SIZE - 1)) + "00")
 
 if __name__ == "__main__":
 
