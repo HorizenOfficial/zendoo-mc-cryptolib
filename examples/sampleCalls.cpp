@@ -579,13 +579,15 @@ TEST_SUITE("Single Proof Verifier") {
 
     static std::string params_dir = std::string("../examples");
     static size_t params_dir_len = params_dir.size();
+    static const uint32_t NUM_CONSTRAINTS = 1 << 10;
+    static const size_t SEGMENT_SIZE = 1 << 9;
 
     bool initDlogKeys() {
         CctpErrorCode ret_code = CctpErrorCode::OK;
 
         // Bootstrap keys
         bool init_result = zendoo_init_dlog_keys(
-            1 << 9,
+            SEGMENT_SIZE,
             &ret_code
         );
         CHECK(init_result == true);
@@ -646,7 +648,7 @@ TEST_SUITE("Single Proof Verifier") {
             zendoo_create_cert_test_proof(
                 zk, constant, sc_id, epoch_number, quality, bt_list_ptr, bt_list_len,
                 custom_fields, 2, end_cum_comm_tree_root, btr_fee, ft_min_amount,
-                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), 1 << 10, &ret_code
+                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS, &ret_code
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -732,7 +734,7 @@ TEST_SUITE("Single Proof Verifier") {
             zendoo_generate_mc_test_params(
                 TestCircuitType::Certificate,
                 ProvingSystem::CoboundaryMarlin,
-                1 << 10,
+                NUM_CONSTRAINTS,
                 (path_char_t*)params_dir.c_str(),
                 params_dir_len,
                 &ret_code
@@ -766,7 +768,7 @@ TEST_SUITE("Single Proof Verifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::Certificate,
                ProvingSystem::Darlin,
-               1 << 10,
+               NUM_CONSTRAINTS,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -834,7 +836,7 @@ TEST_SUITE("Single Proof Verifier") {
         CHECK(
             zendoo_create_csw_test_proof(
                 zk, amount, sc_id, nullifier, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
-                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), 1 << 10,
+                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS,
                 &ret_code
             ) == true
         );
@@ -920,7 +922,7 @@ TEST_SUITE("Single Proof Verifier") {
             zendoo_generate_mc_test_params(
                 TestCircuitType::CSW,
                 ProvingSystem::CoboundaryMarlin,
-                1 << 10,
+                NUM_CONSTRAINTS,
                 (path_char_t*)params_dir.c_str(),
                 params_dir_len,
                 &ret_code
@@ -954,7 +956,7 @@ TEST_SUITE("Single Proof Verifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::CSW,
                ProvingSystem::Darlin,
-               1 << 10,
+               NUM_CONSTRAINTS,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -982,6 +984,9 @@ TEST_SUITE("ZendooBatchProofVerifier") {
 
     static std::string params_dir = std::string("../examples");
     static size_t params_dir_len = params_dir.size();
+    static const uint32_t NUM_CONSTRAINTS = 1 << 10;
+    static const size_t MAX_SEGMENT_SIZE = 1 << 17;
+    static const size_t SUPPORTED_SEGMENT_SIZE = 1 << 9;
 
     void add_random_csw_proof(
         ZendooBatchProofVerifier* batch_verifier,
@@ -1017,7 +1022,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(
             zendoo_create_csw_test_proof(
                 false, amount, sc_id, nullifier, &mc_pk_hash, cert_data_hash, end_cum_comm_tree_root,
-                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), 1 << 10,
+                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS,
                 &ret_code
             ) == true
         );
@@ -1102,7 +1107,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
             zendoo_create_cert_test_proof(
                 false, constant, sc_id, epoch_number, quality, NULL, 0,
                 NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
-                (path_char_t*)proof_path.c_str(), proof_path.size(), 1 << 10,
+                (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS,
                 &ret_code
             ) == true
         );
@@ -1159,8 +1164,8 @@ TEST_SUITE("ZendooBatchProofVerifier") {
 
         // Bootstrap keys used for proving
         bool init_result = zendoo_init_dlog_keys_test_mode(
-            1 << 17,
-            1 << 9,
+            MAX_SEGMENT_SIZE,
+            SUPPORTED_SEGMENT_SIZE,
             &ret_code
         );
         CHECK(init_result == true);
@@ -1171,7 +1176,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::CSW,
                ProvingSystem::Darlin,
-               1 << 10,
+               NUM_CONSTRAINTS,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -1184,7 +1189,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::CSW,
                ProvingSystem::CoboundaryMarlin,
-               1 << 10,
+               NUM_CONSTRAINTS,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -1197,7 +1202,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::Certificate,
                ProvingSystem::Darlin,
-               1 << 10,
+               NUM_CONSTRAINTS,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -1211,7 +1216,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
            zendoo_generate_mc_test_params(
                TestCircuitType::Certificate,
                ProvingSystem::CoboundaryMarlin,
-               1 << 10,
+               NUM_CONSTRAINTS,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -1269,7 +1274,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         }
 
         bool init_result_2 = zendoo_init_dlog_keys(
-            1 << 17,
+            MAX_SEGMENT_SIZE,
             &ret_code
         );
         CHECK(init_result_2 == true);
@@ -1325,8 +1330,8 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(ret_code == CctpErrorCode::OK);
 
         bool init_result_3 = zendoo_init_dlog_keys_test_mode(
-            1 << 17,
-            1 << 8,
+            MAX_SEGMENT_SIZE,
+            SUPPORTED_SEGMENT_SIZE/2,
             &ret_code
         );
         CHECK(init_result_3 == true);
@@ -1335,13 +1340,13 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         // Check batch verification of all valid proofs fails
         auto result_5 = batch_verifier.batch_verify_subset(new_ids, 10, &ret_code);
         CHECK(result_5->result == false);
-        CHECK(result_5->result == NULL);
+        CHECK(result_5->failing_proofs == NULL);
         CHECK(result_5->failing_proofs_len == 0); // Should fail in the hard part, so it won't be possible to determine the index
         CHECK(ret_code == CctpErrorCode::OK);
 
         bool init_result_4 = zendoo_init_dlog_keys_test_mode(
-            1 << 18,
-            1 << 17,
+            MAX_SEGMENT_SIZE * 2,
+            MAX_SEGMENT_SIZE,
             &ret_code
         );
         CHECK(init_result_4 == true);
