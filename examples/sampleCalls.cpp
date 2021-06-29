@@ -1163,7 +1163,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
 
     TEST_CASE("ZendooBatchProofVerifierTest") {
         auto batch_verifier = ZendooBatchProofVerifier();
-        uint32_t num_proofs = 1;
+        uint32_t num_proofs = 10;
 
         CctpErrorCode ret_code = CctpErrorCode::OK;
 
