@@ -1330,11 +1330,28 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(ret_code == CctpErrorCode::OK);
 
         bool init_result_3 = zendoo_init_dlog_keys_test_mode(
+            MAX_SEGMENT_SIZE,
+            SUPPORTED_SEGMENT_SIZE/2,
+            &ret_code
+        );
+        CHECK(init_result_3 == true);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Check batch verification of all valid proofs fails
+        auto result_5 = batch_verifier.batch_verify_subset(new_ids, 10, &ret_code);
+        CHECK(result_5->result == false);
+        CHECK(result_5->failing_proofs == NULL);
+        // Should fail in the hard part due to invalid MSM (scalars > bases),
+        // so it won't be possible to determine the index.
+        CHECK(result_5->failing_proofs_len == 0);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        bool init_result_4 = zendoo_init_dlog_keys_test_mode(
             MAX_SEGMENT_SIZE * 2,
             MAX_SEGMENT_SIZE,
             &ret_code
         );
-        CHECK(init_result_3 == true);
+        CHECK(init_result_4 == true);
         CHECK(ret_code == CctpErrorCode::OK);
 
         // Check batch verification of all valid proofs fails
