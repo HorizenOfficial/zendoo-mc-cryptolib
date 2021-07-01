@@ -1,13 +1,84 @@
-use algebra::{
-    bytes::{FromBytes, ToBytes},
-    curves::mnt4753::MNT4 as PairingCurve,
+use crate::{
+    zendoo_deserialize_field,
+    // zendoo_deserialize_sc_proof,
+    // zendoo_verify_sc_proof,
+    zendoo_serialize_field,
+    //zendoo_sc_proof_free,
+    zendoo_field_free,
+    //backward_transfer_t,
+    zendoo_field_assert_eq,
+    //zendoo_deserialize_sc_vk_from_file,
+    //zendoo_sc_vk_free,
+    //zendoo_serialize_sc_proof,
+    zendoo_init_poseidon_hash,
+    zendoo_update_poseidon_hash,
+    zendoo_finalize_poseidon_hash,
+    zendoo_free_poseidon_hash,
+    zendoo_new_ginger_mht,
+    zendoo_append_leaf_to_ginger_mht,
+    zendoo_get_field_from_long,
+    zendoo_finalize_ginger_mht,
+    zendoo_get_ginger_mht_root,
+    zendoo_finalize_ginger_mht_in_place,
+    zendoo_free_ginger_mht,
+    zendoo_get_ginger_merkle_path,
+    zendoo_verify_ginger_merkle_path,
+    zendoo_free_ginger_merkle_path
 };
 
-use proof_systems::groth16::Proof;
+//use std::{fmt::Debug, fs::File, ptr::null};
+use std::{
+    fmt::Debug,
+    ptr::null
+};
 
-use crate::{zendoo_deserialize_field, zendoo_deserialize_sc_proof, zendoo_verify_sc_proof, zendoo_serialize_field, zendoo_sc_proof_free, zendoo_field_free, BackwardTransfer, zendoo_field_assert_eq, zendoo_deserialize_sc_vk_from_file, zendoo_sc_vk_free, zendoo_serialize_sc_proof, zendoo_init_poseidon_hash, zendoo_update_poseidon_hash, zendoo_finalize_poseidon_hash, zendoo_free_poseidon_hash, zendoo_new_ginger_mht, zendoo_append_leaf_to_ginger_mht, zendoo_get_field_from_long, zendoo_finalize_ginger_mht, zendoo_get_ginger_mht_root, zendoo_finalize_ginger_mht_in_place, zendoo_free_ginger_mht, zendoo_get_ginger_merkle_path, zendoo_verify_ginger_merkle_path, zendoo_free_ginger_merkle_path};
+use algebra::{ ToBytes, to_bytes};
+use algebra::{
+    fields::tweedle::Fr as FieldElement
+};
 
-use std::{fmt::Debug, fs::File, ptr::null};
+use std::fmt::Write;
+
+fn field_element_to_hex_string(field_element: FieldElement) -> String {
+    let mut hex_string: String = String::new();
+    let field_element_bytes = to_bytes!(field_element).unwrap();
+
+    for byte in field_element_bytes {
+        write!(hex_string, "0x{:02x}, ", byte).unwrap();
+    }
+
+    // remove trailing space and comma
+    hex_string.pop();
+    hex_string.pop();
+    hex_string
+}
+
+/*
+fn bytes_32_to_hex_string(arr: [u8; 32]) -> String {
+    let mut hex_string = String::from("0x");
+
+    for x in arr.iter() {
+        write!(hex_string, "{:02x?}", x).unwrap();
+    }
+
+    hex_string
+}
+*/
+
+fn bytes_to_hex_string(arr: &[u8]) -> String {
+    let mut hex_string: String = String::new();
+    let mut bytes = Vec::<u8>::new();
+    bytes.extend(&arr.to_vec());
+
+    for x in bytes.iter() {
+        write!(hex_string, "0x{:02x?}, ", x).unwrap();
+    }
+
+    // remove trailing space and comma
+    hex_string.pop();
+    hex_string.pop();
+    hex_string
+}
 
 fn assert_slice_equals<T: Eq + Debug>(s1: &[T], s2: &[T]) {
     for (i1, i2) in s1.iter().zip(s2.iter()) {
@@ -20,8 +91,8 @@ use std::ffi::OsString;
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
 
-#[cfg(not(target_os = "windows"))]
-fn path_as_ptr(path: &str) -> *const u8 { path.as_ptr() }
+//#[cfg(not(target_os = "windows"))]
+//fn path_as_ptr(path: &str) -> *const u8 { path.as_ptr() }
 
 #[cfg(target_os = "windows")]
 fn path_as_ptr(path: &str) -> *const u16 {
@@ -29,6 +100,7 @@ fn path_as_ptr(path: &str) -> *const u16 {
     tmp.as_ptr()
 }
 
+/*
 #[test]
 fn verify_zkproof_test() {
 
@@ -51,21 +123,20 @@ fn verify_zkproof_test() {
 
     //Inputs
     let end_epoch_mc_b_hash: [u8; 32] = [
-        157, 219, 85, 159, 75, 56, 146, 21, 107, 239, 76, 31, 208, 213, 230, 24, 44, 74, 250, 66,
-        71, 23, 106, 4, 138, 157, 28, 43, 158, 39, 152, 91
+        204, 105, 194, 216, 9, 69, 112, 49, 125, 186, 124, 147, 158, 2, 146, 250, 127, 197, 209, 248, 215, 186, 225,
+        102, 132, 41, 139, 88, 243, 24, 225, 45
     ];
 
     let prev_end_epoch_mc_b_hash: [u8; 32] = [
-        74, 229, 219, 59, 25, 231, 227, 68, 3, 118, 194, 58, 99, 219, 112, 39, 73, 202, 238, 140,
-        114, 144, 253, 32, 237, 117, 117, 60, 200, 70, 187, 171
+        77, 107, 100, 149, 66, 133, 64, 12, 129, 179, 101, 205, 224, 222, 215, 10, 94, 82, 185, 91, 180, 22, 32, 249,
+        191, 61, 233, 132, 6, 243, 175, 160
     ];
 
     let constant_bytes: [u8; 96] = [
-        234, 144, 148, 15, 127, 44, 243, 131, 152, 238, 209, 246, 126, 175, 154, 42, 208, 215, 180,
-        233, 20, 153, 7, 10, 180, 78, 89, 9, 9, 160, 1, 42, 91, 202, 221, 104, 241, 231, 8, 59, 174,
-        159, 27, 108, 74, 80, 118, 192, 127, 238, 216, 167, 72, 15, 61, 97, 121, 13, 48, 143, 255,
-        165, 228, 6, 121, 210, 112, 228, 161, 214, 233, 137, 108, 184, 80, 27, 213, 72, 110, 7, 200,
-        194, 23, 95, 102, 236, 181, 230, 139, 215, 104, 22, 214, 70, 0, 0
+        216, 139, 118, 158, 134, 237, 170, 166, 34, 216, 197, 252, 233, 45, 222, 30, 137, 228, 171, 146, 94, 23, 111,
+        156, 75, 68, 89, 85, 96, 101, 93, 201, 184, 249, 10, 153, 243, 178, 182, 206, 142, 116, 96, 124, 247, 29, 209,
+        33, 52, 217, 110, 145, 19, 27, 198, 93, 55, 184, 137, 54, 172, 83, 73, 255, 0, 57, 85, 59, 73, 168, 63, 79,
+        143, 194, 252, 188, 20, 253, 178, 233, 138, 226, 93, 204, 3, 113, 38, 52, 212, 214, 204, 247, 87, 2, 0, 0
     ];
 
     let constant = zendoo_deserialize_field(&constant_bytes);
@@ -77,7 +148,7 @@ fn verify_zkproof_test() {
     let bt_num = 10;
     let mut bt_list = vec![];
     for _ in 0..bt_num {
-        bt_list.push(BackwardTransfer {
+        bt_list.push(backward_transfer_t {
             pk_dest: [0u8; 20],
             amount: 0,
         });
@@ -240,7 +311,7 @@ fn create_verify_mc_test_proof(){
     let bt_num: usize = rng.gen_range(0, 11);
     let mut bt_list = vec![];
     for _ in 0..bt_num {
-        bt_list.push(BackwardTransfer {
+        bt_list.push(backward_transfer_t {
             pk_dest: [0u8; 20],
             amount: 0,
         });
@@ -306,17 +377,16 @@ fn create_verify_mc_test_proof(){
         vk
     ));
 }
+*/
 
 #[test]
 fn merkle_tree_test() {
     let height = 5;
-    let expected_root_bytes: [u8; 96] = [
-        192, 138, 102, 85, 151, 8, 139, 184, 209, 249, 171, 182, 227, 80, 52, 215, 32, 37, 145, 166,
-        74, 136, 40, 200, 213, 72, 124, 101, 91, 235, 114, 0, 147, 61, 180, 29, 183, 111, 247, 2,
-        169, 12, 179, 173, 87, 88, 187, 229, 26, 139, 80, 228, 125, 246, 145, 141, 43, 19, 148, 94,
-        190, 140, 20, 123, 208, 132, 48, 243, 14, 2, 48, 106, 100, 13, 41, 254, 129, 225, 168, 23,
-        72, 215, 207, 255, 98, 156, 102, 215, 201, 158, 10, 123, 107, 238, 0, 0
+    let expected_root_bytes: [u8; 32] = [
+        0x5d, 0x60, 0x0c, 0x9b, 0x61, 0x31, 0x4c, 0xf8, 0xa1, 0x7d, 0x09, 0x30, 0xf6, 0x6e, 0x69, 0x47,
+        0x72, 0x61, 0xe1, 0x80, 0xc8, 0x53, 0x42, 0xeb, 0xd6, 0x74, 0x60, 0xf0, 0x09, 0xe4, 0x70, 0x23
     ];
+    println!("expected_root_bytes: : {}", bytes_to_hex_string( &(&expected_root_bytes)[..]));
     let expected_root = zendoo_deserialize_field(&expected_root_bytes);
 
     // Generate leaves
@@ -337,6 +407,7 @@ fn merkle_tree_test() {
     // Finalize tree and assert root equality
     zendoo_finalize_ginger_mht_in_place(tree);
     let root = zendoo_get_ginger_mht_root(tree);
+    println!("Computed root: {}", field_element_to_hex_string(unsafe{*root}));
     assert!(zendoo_field_assert_eq(root, expected_root));
 
     // It is the same by calling zendoo_finalize_ginger_mht
@@ -365,28 +436,22 @@ fn merkle_tree_test() {
 
 #[test]
 fn poseidon_hash_test() {
-    let lhs: [u8; 96] = [
-        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178,
-        128, 55, 248, 234, 95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153,
-        161, 86, 213, 126, 95, 76, 27, 98, 34, 111, 144, 36, 205, 124, 200, 168, 29, 196, 67, 210,
-        100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72, 88, 23, 236, 142, 237, 45,
-        11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 0, 0,
+    let lhs: [u8; 32] = [
+        0x8a, 0xce, 0xc7, 0xf3, 0xc3, 0xfe, 0x19, 0x5e, 0xec, 0x9b, 0xe8, 0xb6, 0x59, 0x7b, 0xa2, 0xcf,
+        0x66, 0x34, 0xb2, 0x80, 0x37, 0xf8, 0xea, 0x5f, 0x21, 0xc4, 0xaa, 0x0c, 0x76, 0x10, 0x00, 0x00
     ];
 
-    let rhs: [u8; 96] = [
-        199, 130, 235, 52, 44, 219, 5, 195, 71, 154, 54, 121, 3, 11, 111, 160, 86, 212, 189, 66,
-        235, 236, 240, 242, 126, 248, 116, 0, 48, 95, 133, 85, 73, 150, 110, 169, 16, 88, 136, 34,
-        106, 7, 38, 176, 46, 89, 163, 49, 162, 222, 182, 42, 200, 240, 149, 226, 173, 203, 148,
-        194, 207, 59, 44, 185, 67, 134, 107, 221, 188, 208, 122, 212, 200, 42, 227, 3, 23, 59, 31,
-        37, 91, 64, 69, 196, 74, 195, 24, 5, 165, 25, 101, 215, 45, 92, 1, 0,
+    let rhs: [u8; 32] = [
+        0xc7, 0x82, 0xeb, 0x34, 0x2c, 0xdb, 0x05, 0xc3, 0x47, 0x9a, 0x36, 0x79, 0x03, 0x0b, 0x6f, 0xa0,
+        0x56, 0xd4, 0xbd, 0x42, 0xeb, 0xec, 0xf0, 0xf2, 0x7e, 0xf8, 0x74, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
 
-    let hash: [u8; 96] = [
-        53, 2, 235, 12, 255, 18, 125, 167, 223, 32, 245, 103, 38, 74, 43, 73, 254, 189, 174, 137,
-        20, 90, 195, 107, 202, 24, 151, 136, 85, 23, 9, 93, 207, 33, 229, 200, 178, 225, 221, 127,
-        18, 250, 108, 56, 86, 94, 171, 1, 76, 21, 237, 254, 26, 235, 196, 14, 18, 129, 101, 158,
-        136, 103, 147, 147, 239, 140, 163, 94, 245, 147, 110, 28, 93, 231, 66, 7, 111, 11, 202, 99,
-        146, 211, 117, 143, 224, 99, 183, 108, 157, 200, 119, 169, 180, 148, 0, 0,
+    println!("lhs : {}", bytes_to_hex_string( &(&lhs)[..]));
+    println!("rhs : {}", bytes_to_hex_string( &(&rhs)[..]));
+
+    let hash: [u8; 32] = [
+        0x99, 0x78, 0x7f, 0x27, 0x55, 0xb6, 0xfa, 0xf4, 0x2c, 0xa6, 0x63, 0x27, 0x93, 0xe9, 0x5c, 0x5d,
+        0x67, 0xa5, 0x5e, 0x5c, 0x90, 0x40, 0xbf, 0xb2, 0x4c, 0x31, 0xbe, 0xb9, 0x77, 0x1b, 0xa4, 0x26
     ];
 
     let lhs_field = zendoo_deserialize_field(&lhs);
@@ -394,7 +459,7 @@ fn poseidon_hash_test() {
     let expected_hash = zendoo_deserialize_field(&hash);
 
     //Test field serialization/deserialization
-    let mut lhs_serialized = [0u8; 96];
+    let mut lhs_serialized = [0u8; 32];
     zendoo_serialize_field(lhs_field, &mut lhs_serialized);
     assert_slice_equals(&lhs, &lhs_serialized);
     drop(lhs_serialized);
@@ -407,11 +472,15 @@ fn poseidon_hash_test() {
     zendoo_update_poseidon_hash(rhs_field, uh);
 
     let actual_hash = zendoo_finalize_poseidon_hash(uh);
+    println!("Computed hash: {}", field_element_to_hex_string(unsafe{*actual_hash}));
+    println!("Expected hash: {}", field_element_to_hex_string(unsafe{*expected_hash}));
     assert!(zendoo_field_assert_eq(actual_hash, expected_hash));
     zendoo_field_free(actual_hash);
 
     // finalize() is idempotent
     let actual_hash_2 = zendoo_finalize_poseidon_hash(uh);
+    println!("Computed hash: {}", field_element_to_hex_string(unsafe{*actual_hash_2}));
+    println!("Expected hash: {}", field_element_to_hex_string(unsafe{*expected_hash}));
     assert!(zendoo_field_assert_eq(actual_hash_2, expected_hash));
     zendoo_field_free(actual_hash_2);
 
