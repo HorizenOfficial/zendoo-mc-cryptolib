@@ -7,11 +7,12 @@
 /*
  *  Usage:
  *
- *  1) ./mcTest "generate" "cert/csw" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
+ *  1) ./mcTest "generate" "cert/cert_no_const/csw" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
  *
- *  2) ./mcTest "create" "cert" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
- *  "sc_id" "epoch_number" "quality" "constant" "end_cum_comm_tree_root", "btr_fee", "ft_min_amount" "num_constraints"
+ *  2) ./mcTest "create" "cert/cert_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
+ *  "sc_id" "epoch_number" "quality" "is_constant_present" "constant" "end_cum_comm_tree_root", "btr_fee",
+ *  "ft_min_amount" "num_constraints"
  *  "bt_list_len", "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n",
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
  *  Generates a TestCertificateProof;
@@ -21,7 +22,7 @@
  *  Generates a TestCSWProof. cert_data_hash is optional
  */
 
-void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** argv) {
+void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_type_raw, int argc, char** argv) {
     int arg = 4;
     bool verify = false;
     if (std::string(argv[arg]) == "-v"){
@@ -53,8 +54,20 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     auto params_path = std::string(argv[arg++]);
 
     CctpErrorCode ret_code = CctpErrorCode::OK;
+
+    std::string pk_name;
+    std::string vk_name;
+
+    if (cert_type_raw == "cert") {
+        pk_name = std::string("_cert_test_pk");
+        vk_name = std::string("_cert_test_vk");
+    } else {
+        pk_name = std::string("_cert_no_const_test_pk");
+        vk_name = std::string("_cert_no_const_test_vk");
+    }
+
     // Deserialize pk
-    auto pk_path = params_path + ps_type_raw + std::string("_cert_test_pk");
+    auto pk_path = params_path + ps_type_raw + pk_name;
     size_t pk_path_len = pk_path.size();
 
     sc_pk_t* pk = zendoo_deserialize_sc_pk_from_file(
@@ -85,12 +98,17 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     uint64_t quality = strtoull(argv[arg++], NULL, 0);
 
     // Parse constant
-    assert(IsHex(argv[arg]));
-    auto constant = ParseHex(argv[arg++]);
-    assert(constant.size() == 32);
-    field_t* constant_f = zendoo_deserialize_field(constant.data(), &ret_code);
-    assert(constant_f != NULL);
-    assert(ret_code == CctpErrorCode::OK);
+    uint32_t constant_present = strtoull(argv[arg++], NULL, 0);
+    field_t* constant_f = NULL;
+
+    if (constant_present > 0) {
+        assert(IsHex(argv[arg]));
+        auto constant = ParseHex(argv[arg++]);
+        assert(constant.size() == 32);
+        constant_f = zendoo_deserialize_field(constant.data(), &ret_code);
+        assert(constant_f != NULL);
+        assert(ret_code == CctpErrorCode::OK);
+    }
 
     // Parse end_cum_comm_tree_root
     assert(IsHex(argv[arg]));
@@ -191,7 +209,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
         assert(ret_code == CctpErrorCode::OK);
 
         // Deserialize vk
-        auto vk_path = params_path + ps_type_raw + std::string("_cert_test_vk");
+        auto vk_path = params_path + ps_type_raw + vk_name;
         size_t vk_path_len = vk_path.size();
         sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
             (path_char_t*)vk_path.c_str(),
@@ -442,9 +460,9 @@ void create_verify(int argc, char** argv)
     auto ps_type_raw = std::string(argv[3]);
 
     auto circ_type_raw = std::string(argv[2]);
-    if (circ_type_raw == "cert") {
+    if (circ_type_raw == "cert" || circ_type_raw == "cert_no_const") {
         assert(argc >= 17);
-        create_verify_test_cert_proof(ps_type_raw, argc, argv);
+        create_verify_test_cert_proof(ps_type_raw, circ_type_raw, argc, argv);
     } else if (circ_type_raw == "csw") {
         create_verify_test_csw_proof(ps_type_raw, argc, argv);
     } else {
@@ -459,6 +477,8 @@ void generate(char** argv)
     TestCircuitType circ_type;
     if (circ_type_raw == "cert") {
         circ_type = TestCircuitType::Certificate;
+    } else if (circ_type_raw == "cert_no_const") {
+        circ_type = TestCircuitType::CertificateNoConstant;
     } else if (circ_type_raw == "csw") {
         circ_type = TestCircuitType::CSW;
     } else {
