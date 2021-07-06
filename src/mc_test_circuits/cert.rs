@@ -198,6 +198,7 @@ pub fn generate_proof(
     pk:                                         &ZendooProverKey,
     zk:                                         bool,
     constant:                                   &FieldElement,
+    sc_id:                                      &FieldElement,
     epoch_number:                               u32,
     quality:                                    u64,
     custom_fields:                              Option<Vec<&FieldElement>>,
@@ -212,6 +213,7 @@ pub fn generate_proof(
 
     // Read input param into field elements
     let cert_data_hash = get_cert_data_hash(
+        sc_id,
         epoch_number,
         quality,
         bt_list,

@@ -27,6 +27,7 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, segment
     generate_params(params_dir, "cert", ps_type);
 
     # Generate random test data
+    sc_id = generate_random_field_element_hex()
     epoch_number = random.randint(0, 10)
     quality = random.randint(0, 100)
     btr_fee = random.randint(0, 1000)
@@ -44,7 +45,7 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, segment
     args.append(str(proof_path))
     args.append(str(params_dir))
     args.append(str(segment_size))
-    args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount), str(num_constraints)]
+    args += [str(sc_id), str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount), str(num_constraints)]
 
     args.append(str(bt_num))
     for (pk, amount) in zip(pks, amounts):

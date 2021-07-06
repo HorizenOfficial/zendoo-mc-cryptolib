@@ -794,6 +794,7 @@ pub extern "C" fn zendoo_sc_vk_free(sc_vk: *mut ZendooVerifierKey) {
 
 fn get_cert_proof_usr_ins<'a>(
     constant:               *const FieldElement,
+    sc_id:                  *const FieldElement,
     epoch_number:           u32,
     quality:                u64,
     bt_list:                *const BackwardTransfer,
@@ -810,6 +811,7 @@ fn get_cert_proof_usr_ins<'a>(
     let rs_bt_list = try_get_optional_obj_list!("bt_list", bt_list, bt_list_len, ret_code, None);
 
     // Read mandatory, constant size data
+    let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, None);
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, None);
 
     // Read optional data
@@ -821,6 +823,7 @@ fn get_cert_proof_usr_ins<'a>(
     // Create and return inputs
     Some(CertificateProofUserInputs {
         constant: rs_constant,
+        sc_id: rs_sc_id,
         epoch_number,
         quality,
         bt_list: rs_bt_list,
@@ -834,6 +837,7 @@ fn get_cert_proof_usr_ins<'a>(
 #[no_mangle]
 pub extern "C" fn zendoo_verify_certificate_proof(
     constant:               *const FieldElement,
+    sc_id:                  *const FieldElement,
     epoch_number:           u32,
     quality:                u64,
     bt_list:                *const BackwardTransfer,
@@ -850,7 +854,7 @@ pub extern "C" fn zendoo_verify_certificate_proof(
 {
     // Get usr_ins
     let usr_ins = get_cert_proof_usr_ins(
-        constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        constant, sc_id, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
         end_cum_comm_tree_root, btr_fee, ft_min_amount, ret_code
     );
     if usr_ins.is_none() { return false; }
@@ -913,6 +917,7 @@ pub extern "C" fn zendoo_get_phantom_cert_data_hash() -> *mut FieldElement {
 
 #[no_mangle]
 pub extern "C" fn zendoo_get_cert_data_hash(
+    sc_id:                  *const FieldElement,
     epoch_number:           u32,
     quality:                u64,
     bt_list:                *const BackwardTransfer,
@@ -926,6 +931,7 @@ pub extern "C" fn zendoo_get_cert_data_hash(
 ) -> *mut FieldElement {
 
     // Read mandatory, constant size data
+    let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, null_mut());
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, null_mut());
 
     // Read bt_list
@@ -937,6 +943,7 @@ pub extern "C" fn zendoo_get_cert_data_hash(
     );
 
     match get_cert_data_hash(
+        rs_sc_id,
         epoch_number,
         quality,
         rs_bt_list,
@@ -1026,6 +1033,7 @@ pub extern "C" fn zendoo_add_certificate_proof_to_batch_verifier(
     batch_verifier:         *mut ZendooBatchVerifier,
     proof_id:               u32,
     constant:               *const FieldElement,
+    sc_id:                  *const FieldElement,
     epoch_number:           u32,
     quality:                u64,
     bt_list:                *const BackwardTransfer,
@@ -1042,7 +1050,7 @@ pub extern "C" fn zendoo_add_certificate_proof_to_batch_verifier(
 {
     // Get usr_ins
     let usr_ins = get_cert_proof_usr_ins(
-        constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        constant, sc_id, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
         end_cum_comm_tree_root, btr_fee, ft_min_amount, ret_code
     );
     if usr_ins.is_none() { return false; }
@@ -1897,6 +1905,7 @@ pub extern "C" fn zendoo_generate_mc_test_params(
 fn _zendoo_create_cert_test_proof(
     zk:                     bool,
     constant:               *const FieldElement,
+    sc_id:                  *const FieldElement,
     epoch_number:           u32,
     quality:                u64,
     bt_list:                *const BackwardTransfer,
@@ -1915,11 +1924,12 @@ fn _zendoo_create_cert_test_proof(
     let rs_bt_list = try_get_optional_obj_list!("bt_list", bt_list, bt_list_len, ret_code, Err(ProvingSystemError::Other("".to_owned())));
 
     // Read mandatory, constant size data
+    let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_pk = try_read_raw_pointer!("sc_pk", sc_pk, ret_code, Err(ProvingSystemError::Other("".to_owned())));
+    let rs_constant = try_read_raw_pointer!("constant", constant, ret_code, Err(ProvingSystemError::Other("".to_owned())));
 
     // Read optional data
-    let rs_constant = try_read_raw_pointer!("constant", constant, ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_custom_fields = try_read_optional_double_raw_pointer!(
         "custom_fields", custom_fields, custom_fields_len, ret_code, Err(ProvingSystemError::Other("".to_owned()))
     );
@@ -1929,6 +1939,7 @@ fn _zendoo_create_cert_test_proof(
         rs_pk,
         zk,
         rs_constant,
+        rs_sc_id,
         epoch_number,
         quality,
         rs_custom_fields,
@@ -1945,6 +1956,7 @@ fn _zendoo_create_cert_test_proof(
 pub extern "C" fn zendoo_create_cert_test_proof(
     zk:                     bool,
     constant:               *const FieldElement,
+    sc_id:                  *const FieldElement,
     epoch_number:           u32,
     quality:                u64,
     bt_list:                *const BackwardTransfer,
@@ -1963,7 +1975,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
 ) -> bool
 {
     match _zendoo_create_cert_test_proof(
-        zk, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        zk, constant, sc_id, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
         end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, num_constraints, ret_code
     ){
         Ok(proof) => {
@@ -1992,6 +2004,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
 pub extern "C" fn zendoo_create_cert_test_proof(
     zk:                     bool,
     constant:               *const FieldElement,
+    sc_id:                  *const FieldElement,
     epoch_number:           u32,
     quality:                u64,
     bt_list:                *const BackwardTransfer,
@@ -2010,7 +2023,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
 ) -> bool
 {
     match _zendoo_create_cert_test_proof(
-        zk, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        zk, constant, sc_id, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
         end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, num_constraints, ret_code
     ){
         Ok(proof) => {
@@ -2167,6 +2180,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
 pub extern "C" fn zendoo_create_return_cert_test_proof(
     zk:                     bool,
     constant:               *const FieldElement,
+    sc_id:                  *const FieldElement,
     epoch_number:           u32,
     quality:                u64,
     bt_list:                *const BackwardTransfer,
@@ -2183,7 +2197,7 @@ pub extern "C" fn zendoo_create_return_cert_test_proof(
 ) -> *mut BufferWithSize
 {
     match _zendoo_create_cert_test_proof(
-        zk, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
+        zk, constant, sc_id, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
         end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, num_constraints, ret_code
     ){
         Ok(sc_proof) => {

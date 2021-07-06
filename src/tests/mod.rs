@@ -148,6 +148,7 @@ fn serialization_deserialization_bench_vk_proof() {
             &pk,
             true,
             &FieldElement::rand(&mut rng),
+            &FieldElement::rand(&mut rng),
             0,
             0,
             None,
@@ -241,6 +242,9 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             ));
 
             // Create test proof
+            let sc_id = zendoo_get_random_field();
+            assert!(sc_id != null_mut());
+
             let constant = zendoo_get_random_field();
             assert!(constant != null_mut());
 
@@ -260,6 +264,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             let proof_buff = zendoo_create_return_cert_test_proof(
                 true,
                 constant,
+                sc_id,
                 0,
                 0,
                 null(),
@@ -294,6 +299,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                     &mut bv,
                     i,
                     constant,
+                    sc_id,
                     0,
                     0,
                     null(),

@@ -518,8 +518,8 @@ TEST_CASE("Commitment Tree") {
     CHECK(ret_code == CctpErrorCode::OK);
 
     unsigned char expected_root_after_cert_bytes[FIELD_SIZE] = {
-        152, 182, 153, 190, 231, 46, 36, 235, 71, 85, 229, 218, 139, 153, 82, 151,
-        109, 110, 163, 4, 67, 104, 185, 240, 112, 49, 168, 58, 63, 76, 27, 26
+        170, 55, 27, 126, 252, 168, 162, 120, 2, 225, 63, 210, 253, 205, 193, 12,
+        188, 162, 37, 130, 218, 101, 142, 121, 95, 146, 105, 63, 197, 28, 16, 33
     };
     check_root(expected_root_after_cert_bytes, root_after_cert);
 
@@ -604,6 +604,7 @@ TEST_SUITE("Single Proof Verifier") {
         CctpErrorCode ret_code = CctpErrorCode::OK;
 
         // Generate random data
+        auto sc_id = zendoo_get_field_from_long(10);
         auto constant = zendoo_get_field_from_long(1);
         auto end_cum_comm_tree_root = zendoo_get_field_from_long(2);
         uint32_t epoch_number = 10;
@@ -645,7 +646,7 @@ TEST_SUITE("Single Proof Verifier") {
 
         CHECK(
             zendoo_create_cert_test_proof(
-                zk, constant, epoch_number, quality, bt_list_ptr, bt_list_len,
+                zk, constant, sc_id, epoch_number, quality, bt_list_ptr, bt_list_len,
                 custom_fields, 2, end_cum_comm_tree_root, btr_fee, ft_min_amount,
                 sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS, &ret_code
             ) == true
@@ -692,7 +693,7 @@ TEST_SUITE("Single Proof Verifier") {
         // Positive verification
         CHECK(
             zendoo_verify_certificate_proof(
-                constant, epoch_number, quality, bt_list_ptr, bt_list_len,
+                constant, sc_id, epoch_number, quality, bt_list_ptr, bt_list_len,
                 custom_fields, 2, end_cum_comm_tree_root,
                 btr_fee, ft_min_amount, sc_proof, sc_vk, &ret_code
             ) == true
@@ -703,7 +704,7 @@ TEST_SUITE("Single Proof Verifier") {
         auto wrong_constant = zendoo_get_field_from_long(2);
         CHECK(
             zendoo_verify_certificate_proof(
-                wrong_constant, epoch_number, quality, bt_list_ptr, bt_list_len,
+                wrong_constant, sc_id, epoch_number, quality, bt_list_ptr, bt_list_len,
                 custom_fields, 2, end_cum_comm_tree_root, btr_fee, ft_min_amount,
                 sc_proof, sc_vk, &ret_code
             ) == false
@@ -1082,6 +1083,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CctpErrorCode ret_code = CctpErrorCode::OK;
 
         // Generate random data
+        auto sc_id = zendoo_get_field_from_long(10);
         auto constant = zendoo_get_field_from_long(1);
         auto end_cum_comm_tree_root = zendoo_get_field_from_long(2);
         uint32_t epoch_number = 10;
@@ -1103,7 +1105,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         auto proof_path = params_dir + std::string("/test_proof");
         CHECK(
             zendoo_create_cert_test_proof(
-                false, constant, epoch_number, quality, NULL, 0,
+                false, constant, sc_id, epoch_number, quality, NULL, 0,
                 NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
                 (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS,
                 &ret_code
@@ -1137,7 +1139,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         }
         CHECK(
             batch_verifier->add_certificate_proof(
-                proof_id, constant, epoch_number, quality, NULL, 0,
+                proof_id, constant, sc_id, epoch_number, quality, NULL, 0,
                 NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_proof, sc_vk, &ret_code
             ) == true
         );
