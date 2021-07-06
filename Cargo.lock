@@ -294,7 +294,7 @@ checksum = "3baa92041a6fec78c687fa0cc2b3fae8884f743d672cf551bed1d6dac6988d0f"
 [[package]]
 name = "marlin"
 version = "0.1.0"
-source = "git+https://github.com/HorizenLabs/marlin?branch=misc_changes#87b1c8269976760a48a6d93089489a7d0f14b1ab"
+source = "git+https://github.com/HorizenLabs/marlin?branch=misc_changes#cbebbf9852b49ce5d4bba3a3c739d6d0c2728a9f"
 dependencies = [
  "algebra",
  "bench-utils",

@@ -342,6 +342,7 @@ extern "C" {
 
         ~ZendooPoseidonHash() {
             zendoo_free_poseidon_hash(digest);
+            digest = nullptr;
         }
     };
 
@@ -526,6 +527,7 @@ extern "C" {
 
         ~ZendooGingerMerkleTree() {
             zendoo_free_ginger_mht(tree);
+            tree = nullptr;
         }
     };
 
@@ -941,6 +943,7 @@ extern "C" {
         
         ~ZendooBatchProofVerifier() {
             zendoo_free_batch_proof_verifier(batch_verifier);
+            batch_verifier = nullptr;
         }
     };
 
