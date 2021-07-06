@@ -33,7 +33,9 @@ use cctp_primitives::{
     },
     utils::{
         data_structures::{BitVectorElementsConfig, BackwardTransfer},
-        poseidon_hash::*, mht::*, serialization::{deserialize_from_buffer, serialize_to_buffer},
+        poseidon_hash::*, mht::*, serialization::{
+            deserialize_from_buffer, serialize_to_buffer,
+        },
         compute_sc_id,
     },
 };
@@ -61,9 +63,9 @@ pub(crate) fn free_pointer<T> (ptr: *mut T) {
     unsafe { drop( Box::from_raw(ptr)) }
 }
 
-pub(crate) fn get_hex<T: CanonicalSerialize>(elem: &T) -> String {
+pub(crate) fn get_hex<T: CanonicalSerialize>(elem: &T, compressed: Option<bool>) -> String {
     let mut hex_string = String::from("0x");
-    let elem_bytes = serialize_to_buffer(elem).unwrap();
+    let elem_bytes = serialize_to_buffer(elem, compressed).unwrap();
 
     for byte in elem_bytes {
         write!(hex_string, "{:02x}", byte).unwrap();
@@ -437,7 +439,7 @@ pub extern "C" fn zendoo_serialize_field(
     ret_code: &mut CctpErrorCode
 ) -> bool
 {
-    try_serialize_from_raw_pointer!("field_element", field_element, &mut (unsafe { &mut *result })[..], ret_code, false);
+    try_serialize_from_raw_pointer!("field_element", field_element, &mut (unsafe { &mut *result })[..], None, ret_code, false);
     true
 }
 
@@ -447,7 +449,7 @@ pub extern "C" fn zendoo_deserialize_field(
     ret_code: &mut CctpErrorCode
 ) -> *mut FieldElement
 {
-    try_deserialize_to_raw_pointer!("field_bytes", &(unsafe { &*field_bytes })[..], true, ret_code, null_mut())
+    try_deserialize_to_raw_pointer!("field_bytes", &(unsafe { &*field_bytes })[..], None, None, ret_code, null_mut())
 }
 
 #[no_mangle]
@@ -457,7 +459,7 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(fie
 pub extern "C" fn zendoo_print_field(field: *const FieldElement) {
     let ret_code = &mut CctpErrorCode::OK;
     let rs_field = try_read_raw_pointer!("field", field, ret_code, ());
-    println!("{:?}", get_hex(rs_field));
+    println!("{:?}", get_hex(rs_field, None));
 }
 
 ////********************Sidechain SNARK functions********************
@@ -480,6 +482,22 @@ fn _zendoo_init_dlog_keys(
             println!("{:?}", format!("Error bootstrapping DLOG keys: {:?}", e));
             *ret_code = CctpErrorCode::GenericError;
             false
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_proving_system_type(
+    byte: u8,
+    ret_code: &mut CctpErrorCode
+) -> ProvingSystem
+{
+    match deserialize_from_buffer::<ProvingSystem>(&[byte], None, None) {
+        Ok(ps_type) => ps_type,
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
         }
     }
 }
@@ -509,10 +527,11 @@ pub extern "C" fn zendoo_init_dlog_keys_test_mode(
 pub extern "C" fn zendoo_serialize_sc_proof(
     sc_proof: *const ZendooProof,
     ret_code: &mut CctpErrorCode,
+    compressed: bool,
 ) -> *mut BufferWithSize
 {
     let sc_proof = try_read_raw_pointer!("proof", sc_proof, ret_code, null_mut());
-    match serialize_to_buffer(sc_proof) {
+    match serialize_to_buffer(sc_proof, Some(compressed)) {
         Ok(mut sc_proof_bytes) => {
             sc_proof_bytes.shrink_to_fit();
             let len = sc_proof_bytes.len();
@@ -534,10 +553,11 @@ pub extern "C" fn zendoo_deserialize_sc_proof(
     sc_proof_bytes:  *const BufferWithSize,
     semantic_checks: bool,
     ret_code:        &mut CctpErrorCode,
+    compressed:      bool,
 ) -> *mut ZendooProof
 {
     let sc_proof_bytes = try_get_buffer_variable_size!("sc_proof_buffer", sc_proof_bytes, ret_code, null_mut());
-    try_deserialize_to_raw_pointer!("sc_proof_bytes", sc_proof_bytes, semantic_checks, ret_code, null_mut())
+    try_deserialize_to_raw_pointer!("sc_proof_bytes", sc_proof_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[no_mangle]
@@ -551,6 +571,83 @@ pub extern "C" fn zendoo_get_sc_proof_proving_system_type(
 }
 
 #[no_mangle]
+pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_buffer(
+    sc_proof_bytes:  *const BufferWithSize,
+    ret_code:        &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    let sc_proof_bytes = try_get_buffer_variable_size!("sc_proof_buffer", sc_proof_bytes, ret_code, ProvingSystem::Undefined);
+    match deserialize_from_buffer::<ProvingSystem>(&sc_proof_bytes[..1], None, None) {
+        Ok(ps_type) => ps_type,
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_file(
+    proof_path:         *const u8,
+    proof_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let proof_path = parse_path(proof_path, proof_path_len);
+    match read_from_file::<ProvingSystem>(
+        proof_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_file(
+    proof_path:         *const u16,
+    proof_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(proof_path, proof_path_len)
+    });
+    let proof_path = Path::new(&path_str);
+
+    match read_from_file::<ProvingSystem>(
+        proof_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn zendoo_sc_proof_free(proof: *mut ZendooProof) {
     free_pointer(proof)
 }
@@ -561,14 +658,15 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     vk_path: *const u8,
     vk_path_len: usize,
     semantic_checks: bool,
-    ret_code: &mut CctpErrorCode
+    ret_code: &mut CctpErrorCode,
+    compressed: bool,
 ) -> *mut ZendooVerifierKey
 {
     // Read file path
     let vk_path = parse_path(vk_path, vk_path_len);
 
     // Deserialize vk
-    try_deserialize_to_raw_pointer_from_file!("vk", vk_path, semantic_checks, ret_code, null_mut())
+    try_deserialize_to_raw_pointer_from_file!("vk", vk_path, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[cfg(target_os = "windows")]
@@ -577,7 +675,8 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     vk_path: *const u16,
     vk_path_len: usize,
     semantic_checks: bool,
-    ret_code: &mut CctpErrorCode
+    ret_code: &mut CctpErrorCode,
+    compressed: bool,
 ) -> *mut ZendooVerifierKey
 {
     // Read file path
@@ -587,7 +686,7 @@ pub extern "C" fn zendoo_deserialize_sc_vk_from_file(
     let vk_path = Path::new(&path_str);
 
     // Deserialize vk
-    try_deserialize_to_raw_pointer_from_file!("vk", vk_path, semantic_checks, ret_code, null_mut())
+    try_deserialize_to_raw_pointer_from_file!("vk", vk_path, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[no_mangle]
@@ -595,9 +694,10 @@ pub extern "C" fn zendoo_deserialize_sc_vk(
     sc_vk_bytes:     *const BufferWithSize,
     semantic_checks: bool,
     ret_code:        &mut CctpErrorCode,
+    compressed:      bool,
 ) -> *mut ZendooVerifierKey {
     let sc_vk_bytes = try_get_buffer_variable_size!("sc_vk_buffer", sc_vk_bytes, ret_code, null_mut());
-    try_deserialize_to_raw_pointer!("sc_vk_bytes", sc_vk_bytes, semantic_checks, ret_code, null_mut())
+    try_deserialize_to_raw_pointer!("sc_vk_bytes", sc_vk_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[no_mangle]
@@ -608,6 +708,83 @@ pub extern "C" fn zendoo_get_sc_vk_proving_system_type(
 {
     let sc_vk = try_read_raw_pointer!("sc_vk", sc_vk, ret_code, ProvingSystem::Undefined);
     sc_vk.get_proving_system_type()
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_buffer(
+    sc_vk_bytes:  *const BufferWithSize,
+    ret_code:        &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    let sc_vk_bytes = try_get_buffer_variable_size!("sc_vk_buffer", sc_vk_bytes, ret_code, ProvingSystem::Undefined);
+    match deserialize_from_buffer::<ProvingSystem>(&sc_vk_bytes[..1], None, None) {
+        Ok(ps_type) => ps_type,
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_file(
+    vk_path:         *const u8,
+    vk_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let vk_path = parse_path(vk_path, vk_path_len);
+    match read_from_file::<ProvingSystem>(
+        vk_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_file(
+    vk_path:         *const u16,
+    vk_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(vk_path, vk_path_len)
+    });
+    let vk_path = Path::new(&path_str);
+
+    match read_from_file::<ProvingSystem>(
+        vk_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
 }
 
 #[no_mangle]
@@ -697,6 +874,7 @@ pub extern "C" fn zendoo_verify_certificate_proof(
 }
 
 use cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH;
+use cctp_primitives::utils::serialization::read_from_file;
 
 fn get_csw_proof_usr_ins<'a>(
     amount:                 u64,
@@ -1154,7 +1332,7 @@ pub extern "C" fn zendoo_update_poseidon_hash_from_raw(
     let input_bytes = try_get_buffer_constant_size!("input_fe_bytes", fe, FIELD_SIZE, ret_code, false);
 
     // Compute hash
-    match deserialize_from_buffer(input_bytes) {
+    match deserialize_from_buffer(input_bytes, None, None) {
         Ok(fe) => {
             update_poseidon_hash(digest, &fe);
             true
@@ -1249,7 +1427,7 @@ pub extern "C" fn zendoo_append_leaf_to_ginger_mht_from_raw(
     // Read leaf bytes
     let leaf_bytes = try_get_buffer_constant_size!("leaf_bytes", leaf, FIELD_SIZE, ret_code, false);
 
-    match deserialize_from_buffer(leaf_bytes) {
+    match deserialize_from_buffer(leaf_bytes, None, None) {
 
         // Deserialization ok
         Ok(leaf) => {
@@ -1442,11 +1620,12 @@ pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
     proof_path_len:     usize,
     semantic_checks:    bool,
     ret_code:           &mut CctpErrorCode,
+    compressed:         bool,
 ) -> *mut ZendooProof
 {
     // Read file path
     let proof_path = parse_path(proof_path, proof_path_len);
-    try_deserialize_to_raw_pointer_from_file!("sc_proof", proof_path, semantic_checks, ret_code, null_mut())
+    try_deserialize_to_raw_pointer_from_file!("sc_proof", proof_path, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
@@ -1456,6 +1635,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
     proof_path_len:     usize,
     semantic_checks:    bool,
     ret_code:           &mut CctpErrorCode,
+    compressed:         bool,
 ) -> *mut ZendooProof
 {
     // Read file path
@@ -1464,7 +1644,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof_from_file(
     });
     let proof_path = Path::new(&path_str);
 
-    try_deserialize_to_raw_pointer_from_file!("sc_proof", proof_path, semantic_checks, ret_code, null_mut())
+    try_deserialize_to_raw_pointer_from_file!("sc_proof", proof_path, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
@@ -1474,11 +1654,12 @@ pub extern "C" fn zendoo_deserialize_sc_pk_from_file(
     pk_path_len:        usize,
     semantic_checks:    bool,
     ret_code:           &mut CctpErrorCode,
+    compressed:         bool,
 ) -> *mut ZendooProverKey
 {
     // Read file path
     let pk_path = parse_path(pk_path, pk_path_len);
-    try_deserialize_to_raw_pointer_from_file!("sc_pk", pk_path, semantic_checks, ret_code, null_mut())
+    try_deserialize_to_raw_pointer_from_file!("sc_pk", pk_path, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
@@ -1488,6 +1669,7 @@ pub extern "C" fn zendoo_deserialize_sc_pk_from_file(
     pk_path_len:        usize,
     semantic_checks:    bool,
     ret_code:           &mut CctpErrorCode,
+    compressed:         bool,
 ) -> *mut ZendooProverKey
 {
     // Read file path
@@ -1496,7 +1678,7 @@ pub extern "C" fn zendoo_deserialize_sc_pk_from_file(
     });
     let pk_path = Path::new(&path_str);
 
-    try_deserialize_to_raw_pointer_from_file!("sc_pk", pk_path, semantic_checks, ret_code, null_mut())
+    try_deserialize_to_raw_pointer_from_file!("sc_pk", pk_path, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[cfg(feature = "mc-test-circuit")]
@@ -1508,6 +1690,83 @@ pub extern "C" fn zendoo_get_sc_pk_proving_system_type(
 {
     let sc_pk = try_read_raw_pointer!("sc_pk", sc_pk, ret_code, ProvingSystem::Undefined);
     sc_pk.get_proving_system_type()
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_buffer(
+    sc_pk_bytes:  *const BufferWithSize,
+    ret_code:        &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    let sc_pk_bytes = try_get_buffer_variable_size!("sc_pk_buffer", sc_pk_bytes, ret_code, ProvingSystem::Undefined);
+    match deserialize_from_buffer::<ProvingSystem>(&sc_pk_bytes[..1], None, None) {
+        Ok(ps_type) => ps_type,
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
+}
+
+#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_file(
+    pk_path:         *const u8,
+    pk_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let pk_path = parse_path(pk_path, pk_path_len);
+    match read_from_file::<ProvingSystem>(
+        pk_path,
+        None,
+        None,
+    )
+        {
+            Ok(ps_type) => {
+                *ret_code = CctpErrorCode::OK;
+                ps_type
+            },
+            Err(e) => {
+                println!("Error reading ProvingSystem: {:?}", e);
+                *ret_code = CctpErrorCode::InvalidValue;
+                ProvingSystem::Undefined
+            }
+        }
+}
+
+#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_file(
+    pk_path:         *const u16,
+    pk_path_len:     usize,
+    ret_code:           &mut CctpErrorCode,
+) -> ProvingSystem
+{
+    // Read file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(pk_path, pk_path_len)
+    });
+    let pk_path = Path::new(&path_str);
+
+    match read_from_file::<ProvingSystem>(
+        pk_path,
+        None,
+        None,
+    )
+    {
+        Ok(ps_type) => {
+            *ret_code = CctpErrorCode::OK;
+            ps_type
+        },
+        Err(e) => {
+            println!("Error reading ProvingSystem: {:?}", e);
+            *ret_code = CctpErrorCode::InvalidValue;
+            ProvingSystem::Undefined
+        }
+    }
 }
 
 #[cfg(feature = "mc-test-circuit")]
@@ -1526,6 +1785,8 @@ fn _zendoo_generate_mc_test_params(
     num_constraints:    u32,
     params_dir:         &Path,
     ret_code:           &mut CctpErrorCode,
+    compress_vk:        bool,
+    compress_pk:        bool,
 ) -> bool
 {
     let mut params_path = "".to_owned();
@@ -1569,14 +1830,14 @@ fn _zendoo_generate_mc_test_params(
             let pk_path = params_dir.join(pk_path_raw.as_str());
             let vk_path = params_dir.join(vk_path_raw.as_str());
 
-            let pk_ser_res = write_to_file(&pk, &pk_path);
+            let pk_ser_res = write_to_file(&pk, &pk_path, Some(compress_pk));
             if pk_ser_res.is_err() {
                 println!("{:?}", format!("Error writing pk to file: {:?}", pk_ser_res.unwrap_err()));
                 *ret_code = CctpErrorCode::InvalidFile;
                 return false;
             }
 
-            let vk_ser_res = write_to_file(&vk, &vk_path);
+            let vk_ser_res = write_to_file(&vk, &vk_path, Some(compress_vk));
             if vk_ser_res.is_err() {
                 println!("{:?}", format!("Error writing vk to file: {:?}", vk_ser_res.unwrap_err()));
                 *ret_code = CctpErrorCode::InvalidFile;
@@ -1602,6 +1863,8 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     params_dir:         *const u16,
     params_dir_len:     usize,
     ret_code:           &mut CctpErrorCode,
+    compress_vk:        bool,
+    compress_pk:        bool,
 ) -> bool
 {
     // Read params_dir
@@ -1610,7 +1873,7 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     });
     let params_dir = Path::new(&path_str);
 
-    _zendoo_generate_mc_test_params(circ_type, ps_type, num_constraints, params_dir, ret_code)
+    _zendoo_generate_mc_test_params(circ_type, ps_type, num_constraints, params_dir, ret_code, compress_vk, compress_pk)
 }
 
 #[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
@@ -1622,10 +1885,12 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     params_dir:         *const u8,
     params_dir_len:     usize,
     ret_code:           &mut CctpErrorCode,
+    compress_vk:        bool,
+    compress_pk:        bool,
 ) -> bool
 {
     let params_dir = parse_path(params_dir, params_dir_len);
-    _zendoo_generate_mc_test_params(circ_type, ps_type, num_constraints, params_dir, ret_code)
+    _zendoo_generate_mc_test_params(circ_type, ps_type, num_constraints, params_dir, ret_code, compress_vk, compress_pk)
 }
 
 #[cfg(feature = "mc-test-circuit")]
@@ -1693,7 +1958,8 @@ pub extern "C" fn zendoo_create_cert_test_proof(
     proof_path:             *const u8,
     proof_path_len:         usize,
     num_constraints:        u32,
-    ret_code:               &mut CctpErrorCode
+    ret_code:               &mut CctpErrorCode,
+    compressed:             bool,
 ) -> bool
 {
     match _zendoo_create_cert_test_proof(
@@ -1704,7 +1970,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
             let proof_path = parse_path(proof_path, proof_path_len);
 
             // Write proof to file
-            let proof_ser_res = write_to_file(&proof, &proof_path);
+            let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
                 println!("{:?}", format!("Error writing proof to file {:?}", proof_ser_res.unwrap_err()));
                 *ret_code = CctpErrorCode::InvalidFile;
@@ -1739,7 +2005,8 @@ pub extern "C" fn zendoo_create_cert_test_proof(
     proof_path:             *const u16,
     proof_path_len:         usize,
     num_constraints:        u32,
-    ret_code:               &mut CctpErrorCode
+    ret_code:               &mut CctpErrorCode,
+    compressed:             bool,
 ) -> bool
 {
     match _zendoo_create_cert_test_proof(
@@ -1753,7 +2020,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
             let proof_path = Path::new(&path_str);
 
             // Write proof to file
-            let proof_ser_res = write_to_file(&proof, &proof_path);
+            let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
                 println!("{:?}", format!("Error writing proof to file {:?}", proof_ser_res.unwrap_err()));
                 *ret_code = CctpErrorCode::InvalidFile;
@@ -1820,7 +2087,8 @@ pub extern "C" fn zendoo_create_csw_test_proof(
     proof_path:             *const u8,
     proof_path_len:         usize,
     num_constraints:        u32,
-    ret_code:               &mut CctpErrorCode
+    ret_code:               &mut CctpErrorCode,
+    compressed:             bool,
 ) -> bool
 {
     match _zendoo_create_csw_test_proof(
@@ -1831,7 +2099,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
             let proof_path = parse_path(proof_path, proof_path_len);
 
             // Write proof to file
-            let proof_ser_res = write_to_file(&proof, &proof_path);
+            let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
                 println!("{:?}", format!("Error writing proof to file {:?}", proof_ser_res.unwrap_err()));
                 *ret_code = CctpErrorCode::InvalidFile;
@@ -1862,7 +2130,8 @@ pub extern "C" fn zendoo_create_csw_test_proof(
     proof_path:             *const u16,
     proof_path_len:         usize,
     num_constraints:        u32,
-    ret_code:               &mut CctpErrorCode
+    ret_code:               &mut CctpErrorCode,
+    compressed:             bool,
 ) -> bool
 {
     match _zendoo_create_csw_test_proof(
@@ -1876,7 +2145,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
             let proof_path = Path::new(&path_str);
 
             // Write proof to file
-            let proof_ser_res = write_to_file(&proof, &proof_path);
+            let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
                 println!("{:?}", format!("Error writing proof to file {:?}", proof_ser_res.unwrap_err()));
                 *ret_code = CctpErrorCode::InvalidFile;
@@ -1909,7 +2178,8 @@ pub extern "C" fn zendoo_create_return_cert_test_proof(
     ft_min_amount:          u64,
     sc_pk:                  *const ZendooProverKey,
     num_constraints:        u32,
-    ret_code:               &mut CctpErrorCode
+    ret_code:               &mut CctpErrorCode,
+    compressed:             bool,
 ) -> *mut BufferWithSize
 {
     match _zendoo_create_cert_test_proof(
@@ -1917,7 +2187,7 @@ pub extern "C" fn zendoo_create_return_cert_test_proof(
         end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, num_constraints, ret_code
     ){
         Ok(sc_proof) => {
-            match serialize_to_buffer(&sc_proof) {
+            match serialize_to_buffer(&sc_proof, Some(compressed)) {
                 Ok(mut sc_proof_bytes) => {
                     sc_proof_bytes.shrink_to_fit();
                     let len = sc_proof_bytes.len();
@@ -1954,7 +2224,8 @@ pub extern "C" fn zendoo_create_return_csw_test_proof(
     end_cum_comm_tree_root: *const FieldElement,
     sc_pk:                  *const ZendooProverKey,
     num_constraints:        u32,
-    ret_code:               &mut CctpErrorCode
+    ret_code:               &mut CctpErrorCode,
+    compressed:             bool,
 ) -> *mut BufferWithSize
 {
     match _zendoo_create_csw_test_proof(
@@ -1962,7 +2233,7 @@ pub extern "C" fn zendoo_create_return_csw_test_proof(
         end_cum_comm_tree_root, sc_pk, num_constraints, ret_code
     ){
         Ok(sc_proof) => {
-            match serialize_to_buffer(&sc_proof) {
+            match serialize_to_buffer(&sc_proof, Some(compressed)) {
                 Ok(mut sc_proof_bytes) => {
                     sc_proof_bytes.shrink_to_fit();
                     let len = sc_proof_bytes.len();

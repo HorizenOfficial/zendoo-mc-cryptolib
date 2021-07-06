@@ -545,11 +545,25 @@ extern "C" {
 
     //SC SNARK related functions
 
+    /*
+     * Returns the ProvingSystem instance for which `type_bytes` encodes for.
+     */
+    ProvingSystem zendoo_get_proving_system_type(
+        unsigned char type_byte,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Initialize DLOG keys of specified `segment_size` in memory .
+     */
     bool zendoo_init_dlog_keys(
         size_t segment_size,
         CctpErrorCode* ret_code
     );
 
+    /*
+     * Initialize DLOG keys of specified `supported_segment_size` in memory, derived from keys of size `max_segment_size` .
+     */
     bool zendoo_init_dlog_keys_test_mode(
         size_t max_segment_size,
         size_t supported_segment_size,
@@ -559,22 +573,25 @@ extern "C" {
     typedef struct sc_proof sc_proof_t;
 
     /*
-     * Serialize a proof given an opaque pointer `sc_proof` to it.
-     * Instantiate and return a BufferWithSize containing the proof bytes.
+     * Serialize a proof, in compressed or uncompressed form, depending on the value of `compressed` flag,
+     * given an opaque pointer `sc_proof` to it. Instantiate and return a BufferWithSize containing the proof bytes.
      */
     BufferWithSize* zendoo_serialize_sc_proof(
         const sc_proof_t* proof,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compressed = true
     );
 
     /*
-     * Deserialize a proof from `sc_proof_bytes` and return an opaque pointer to it.
+     * Deserialize a proof, in compressed or uncompressed form, depending on the value of `compressed` flag,
+     * from `sc_proof_bytes` and return an opaque pointer to it.
      * If `semantic_checks` flag is set, semantic checks on the proof will be performed.
      */
     sc_proof_t* zendoo_deserialize_sc_proof(
         const BufferWithSize* sc_proof_bytes,
         bool semantic_checks,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compressed = true
     );
 
     /*
@@ -582,6 +599,23 @@ extern "C" {
      */
     ProvingSystem zendoo_get_sc_proof_proving_system_type(
         const sc_proof_t* sc_proof,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_proof serialized to `sc_proof_bytes` BufferWithSize.
+     */
+    ProvingSystem zendoo_get_sc_proof_proving_system_type_from_buffer(
+        const BufferWithSize* sc_proof_bytes,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_proof serialized to file at `proof_path`.
+     */
+    ProvingSystem zendoo_get_sc_proof_proving_system_type_from_file(
+        const path_char_t* proof_path,
+        size_t proof_path_len,
         CctpErrorCode* ret_code
     );
 
@@ -594,24 +628,28 @@ extern "C" {
 
     typedef struct sc_vk sc_vk_t;
 
-    /* Deserialize a sc_vk from a file at path `vk_path` and return an opaque pointer to it.
+    /* Deserialize a sc_vk, in compressed or uncompressed form, depending on the value of `compressed` flag,
+     * from a file at path `vk_path` and return an opaque pointer to it.
      * If `semantic_checks` flag is set, semantic checks on vk will be performed.
      */
     sc_vk_t* zendoo_deserialize_sc_vk_from_file(
         const path_char_t* vk_path,
         size_t vk_path_len,
         bool semantic_checks,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compressed = true
     );
 
     /*
-     * Deserialize a sc_vk from `sc_vk_bytes` and return an opaque pointer to it.
+     * Deserialize a sc_vk, in compressed or uncompressed form, depending on the value of `compressed` flag,
+     * from `sc_vk_bytes` and return an opaque pointer to it.
      * If `semantic_checks` flag is set, semantic checks on vk will be performed.
      */
     sc_vk_t* zendoo_deserialize_sc_vk(
         const BufferWithSize* sc_vk_bytes,
         bool semantic_checks,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compressed = true
     );
 
     /*
@@ -619,6 +657,23 @@ extern "C" {
      */
     ProvingSystem zendoo_get_sc_vk_proving_system_type(
         const sc_vk_t* sc_vk,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_vk serialized to `sc_vk_bytes` BufferWithSize.
+     */
+    ProvingSystem zendoo_get_sc_vk_proving_system_type_from_buffer(
+        const BufferWithSize* sc_vk_bytes,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_vk serialized to file at `vk_path`.
+     */
+    ProvingSystem zendoo_get_sc_vk_proving_system_type_from_file(
+        const path_char_t* vk_path,
+        size_t vk_path_len,
         CctpErrorCode* ret_code
     );
 
@@ -889,7 +944,8 @@ extern "C" {
 
     typedef struct sc_pk sc_pk_t;
 
-    /* Deserialize a sc_pk from a file at path `pk_path` and return an opaque pointer to it.
+    /* Deserialize a sc_pk, in compressed or uncompressed form, depending on the value of `compressed` flag,
+     * from a file at path `pk_path` and return an opaque pointer to it.
      * If `semantic_checks` flag is set, group membership test for curve points will be performed.
      * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
      */
@@ -897,14 +953,32 @@ extern "C" {
         const path_char_t* pk_path,
         size_t pk_path_len,
         bool semantic_checks,
+        CctpErrorCode* ret_code,
+        bool compressed = true
+    );
+
+    /*
+     * Get the ProvingSystem of `sc_pk`.
+     */
+    ProvingSystem zendoo_get_sc_pk_proving_system_type(
+        const sc_pk_t* pk,
         CctpErrorCode* ret_code
     );
 
     /*
-     * Get the ProvingSystem of `sc_proof`.
+     * Get the ProvingSystem of the sc_pk serialized to `sc_pk_bytes` BufferWithSize.
      */
-    ProvingSystem zendoo_get_sc_pk_proving_system_type(
-        const sc_pk_t* pk,
+    ProvingSystem zendoo_get_sc_pk_proving_system_type_from_buffer(
+        const BufferWithSize* sc_pk_bytes,
+        CctpErrorCode* ret_code
+    );
+
+    /*
+     * Get the ProvingSystem of the sc_pk serialized to file at `pk_path`.
+     */
+    ProvingSystem zendoo_get_sc_pk_proving_system_type_from_file(
+        const path_char_t* pk_path,
+        size_t pk_path_len,
         CctpErrorCode* ret_code
     );
 
@@ -915,7 +989,8 @@ extern "C" {
      */
     void zendoo_sc_pk_free(sc_pk_t* pk);
 
-    /* Deserialize a sc_proof from a file at path `proof_path` and return an opaque pointer to it.
+    /* Deserialize a sc_proof, in compressed or uncompressed form, depending on the value of `compressed` flag,
+     * from a file at path `proof_path` and return an opaque pointer to it.
      * If `semantic_checks` flag is set, group membership test for curve points will be performed.
      * Return NULL if the file doesn't exist, if deserialization fails or validity checks fail.
      */
@@ -923,7 +998,8 @@ extern "C" {
         const path_char_t* proof_path,
         size_t proof_path_len,
         bool semantic_checks,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compressed = true
     );
 
     typedef enum TestCircuitType {
@@ -932,7 +1008,8 @@ extern "C" {
     } TestCircuitType;
 
     /*
-     * Generates and saves at specified path `params_dir` the proving key and verification key for the
+     * Generates and saves at specified path `params_dir` the proving key and verification key,
+     * in compressed or uncompressed form, depending on the value of `compress_` flags, for the
      * specified `circ_type`.
      */
     bool zendoo_generate_mc_test_params(
@@ -941,12 +1018,16 @@ extern "C" {
         uint32_t num_constraints,
         const path_char_t* params_dir,
         size_t params_dir_len,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compress_vk = true,
+        bool compress_pk = true
     );
 
     /*
-     * Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path.
+     * Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it,
+     * in compressed or uncompressed form, depending on the value of `compress_proof` flag, at specified path.
      * Return true if operation was successful, false otherwise.
+     * NOTE: `constant`, `bt_list` and `custom_fields` can be null.
      */
     bool zendoo_create_cert_test_proof(
         bool zk,
@@ -964,13 +1045,15 @@ extern "C" {
         const path_char_t* proof_path,
         size_t proof_path_len,
         uint32_t num_constraints,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compress_proof = true
     );
 
     /*
-     * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path.
+     * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof and saves it,
+     * in compressed or uncompressed form, depending on the value of `compress_proof` flag, at specified path.
      * Return true if operation was successful, false otherwise.
-     *  `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
+     * `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
      */
      bool zendoo_create_csw_test_proof(
         bool zk,
@@ -984,11 +1067,14 @@ extern "C" {
         const path_char_t* proof_path,
         size_t proof_path_len,
         uint32_t num_constraints,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compress_proof = true
     );
 
     /*
-     * Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it at specified path.
+     * Generates, given the required witnesses and the proving key, a CertTestCircuit proof, and saves it,
+     * in compressed or uncompressed form, depending on the value of `compress_proof` flag, at specified path.
+     * NOTE: `constant`, `bt_list` and `custom_fields` can be null.
      * Return true if operation was successful, false otherwise.
      */
     BufferWithSize* zendoo_create_return_cert_test_proof(
@@ -1005,13 +1091,15 @@ extern "C" {
         uint64_t ft_min_amount,
         const sc_pk_t* pk,
         uint32_t num_constraints,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compress_proof = true
     );
 
     /*
-     * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it at specified path.
+     * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof, and saves it,
+     * in compressed or uncompressed form, depending on the value of `compress_proof` flag, at specified path.
      * Return true if operation was successful, false otherwise.
-     *  `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
+     * `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
      */
      BufferWithSize* zendoo_create_return_csw_test_proof(
         bool zk,
@@ -1023,7 +1111,8 @@ extern "C" {
         const field_t* end_cum_comm_tree_root,
         const sc_pk_t* pk,
         uint32_t num_constraints,
-        CctpErrorCode* ret_code
+        CctpErrorCode* ret_code,
+        bool compress_proof = true
     );
 
      /* Return `true` if the proofs pointed by `sc_proof_1` and `sc_proof_2` are
