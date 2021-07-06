@@ -1246,15 +1246,6 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     // If prioritize, Unpause all low priority threads
     if prioritize { zendoo_unpause_low_priority_threads(); }
 
-    // Decrement STOP_CTR and notify all threads
-    if prioritize {
-        let stop_ref = STOP_CTR.clone();
-        let (lock, cvar) = &*stop_ref;
-        let mut stop = lock.lock().unwrap();
-        *stop -= 1;
-        cvar.notify_all();
-    }
-
     let mut ret = ZendooBatchProofVerifierResult::default();
 
     // Trigger batch verification of the proofs with specified id
