@@ -765,20 +765,39 @@ extern "C" {
     void zendoo_free_batch_proof_verifier_result(ZendooBatchProofVerifierResult* result);
 
     /*
+     * Pause all running low priority threads (currently is possible only for the batch verifier threads).
+     */
+    void zendoo_pause_low_priority_threads();
+
+    /*
+     * Unpause all running low priority threads (currently is possible only for the batch verifier threads).
+     */
+    void zendoo_unpause_low_priority_threads();
+
+    /*
      * Perform batch verification of all the proofs added to `batch_verifier`.
+     * If `prioritize` is set to true, pauses other NON high priority batch
+     * verifications (if any) happening in other threads as soon as possible;
+     * this means also that a high priority verification cannot be paused.
      */
     ZendooBatchProofVerifierResult* zendoo_batch_verify_all_proofs(
         const sc_batch_proof_verifier_t* batch_verifier,
+        bool prioritize,
         CctpErrorCode* ret_code
     );
 
     /*
-     * Perform batch verification of the proofs added to `batch_verifier` whose id is contained in `ids_list`.
+     * Perform batch verification of the proofs added to `batch_verifier`
+     * whose id is contained in `ids_list`. If `prioritize` is set to true,
+     * pauses other NON high priority batch verifications (if any) happening
+     * in other threads as soon as possible; this means also that a high priority
+     * verification cannot be paused.
      */
     ZendooBatchProofVerifierResult* zendoo_batch_verify_proofs_by_id(
         const sc_batch_proof_verifier_t* batch_verifier,
         const uint32_t* ids_list,
         size_t ids_list_len,
+        bool prioritize,
         CctpErrorCode* ret_code
     );
 
@@ -795,11 +814,18 @@ extern "C" {
      */
     struct ZendooBatchProofVerifier {
         sc_batch_proof_verifier_t* batch_verifier;
+        bool highPriorityVerification;
 
-        ZendooBatchProofVerifier(sc_batch_proof_verifier_t* batch_verifier): batch_verifier(batch_verifier) {}
+        ZendooBatchProofVerifier(sc_batch_proof_verifier_t* batch_verifier, bool highPriorityVerification):
+         batch_verifier(batch_verifier), highPriorityVerification(highPriorityVerification) {}
+
+        ZendooBatchProofVerifier(bool highPriorityVerification): highPriorityVerification(highPriorityVerification) {
+            batch_verifier = zendoo_create_batch_proof_verifier();
+        }
 
         ZendooBatchProofVerifier() {
             batch_verifier = zendoo_create_batch_proof_verifier();
+            highPriorityVerification = false;
         }
 
         bool add_certificate_proof(
@@ -847,11 +873,11 @@ extern "C" {
         }
 
         ZendooBatchProofVerifierResult* batch_verify_all(CctpErrorCode* ret_code) {
-            return zendoo_batch_verify_all_proofs(batch_verifier, ret_code);
+            return zendoo_batch_verify_all_proofs(batch_verifier, highPriorityVerification, ret_code);
         }
 
         ZendooBatchProofVerifierResult* batch_verify_subset(const uint32_t* ids_list, size_t ids_list_len, CctpErrorCode* ret_code) {
-            return zendoo_batch_verify_proofs_by_id(batch_verifier, ids_list, ids_list_len, ret_code);
+            return zendoo_batch_verify_proofs_by_id(batch_verifier, ids_list, ids_list_len, highPriorityVerification, ret_code);
         }
         
         ~ZendooBatchProofVerifier() {
@@ -912,6 +938,7 @@ extern "C" {
     bool zendoo_generate_mc_test_params(
         TestCircuitType circ_type,
         ProvingSystem ps_type,
+        uint32_t num_constraints,
         const path_char_t* params_dir,
         size_t params_dir_len,
         CctpErrorCode* ret_code
@@ -936,6 +963,7 @@ extern "C" {
         const sc_pk_t* pk,
         const path_char_t* proof_path,
         size_t proof_path_len,
+        uint32_t num_constraints,
         CctpErrorCode* ret_code
     );
 
@@ -955,6 +983,7 @@ extern "C" {
         const sc_pk_t* pk,
         const path_char_t* proof_path,
         size_t proof_path_len,
+        uint32_t num_constraints,
         CctpErrorCode* ret_code
     );
 
@@ -975,6 +1004,7 @@ extern "C" {
         uint64_t btr_fee,
         uint64_t ft_min_amount,
         const sc_pk_t* pk,
+        uint32_t num_constraints,
         CctpErrorCode* ret_code
     );
 
@@ -992,6 +1022,7 @@ extern "C" {
         const field_t* cert_data_hash,
         const field_t* end_cum_comm_tree_root,
         const sc_pk_t* pk,
+        uint32_t num_constraints,
         CctpErrorCode* ret_code
     );
 

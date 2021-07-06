@@ -8,6 +8,11 @@ use std::{
     slice,
     fmt::Write,
 };
+use lazy_static::lazy_static;
+use std::sync::{Arc, Mutex, Condvar};
+lazy_static! {
+    pub static ref STOP_CTR: Arc<(Mutex<usize>, Condvar)> = Arc::new((Mutex::new(0), Condvar::new()));
+}
 
 #[cfg(not(target_os = "windows"))]
 use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
@@ -47,8 +52,8 @@ pub mod mc_test_circuits;
 use cctp_primitives::utils::serialization::write_to_file;
 use cctp_primitives::utils::get_cert_data_hash;
 
-//#[cfg(test)]
-//pub mod tests;
+#[cfg(test)]
+pub mod tests;
 
 pub(crate) fn free_pointer<T> (ptr: *mut T) {
     if ptr.is_null() { return };
@@ -418,27 +423,6 @@ pub extern "C" fn zendoo_merkle_root_from_compressed_bytes(
             }
         }
 }
-
-#[test]
-fn compress_decompress() {
-    for _ in 0..10 {
-        let mut bit_vector: Vec<u8> = (0..100).collect();
-        let data = bit_vector.as_mut_ptr();
-        let len = bit_vector.len();
-
-        let buffer = BufferWithSize { data, len };
-        let mut ret_code = CctpErrorCode::OK;
-        let compressed_buffer = zendoo_compress_bit_vector(&buffer, CompressionAlgorithm::Bzip2, &mut ret_code);
-        let uncompressed_buffer = zendoo_decompress_bit_vector(compressed_buffer, len, &mut ret_code);
-
-        let processed_bit_vector = unsafe { slice::from_raw_parts((*uncompressed_buffer).data, (*uncompressed_buffer).len) };
-        assert_eq!((0..100).collect::<Vec<u8>>(), processed_bit_vector);
-
-        zendoo_free_bws(compressed_buffer);
-        zendoo_free_bws(uncompressed_buffer);
-    }
-}
-
 
 //***********Field functions****************
 #[no_mangle]
@@ -948,18 +932,80 @@ pub extern "C" fn zendoo_add_csw_proof_to_batch_verifier(
 }
 
 #[no_mangle]
+pub extern "C" fn zendoo_pause_low_priority_threads() {
+    let stop_ref = STOP_CTR.clone();
+    let (lock, cvar) = &*stop_ref;
+    let mut stop = match lock.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    *stop += 1;
+    cvar.notify_all();
+}
+
+#[no_mangle]
+pub extern "C" fn zendoo_unpause_low_priority_threads() {
+    let stop_ref = STOP_CTR.clone();
+    let (lock, cvar) = &*stop_ref;
+    let mut stop = match lock.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    *stop -= 1;
+    cvar.notify_all();
+}
+
+/// Build thread pool in which executing batch verification according to prioritization
+fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
+    if !prioritize {
+        // If prioritize is false, this means that this batch verification can be stopped by
+        // other ones with higher priority. We oblige each thread of this thread pool, upon starting,
+        // checking the STOP_CTR: if != 0 this means that one or more higher priority thread pools are
+        // executing (or shall be executed), therefore new threads from this thread pool must
+        // wait before starting.
+        rayon::ThreadPoolBuilder::new()
+            .start_handler( move |_| {
+                // Acquire the lock on STOP_FLAG and read its value
+                let stop_ref = STOP_CTR.clone();
+                let (lock, cvar) = &*stop_ref;
+                let mut stop = match lock.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+
+                // If stop is != 0, release the lock and wait until stop becomes 0
+                while *stop != 0 {
+                    stop = cvar.wait(stop).unwrap();
+                }
+            }).build().unwrap()
+    } else {
+        // If prioritize is true, construct a normal thread pool
+        rayon::ThreadPoolBuilder::new().build().unwrap()
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn zendoo_batch_verify_all_proofs(
     batch_verifier: *const ZendooBatchVerifier,
+    prioritize: bool,
     ret_code: &mut CctpErrorCode
 ) -> *mut ZendooBatchProofVerifierResult
 {
     // Read batch verifier
     let rs_batch_verifier = try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, null_mut());
 
+    // If prioritize, pause all low priority threads
+    if prioritize { zendoo_pause_low_priority_threads(); }
+
+    // Execute batch verification
+    let result = get_batch_verifier_thread_pool(prioritize).install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default()));
+
+    // If prioritize, Unpause all low priority threads
+    if prioritize { zendoo_unpause_low_priority_threads(); }
+
     let mut ret = ZendooBatchProofVerifierResult::default();
 
-    // Trigger batch verification
-    match rs_batch_verifier.batch_verify_all(&mut OsRng::default()) {
+    match result {
 
         // If success, return the result
         Ok(result) => ret.result = result,
@@ -994,6 +1040,7 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     batch_verifier: *const ZendooBatchVerifier,
     ids_list: *const u32,
     ids_list_len: usize,
+    prioritize: bool,
     ret_code: &mut CctpErrorCode
 ) -> *mut ZendooBatchProofVerifierResult
 {
@@ -1003,10 +1050,20 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     // Get ids_list
     let rs_ids_list = try_get_obj_list!("ids_list", ids_list, ids_list_len, ret_code, null_mut());
 
+    // If prioritize, pause all low priority threads
+    if prioritize { zendoo_pause_low_priority_threads(); }
+
+    // Execute batch verification of the proofs with specified id
+    let result = get_batch_verifier_thread_pool(prioritize)
+        .install(|| rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default()));
+
+    // If prioritize, Unpause all low priority threads
+    if prioritize { zendoo_unpause_low_priority_threads(); }
+
     let mut ret = ZendooBatchProofVerifierResult::default();
 
     // Trigger batch verification of the proofs with specified id
-    match rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default()) {
+    match result {
 
         // If success, return the result
         Ok(result) => {
@@ -1464,10 +1521,11 @@ pub extern "C" fn zendoo_sc_pk_free(
 
 #[cfg(feature = "mc-test-circuit")]
 fn _zendoo_generate_mc_test_params(
-    circ_type:      TestCircuitType,
-    ps_type:        ProvingSystem,
-    params_dir:     &Path,
-    ret_code:       &mut CctpErrorCode,
+    circ_type:          TestCircuitType,
+    ps_type:            ProvingSystem,
+    num_constraints:    u32,
+    params_dir:         &Path,
+    ret_code:           &mut CctpErrorCode,
 ) -> bool
 {
     let mut params_path = "".to_owned();
@@ -1486,11 +1544,11 @@ fn _zendoo_generate_mc_test_params(
     let params = match circ_type {
         TestCircuitType::Certificate => {
             params_path.push_str("cert_");
-            mc_test_circuits::cert::generate_parameters(ps_type)
+            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints)
         },
         TestCircuitType::CSW => {
             params_path.push_str("csw_");
-            mc_test_circuits::csw::generate_parameters(ps_type)
+            mc_test_circuits::csw::generate_parameters(ps_type, num_constraints)
         }
     };
 
@@ -1538,11 +1596,12 @@ fn _zendoo_generate_mc_test_params(
 #[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
 #[no_mangle]
 pub extern "C" fn zendoo_generate_mc_test_params(
-    circ_type:      TestCircuitType,
-    ps_type:        ProvingSystem,
-    params_dir:     *const u16,
-    params_dir_len: usize,
-    ret_code:       &mut CctpErrorCode,
+    circ_type:          TestCircuitType,
+    ps_type:            ProvingSystem,
+    num_constraints:    u32,
+    params_dir:         *const u16,
+    params_dir_len:     usize,
+    ret_code:           &mut CctpErrorCode,
 ) -> bool
 {
     // Read params_dir
@@ -1551,21 +1610,22 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     });
     let params_dir = Path::new(&path_str);
 
-    _zendoo_generate_mc_test_params(circ_type, ps_type, params_dir, ret_code)
+    _zendoo_generate_mc_test_params(circ_type, ps_type, num_constraints, params_dir, ret_code)
 }
 
 #[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
 #[no_mangle]
 pub extern "C" fn zendoo_generate_mc_test_params(
-    circ_type:      TestCircuitType,
-    ps_type:        ProvingSystem,
-    params_dir:     *const u8,
-    params_dir_len: usize,
-    ret_code:       &mut CctpErrorCode,
+    circ_type:          TestCircuitType,
+    ps_type:            ProvingSystem,
+    num_constraints:    u32,
+    params_dir:         *const u8,
+    params_dir_len:     usize,
+    ret_code:           &mut CctpErrorCode,
 ) -> bool
 {
     let params_dir = parse_path(params_dir, params_dir_len);
-    _zendoo_generate_mc_test_params(circ_type, ps_type, params_dir, ret_code)
+    _zendoo_generate_mc_test_params(circ_type, ps_type, num_constraints, params_dir, ret_code)
 }
 
 #[cfg(feature = "mc-test-circuit")]
@@ -1582,6 +1642,7 @@ fn _zendoo_create_cert_test_proof(
     btr_fee:                u64,
     ft_min_amount:          u64,
     sc_pk:                  *const ZendooProverKey,
+    num_constraints:        u32,
     ret_code:               &mut CctpErrorCode
 ) -> Result<ZendooProof, ProvingSystemError>
 {
@@ -1609,7 +1670,8 @@ fn _zendoo_create_cert_test_proof(
         rs_bt_list,
         rs_end_cum_comm_tree_root,
         btr_fee,
-        ft_min_amount
+        ft_min_amount,
+        num_constraints
     )
 }
 
@@ -1630,12 +1692,13 @@ pub extern "C" fn zendoo_create_cert_test_proof(
     sc_pk:                  *const ZendooProverKey,
     proof_path:             *const u8,
     proof_path_len:         usize,
+    num_constraints:        u32,
     ret_code:               &mut CctpErrorCode
 ) -> bool
 {
     match _zendoo_create_cert_test_proof(
         zk, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
-        end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, ret_code
+        end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, num_constraints, ret_code
     ){
         Ok(proof) => {
             let proof_path = parse_path(proof_path, proof_path_len);
@@ -1675,12 +1738,13 @@ pub extern "C" fn zendoo_create_cert_test_proof(
     sc_pk:                  *const ZendooProverKey,
     proof_path:             *const u16,
     proof_path_len:         usize,
+    num_constraints:        u32,
     ret_code:               &mut CctpErrorCode
 ) -> bool
 {
     match _zendoo_create_cert_test_proof(
         zk, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
-        end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, ret_code
+        end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, num_constraints, ret_code
     ){
         Ok(proof) => {
             let path_str = OsString::from_wide(unsafe {
@@ -1716,6 +1780,7 @@ fn _zendoo_create_csw_test_proof(
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
     sc_pk:                  *const ZendooProverKey,
+    num_constraints:        u32,
     ret_code:               &mut CctpErrorCode
 ) -> Result<ZendooProof, ProvingSystemError>
 {
@@ -1736,7 +1801,8 @@ fn _zendoo_create_csw_test_proof(
         rs_nullifier,
         rs_mc_pk_hash,
         if rs_cert_data_hash.is_some() { rs_cert_data_hash.unwrap() } else { &PHANTOM_CERT_DATA_HASH },
-        rs_end_cum_comm_tree_root
+        rs_end_cum_comm_tree_root,
+        num_constraints
     )
 }
 
@@ -1753,12 +1819,13 @@ pub extern "C" fn zendoo_create_csw_test_proof(
     sc_pk:                  *const ZendooProverKey,
     proof_path:             *const u8,
     proof_path_len:         usize,
+    num_constraints:        u32,
     ret_code:               &mut CctpErrorCode
 ) -> bool
 {
     match _zendoo_create_csw_test_proof(
         zk, amount, sc_id, nullifier, mc_pk_hash, cert_data_hash,
-        end_cum_comm_tree_root, sc_pk, ret_code
+        end_cum_comm_tree_root, sc_pk, num_constraints, ret_code
     ){
         Ok(proof) => {
             let proof_path = parse_path(proof_path, proof_path_len);
@@ -1794,12 +1861,13 @@ pub extern "C" fn zendoo_create_csw_test_proof(
     sc_pk:                  *const ZendooProverKey,
     proof_path:             *const u16,
     proof_path_len:         usize,
+    num_constraints:        u32,
     ret_code:               &mut CctpErrorCode
 ) -> bool
 {
     match _zendoo_create_csw_test_proof(
         zk, amount, sc_id, nullifier, mc_pk_hash, cert_data_hash,
-        end_cum_comm_tree_root, sc_pk, ret_code
+        end_cum_comm_tree_root, sc_pk, num_constraints, ret_code
     ){
         Ok(proof) => {
             let path_str = OsString::from_wide(unsafe {
@@ -1840,12 +1908,13 @@ pub extern "C" fn zendoo_create_return_cert_test_proof(
     btr_fee:                u64,
     ft_min_amount:          u64,
     sc_pk:                  *const ZendooProverKey,
+    num_constraints:        u32,
     ret_code:               &mut CctpErrorCode
 ) -> *mut BufferWithSize
 {
     match _zendoo_create_cert_test_proof(
         zk, constant, epoch_number, quality, bt_list, bt_list_len, custom_fields, custom_fields_len,
-        end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, ret_code
+        end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk, num_constraints, ret_code
     ){
         Ok(sc_proof) => {
             match serialize_to_buffer(&sc_proof) {
@@ -1884,12 +1953,13 @@ pub extern "C" fn zendoo_create_return_csw_test_proof(
     cert_data_hash:         *const FieldElement,
     end_cum_comm_tree_root: *const FieldElement,
     sc_pk:                  *const ZendooProverKey,
+    num_constraints:        u32,
     ret_code:               &mut CctpErrorCode
 ) -> *mut BufferWithSize
 {
     match _zendoo_create_csw_test_proof(
         zk, amount, sc_id, nullifier, mc_pk_hash, cert_data_hash,
-        end_cum_comm_tree_root, sc_pk, ret_code
+        end_cum_comm_tree_root, sc_pk, num_constraints, ret_code
     ){
         Ok(sc_proof) => {
             match serialize_to_buffer(&sc_proof) {
