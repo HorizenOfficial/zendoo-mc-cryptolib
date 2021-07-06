@@ -1,4 +1,4 @@
-use algebra::{UniformRand, CanonicalSerialize};
+use algebra::{UniformRand, CanonicalSerialize, SemanticallyValid};
 use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
 use std::{
