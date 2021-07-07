@@ -11,11 +11,13 @@
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
  *
  *  2) ./mcTest "create" "cert/cert_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
- *  "sc_id" "epoch_number" "quality" "is_constant_present" "constant" "end_cum_comm_tree_root", "btr_fee",
+ *  "sc_id" "epoch_number" "quality" ["constant"] "end_cum_comm_tree_root", "btr_fee",
  *  "ft_min_amount" "num_constraints"
  *  "bt_list_len", "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n",
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
- *  Generates a TestCertificateProof;
+ *  Generates a TestCertificateProof.
+ *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
+ *        instead, "constant" param must not be present.
  *
  *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
  *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">,
@@ -97,11 +99,9 @@ void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_typ
     uint32_t epoch_number = strtoull(argv[arg++], NULL, 0);
     uint64_t quality = strtoull(argv[arg++], NULL, 0);
 
-    // Parse constant
-    uint32_t constant_present = strtoull(argv[arg++], NULL, 0);
+    // Parse constant if present
     field_t* constant_f = NULL;
-
-    if (constant_present > 0) {
+    if (cert_type_raw == "cert") {
         assert(IsHex(argv[arg]));
         auto constant = ParseHex(argv[arg++]);
         assert(constant.size() == 32);
@@ -460,10 +460,14 @@ void create_verify(int argc, char** argv)
     auto ps_type_raw = std::string(argv[3]);
 
     auto circ_type_raw = std::string(argv[2]);
-    if (circ_type_raw == "cert" || circ_type_raw == "cert_no_const") {
+    if (circ_type_raw == "cert") {
         assert(argc >= 17);
         create_verify_test_cert_proof(ps_type_raw, circ_type_raw, argc, argv);
+    } else if (circ_type_raw == "cert_no_const") {
+        assert(argc >= 16);
+        create_verify_test_cert_proof(ps_type_raw, circ_type_raw, argc, argv);
     } else if (circ_type_raw == "csw") {
+        assert(argc >= 13 && argc <= 16);
         create_verify_test_csw_proof(ps_type_raw, argc, argv);
     } else {
         abort(); // Invalid TestCircuitType

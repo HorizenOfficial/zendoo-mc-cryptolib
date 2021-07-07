@@ -55,9 +55,7 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_co
 
     if with_constant:
         constant = generate_random_field_element_hex()
-        args += ["1", str(constant)]
-    else:
-        args.append("0")
+        args.append(str(constant))
 
     args += [str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount), str(num_constraints), str(bt_num)]
     for (pk, amount) in zip(pks, amounts):

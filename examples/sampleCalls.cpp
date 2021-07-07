@@ -1332,7 +1332,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         std::string vk_path = params_dir;
 
         for(uint32_t i = 0; i < num_proofs; i++) {
-            int comb = rand() % 6;
+            int comb = i % 6;
 
             switch (comb) {
                 case 0: // Darlin - CSW
