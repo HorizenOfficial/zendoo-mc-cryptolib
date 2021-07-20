@@ -1,4 +1,4 @@
-use algebra::{UniformRand, CanonicalSerialize};
+use algebra::{UniformRand, CanonicalSerialize, SemanticallyValid};
 use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
 use std::{
@@ -1556,30 +1556,12 @@ pub extern "C" fn zendoo_verify_ginger_merkle_path(
     let root = try_read_raw_pointer!("root", root, ret_code, false);
     let leaf = try_read_raw_pointer!("leaf", leaf, ret_code, false);
 
-    match verify_ginger_merkle_path(path, height, leaf, root) {
-        Ok(result) => result,
-        Err(e) => {
-            *ret_code = CctpErrorCode::MerkleTreeError;
-            println!("{:?}", format!("Error verifying merkle path: {:?}", e));
-            false
-        }
+    if !path.is_valid() {
+        eprintln!("Invalid Merkle Path");
+        *ret_code = CctpErrorCode::InvalidValue;
+        return false;
     }
-}
 
-#[no_mangle]
-pub extern "C" fn zendoo_verify_ginger_merkle_path_from_raw(
-    path: *const GingerMHTPath,
-    height: usize,
-    leaf: *const FieldElement,
-    root: *const FieldElement,
-    ret_code: &mut CctpErrorCode,
-) -> bool
-{
-    let path = try_read_raw_pointer!("path", path, ret_code, false);
-    let root = try_read_raw_pointer!("root", root, ret_code, false);
-    let leaf = try_read_raw_pointer!("leaf", leaf, ret_code, false);
-
-    // Verify path
     match verify_ginger_merkle_path(path, height, leaf, root) {
         Ok(result) => result,
         Err(e) => {
@@ -1618,6 +1600,7 @@ pub extern "C" fn zendoo_free_ginger_mht(
 #[repr(C)]
 pub enum TestCircuitType {
     Certificate,
+    CertificateNoConstant,
     CSW
 }
 
@@ -1813,7 +1796,11 @@ fn _zendoo_generate_mc_test_params(
     let params = match circ_type {
         TestCircuitType::Certificate => {
             params_path.push_str("cert_");
-            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints)
+            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints, true)
+        },
+        TestCircuitType::CertificateNoConstant => {
+            params_path.push_str("cert_no_const_");
+            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints, false)
         },
         TestCircuitType::CSW => {
             params_path.push_str("csw_");
@@ -1927,7 +1914,7 @@ fn _zendoo_create_cert_test_proof(
     let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_end_cum_comm_tree_root = try_read_raw_pointer!("end_cum_comm_tree_root", end_cum_comm_tree_root, ret_code, Err(ProvingSystemError::Other("".to_owned())));
     let rs_pk = try_read_raw_pointer!("sc_pk", sc_pk, ret_code, Err(ProvingSystemError::Other("".to_owned())));
-    let rs_constant = try_read_raw_pointer!("constant", constant, ret_code, Err(ProvingSystemError::Other("".to_owned())));
+    let rs_constant = try_read_optional_raw_pointer!("constant", constant, ret_code, Err(ProvingSystemError::Other("".to_owned())));
 
     // Read optional data
     let rs_custom_fields = try_read_optional_double_raw_pointer!(

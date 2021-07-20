@@ -141,13 +141,13 @@ fn serialization_deserialization_bench_vk_proof() {
 
         // Generate SNARK keys
         println!("Generate SNARK pk and vk...");
-        let (pk, vk) = crate::mc_test_circuits::cert::generate_parameters(ProvingSystem::Darlin, num_constraints).unwrap();
+        let (pk, vk) = crate::mc_test_circuits::cert::generate_parameters(ProvingSystem::Darlin, num_constraints, true).unwrap();
 
         println!("Generate proof...");
         let proof = crate::mc_test_circuits::cert::generate_proof(
             &pk,
             true,
-            &FieldElement::rand(&mut rng),
+            Some(&FieldElement::rand(&mut rng)),
             &FieldElement::rand(&mut rng),
             0,
             0,
@@ -433,7 +433,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
 
         // Spawn batch verification threads
         let rng = &mut thread_rng();
-        let num_threads: usize = rng.gen_range(2, 11);
+        let num_threads: usize = rng.gen_range(2..11);
 
         println!("Perform {} separate batch verifications with different priority...", num_threads);
 
@@ -819,7 +819,7 @@ fn create_verify_mc_test_proof(){
 
     let quality: u64 = rng.gen();
 
-    let bt_num: usize = rng.gen_range(0, 11);
+    let bt_num: usize = rng.gen_range(0..11);
     let mut bt_list = vec![];
     for _ in 0..bt_num {
         bt_list.push(backward_transfer_t {
