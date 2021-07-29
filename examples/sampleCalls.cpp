@@ -527,6 +527,7 @@ TEST_CASE("Commitment Tree") {
     zendoo_field_free(new_sc_id);
     zendoo_field_free(nullifier);
     zendoo_field_free(end_cum_comm_tree_root);
+    zendoo_commitment_tree_delete(cmt);
 }
 
 TEST_SUITE("Bit Vector") {
@@ -712,6 +713,7 @@ TEST_SUITE("Single Proof Verifier") {
         CHECK(ret_code == CctpErrorCode::OK);
 
         // Free memory
+        zendoo_field_free(sc_id);
         zendoo_field_free(constant);
         zendoo_field_free(wrong_constant);
         zendoo_field_free(end_cum_comm_tree_root);
@@ -902,6 +904,7 @@ TEST_SUITE("Single Proof Verifier") {
         zendoo_field_free(sc_id);
         zendoo_field_free(wrong_sc_id);
         zendoo_field_free(cert_data_hash);
+        zendoo_field_free(nullifier);
         zendoo_field_free(end_cum_comm_tree_root);
         zendoo_sc_pk_free(sc_pk);
         zendoo_sc_vk_free(sc_vk);
@@ -1063,6 +1066,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
 
         // Free memory
         zendoo_field_free(sc_id);
+        zendoo_field_free(nullifier);
         zendoo_field_free(cert_data_hash);
         zendoo_field_free(end_cum_comm_tree_root);
         zendoo_sc_pk_free(sc_pk);
@@ -1146,6 +1150,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(ret_code == CctpErrorCode::OK);
 
         // Free memory
+        zendoo_field_free(sc_id);
         zendoo_field_free(constant);
         zendoo_field_free(end_cum_comm_tree_root);
         zendoo_sc_pk_free(sc_pk);
@@ -1328,6 +1333,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(result_4->failing_proofs == NULL);
         CHECK(result_4->failing_proofs_len == 0);
         CHECK(ret_code == CctpErrorCode::OK);
+        zendoo_free_batch_proof_verifier_result(result_4);
 
         bool init_result_3 = zendoo_init_dlog_keys_test_mode(
             MAX_SEGMENT_SIZE,
@@ -1345,6 +1351,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         // so it won't be possible to determine the index.
         CHECK(result_5->failing_proofs_len == 0);
         CHECK(ret_code == CctpErrorCode::OK);
+        zendoo_free_batch_proof_verifier_result(result_5);
 
         bool init_result_4 = zendoo_init_dlog_keys_test_mode(
             MAX_SEGMENT_SIZE * 2,
