@@ -293,7 +293,7 @@ checksum = "12b8adadd720df158f4d70dfe7ccc6adb0472d7c55ca83445f6a5ab3e36f8fb6"
 [[package]]
 name = "marlin"
 version = "0.1.0"
-source = "git+https://github.com/HorizenLabs/marlin?branch=audit_fixes#d7197403a3400246b2977e1cf52612b5bef87e25"
+source = "git+https://github.com/HorizenLabs/marlin?branch=audit_fixes#722e234c10443fc69b48e780c5f2fc40b845c318"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -376,7 +376,7 @@ checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 [[package]]
 name = "poly-commit"
 version = "0.1.0"
-source = "git+https://github.com/HorizenLabs/poly-commit?branch=audit_fixes#57c5a41cdda21eb2b4b7a1e055100c3ebe8f8b64"
+source = "git+https://github.com/HorizenLabs/poly-commit?branch=audit_fixes#a8e1264da6500721e79e2dd1cde441245e44a08c"
 dependencies = [
  "algebra",
  "bench-utils",
