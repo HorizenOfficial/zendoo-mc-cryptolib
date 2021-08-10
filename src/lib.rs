@@ -1396,10 +1396,18 @@ pub extern "C" fn zendoo_free_poseidon_hash(
 pub extern "C" fn zendoo_new_ginger_mht(
     height: usize,
     processing_step: usize,
+    ret_code: &mut CctpErrorCode,
 ) -> *mut GingerMHT {
 
-    let gmt = new_ginger_mht(height, processing_step);
-    Box::into_raw(Box::new(gmt))
+    match new_ginger_mht(height, processing_step) {
+        Ok(gmt) => Box::into_raw(Box::new(gmt)),
+        Err(e) => {
+            eprintln!("{:?}", format!("New merkle tree error: {:?}", e));
+            *ret_code = CctpErrorCode::MerkleRootBuildError;
+            null_mut()
+        }
+    }
+
 }
 
 #[no_mangle]
