@@ -7,6 +7,7 @@ use std::{
     path::Path,
     slice,
     fmt::Write,
+    panic
 };
 use lazy_static::lazy_static;
 use std::sync::{Arc, Mutex, Condvar};
@@ -63,15 +64,15 @@ pub(crate) fn free_pointer<T> (ptr: *mut T) {
     unsafe { drop( Box::from_raw(ptr)) }
 }
 
-pub(crate) fn get_hex<T: CanonicalSerialize>(elem: &T, compressed: Option<bool>) -> String {
+pub(crate) fn get_hex<T: CanonicalSerialize>(elem: &T, compressed: Option<bool>) -> Result<String, Error> {
     let mut hex_string = String::from("0x");
-    let elem_bytes = serialize_to_buffer(elem, compressed).unwrap();
+    let elem_bytes = serialize_to_buffer(elem, compressed)?;
 
     for byte in elem_bytes {
-        write!(hex_string, "{:02x}", byte).unwrap();
+        write!(hex_string, "{:02x}", byte)?;
     }
 
-    hex_string
+    Ok(hex_string)
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -459,7 +460,10 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(fie
 pub extern "C" fn zendoo_print_field(field: *const FieldElement) {
     let ret_code = &mut CctpErrorCode::OK;
     let rs_field = try_read_raw_pointer!("field", field, ret_code, ());
-    eprintln!("{:?}", get_hex(rs_field, None));
+    eprintln!("{:?}", match get_hex(rs_field, None) {
+        Ok(v) => v,
+        Err(e) => e.to_string(),
+    });
 }
 
 ////********************Sidechain SNARK functions********************
@@ -1184,7 +1188,16 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
     if prioritize { zendoo_pause_low_priority_threads(); }
 
     // Execute batch verification
-    let result = get_batch_verifier_thread_pool(prioritize).install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default()));
+    let result = match panic::catch_unwind(|| {
+        get_batch_verifier_thread_pool(prioritize).install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default()))
+    }) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{:?}", e);
+            *ret_code = CctpErrorCode::GenericError;
+            return null_mut();
+        }
+    };
 
     // If prioritize, Unpause all low priority threads
     if prioritize { zendoo_unpause_low_priority_threads(); }
