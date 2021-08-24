@@ -73,13 +73,14 @@ fn serialization_deserialization_bench_vk_proof() {
     println!("Bench serialize/deserialize CSW...");
     {   // Generate SNARK keys
         println!("Generate SNARK pk and vk...");
-        let (pk, vk) = crate::mc_test_circuits::csw::generate_parameters(ProvingSystem::Darlin, num_constraints).unwrap();
+        let (pk, vk) = crate::mc_test_circuits::csw::generate_parameters(ProvingSystem::Darlin, num_constraints, true).unwrap();
 
         println!("Generate proof...");
         let proof = crate::mc_test_circuits::csw::generate_proof(
             &pk,
             true,
             0,
+            Some(&FieldElement::rand(&mut rng)),
             &FieldElement::rand(&mut rng),
             &FieldElement::rand(&mut rng),
             vec![0u8; 20].as_slice().try_into().unwrap(),
@@ -318,6 +319,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             // Free memory
             println!("Cleaning up...");
             zendoo_field_free(constant);
+            zendoo_field_free(sc_id);
             zendoo_field_free(end_cum_comm_tree_root);
             zendoo_sc_pk_free(pk);
             zendoo_free_bws(proof_buff);
@@ -348,6 +350,9 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             let sc_id = zendoo_get_random_field();
             assert!(sc_id != null_mut());
 
+            let constant = zendoo_get_random_field();
+            assert!(constant != null_mut());
+
             let nullifier = zendoo_get_random_field();
             assert!(nullifier != null_mut());
 
@@ -376,6 +381,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             let proof_buff = zendoo_create_return_csw_test_proof(
                 true,
                 0,
+                constant,
                 sc_id,
                 nullifier,
                 &buffer,
@@ -406,6 +412,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                     &mut bv,
                     i,
                     0,
+                    constant,
                     sc_id,
                     nullifier,
                     &buffer,
@@ -419,6 +426,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
 
             // Free memory
             println!("Cleaning up...");
+            zendoo_field_free(constant);
             zendoo_field_free(sc_id);
             zendoo_field_free(nullifier);
             zendoo_field_free(cert_data_hash);
