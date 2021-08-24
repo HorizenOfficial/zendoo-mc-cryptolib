@@ -1491,10 +1491,16 @@ pub extern "C" fn zendoo_finalize_ginger_mht(
     let tree = try_read_raw_pointer!("tree", tree, ret_code, null_mut());
 
     // Copy the tree and finalize
-    let tree_copy = finalize_ginger_mht(tree);
-
-    // Return the updated copy
-    Box::into_raw(Box::new(tree_copy))
+    match finalize_ginger_mht(tree) {
+        Ok(tree_copy) => {
+            Box::into_raw(Box::new(tree_copy))
+        },
+        Err(e) => {
+            eprintln!("{:?}", format!("Finalize merkle tree error: {:?}", e));
+            *ret_code = CctpErrorCode::MerkleTreeError;
+            null_mut()
+        }
+    }
 }
 
 #[no_mangle]
@@ -1506,8 +1512,10 @@ pub extern "C" fn zendoo_finalize_ginger_mht_in_place(
     // Read tree
     let tree = try_read_mut_raw_pointer!("tree", tree, ret_code, false);
 
-    finalize_ginger_mht_in_place(tree);
-    true
+    match finalize_ginger_mht_in_place(tree) {
+        Ok(_) => true,
+        Err(_) => false
+    }
 }
 
 #[no_mangle]
