@@ -2,6 +2,10 @@ EXECUTABLES = g++ cargo
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell PATH=$(PATH) command -v $(exec)),,$(error "No $(exec) in PATH")))
 CXX ?= g++
+
+# support also not-so-new compilers
+CXX_FLAGS += -std=c++11
+
 CARGO_BIN ?= cargo
 ifeq ($(shell env | grep RUSTFLAGS),)
 	RUSTFLAGS := -C target-feature=+bmi2,+adx --emit=asm
@@ -37,7 +41,7 @@ $(RUST_LIB): $(CARGO_FILES) $(RUST_FILES)
 build: libs ./bin_SampleCalls
 
 ./bin_SampleCalls: $(CXX_FILE) $(INCLUDE_FILES)
-	$(CXX) -o $@ $(CXX_FILE) -I$(INCLUDE)  -L. -l:$(RUST_LIB) -lpthread -ldl
+	$(CXX) $(CXX_FLAGS) -o $@ $(CXX_FILE) -I$(INCLUDE)  -L. -l:$(RUST_LIB) -lpthread -ldl
 
 .PHONY: example
 example: build
