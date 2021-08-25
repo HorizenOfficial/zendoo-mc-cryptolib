@@ -1814,7 +1814,7 @@ fn _zendoo_generate_mc_test_params(
             mc_test_circuits::csw::generate_parameters(ps_type, num_constraints, true)
         },
         TestCircuitType::CSWNoConstant => {
-            params_path.push_str("csw_no_constant");
+            params_path.push_str("csw_no_const_");
             mc_test_circuits::csw::generate_parameters(ps_type, num_constraints, false)
         }
     };
