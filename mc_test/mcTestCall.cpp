@@ -7,7 +7,7 @@
 /*
  *  Usage:
  *
- *  1) ./mcTest "generate" "cert/cert_no_const/csw" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
+ *  1) ./mcTest "generate" "cert/cert_no_const/csw/csw_no_const" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
  *
  *  2) ./mcTest "create" "cert/cert_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
@@ -19,9 +19,11 @@
  *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
  *        instead, "constant" param must not be present.
  *
- *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
- *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">,
- *  Generates a TestCSWProof. cert_data_hash is optional
+ *  3) ./mcTest "create" "csw/csw_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
+ *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">, [constant]
+ *  Generates a TestCSWProof. cert_data_hash is optional.
+ *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
+ *        instead, "constant" param must not be present.
  */
 
 void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_type_raw, int argc, char** argv) {
@@ -308,7 +310,6 @@ void create_verify_test_csw_proof(std::string ps_type_raw, std::string csw_type_
     std::string pk_name;
     std::string vk_name;
 
-    //std::cout << "csw_type_raw = " << csw_type_raw << std::endl;
     if (csw_type_raw == "csw") {
         pk_name = std::string("_csw_test_pk");
         vk_name = std::string("_csw_test_vk");
@@ -372,7 +373,9 @@ void create_verify_test_csw_proof(std::string ps_type_raw, std::string csw_type_
 
     // Parse cert_data_hash if present
     field_t* cert_data_hash_f;
-    if (arg == argc) {
+    assert(arg <= argc);
+    if (std::string(argv[arg]) == "NO_CERT_DATA_HASH"){
+        arg++;
         cert_data_hash_f = NULL;
     } else {
         assert(IsHex(argv[arg]));
@@ -386,6 +389,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, std::string csw_type_
     // Parse constant if present
     field_t* constant_f = NULL;
     if (csw_type_raw == "csw") {
+        assert(arg <= argc);
         assert(IsHex(argv[arg]));
         auto constant = ParseHex(argv[arg++]);
         assert(constant.size() == 32);

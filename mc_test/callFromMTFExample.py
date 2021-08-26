@@ -79,10 +79,13 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_co
     os.remove(params_dir + str(ps_type) + pk_name)
     os.remove(params_dir + str(ps_type) + vk_name)
 
-def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
+def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, constant = None, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
 
     # Setup SNARK pk and vk
-    generate_params(params_dir, "csw", ps_type);
+    if constant is not None:
+        generate_params(params_dir, "csw", ps_type);
+    else:
+        generate_params(params_dir, "csw_no_const", ps_type);
 
     # Generate random test data
     amount = random.randint(0, 1000)
@@ -92,7 +95,11 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
     end_cum_comm_tree_root = generate_random_field_element_hex()
 
     # Generate and verify proof
-    args = ["./mcTest", "create", "csw", str(ps_type), "-v"]
+    circ_type = "csw"
+    if constant is None:
+        circ_type = "csw_no_const"
+    args = ["./mcTest", "create", circ_type, str(ps_type), "-v"]
+
     if zk:
         args.append("-zk")
     args.append(str(proof_path))
@@ -101,12 +108,25 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
     args += [str(amount), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root), str(num_constraints)]
     if cert_data_hash_present:
         args.append(str(generate_random_field_element_hex()))
+    else:
+        args.append(str("NO_CERT_DATA_HASH"))
+    
+    if constant is not None:
+        constant = generate_random_field_element_hex()
+        args.append(str(constant))
+    
     subprocess.check_call(args)
 
     # Delete files
     os.remove(proof_path)
-    os.remove(params_dir + str(ps_type) + str("_csw_test_pk"))
-    os.remove(params_dir + str(ps_type) + str("_csw_test_vk"))
+
+    pk_name = "_csw_test_pk"
+    vk_name = "_csw_test_vk"
+    if constant is None:
+        pk_name = "_csw_no_const_test_pk"
+        vk_name = "_csw_no_const_test_vk"
+    os.remove(params_dir + str(ps_type) + pk_name)
+    os.remove(params_dir + str(ps_type) + vk_name)
 
 
 def generate_random_field_element_hex():
@@ -163,3 +183,13 @@ if __name__ == "__main__":
     csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True, False)
     csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, True)
     csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, False)
+
+    # Test csw proof no constant
+    csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", True, True, None)
+    csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", True, False, None)
+    csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", False, True, None)
+    csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", False, False, None)
+    csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", True, True, None)
+    csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", True, False, None)
+    csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", False, True, None)
+    csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", False, False, None)
