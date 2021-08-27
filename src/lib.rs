@@ -188,13 +188,14 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
 
 #[no_mangle]
 pub extern "C" fn zendoo_commitment_tree_add_fwt(
-    ptr :       *mut CommitmentTree,
-    sc_id:      *const FieldElement,
-    amount:     u64,
-    pub_key:    *const BufferWithSize,
-    tx_hash:    *const BufferWithSize,
-    out_idx:    u32,
-    ret_code:   &mut CctpErrorCode
+    ptr :               *mut CommitmentTree,
+    sc_id:              *const FieldElement,
+    amount:             u64,
+    pub_key:            *const BufferWithSize,
+    mc_return_address:  *const BufferWithSize,
+    tx_hash:            *const BufferWithSize,
+    out_idx:            u32,
+    ret_code:           &mut CctpErrorCode
 )-> bool
 {
 
@@ -204,10 +205,11 @@ pub extern "C" fn zendoo_commitment_tree_add_fwt(
     // Mandatory and constant size parameters
     let rs_sc_id = try_read_raw_pointer!("sc_id", sc_id, ret_code, false);
     let rs_pub_key = try_get_buffer_constant_size!("pub_key", pub_key, UINT_256_SIZE, ret_code, false);
+    let rs_mc_return_address = try_get_buffer_constant_size!("mc_return_address", mc_return_address, UINT_160_SIZE, ret_code, false);
     let rs_tx_hash = try_get_buffer_constant_size!("tx_hash", tx_hash, UINT_256_SIZE, ret_code, false);
 
     // Add ForwardTransfer to the CommitmentTree
-    let ret = cmt.add_fwt(rs_sc_id, amount, rs_pub_key, rs_tx_hash, out_idx);
+    let ret = cmt.add_fwt(rs_sc_id, amount, rs_pub_key, rs_mc_return_address, rs_tx_hash, out_idx);
 
     if !ret {
         *ret_code = CctpErrorCode::GenericError;
