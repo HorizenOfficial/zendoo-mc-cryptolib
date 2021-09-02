@@ -1514,7 +1514,7 @@ pub extern "C" fn zendoo_finalize_ginger_mht_in_place(
 
     match finalize_ginger_mht_in_place(tree) {
         Ok(_) => true,
-        Err(_) => {
+        Err(e) => {
             eprintln!("{:?}", format!("Finalize merkle tree error: {:?}", e));
             *ret_code = CctpErrorCode::MerkleTreeError;
             false

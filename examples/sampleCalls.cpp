@@ -295,7 +295,7 @@ TEST_CASE("Merkle Tree") {
     }
 
     // Initialize tree
-    auto tree = ZendooGingerMerkleTree(height, leaves_len);
+    auto tree = ZendooGingerMerkleTree(height, leaves_len, &ret_code);
 
     // Add leaves to tree
     for (int i = 0; i < leaves_len; i++){
