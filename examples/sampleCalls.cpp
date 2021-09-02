@@ -1026,6 +1026,40 @@ TEST_SUITE("Single Proof Verifier") {
         remove(pk_path.c_str());
         remove(vk_path.c_str());
     }
+    
+    TEST_CASE("Proof Verifier: CSWNoConst - Coboundary Marlin") {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Init keys
+        initDlogKeys();
+
+        // Generate cert test circuit pk and vk
+        CHECK(
+            zendoo_generate_mc_test_params(
+                TestCircuitType::CSWNoConstant,
+                ProvingSystem::CoboundaryMarlin,
+                NUM_CONSTRAINTS,
+                (path_char_t*)params_dir.c_str(),
+                params_dir_len,
+                &ret_code
+            ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        auto proof_path = params_dir + std::string("/cob_marlin_csw_no_const_test_proof");
+        auto pk_path = params_dir + std::string("/cob_marlin_csw_no_const_test_pk");
+        auto vk_path = params_dir + std::string("/cob_marlin_csw_no_const_test_vk");
+
+        // Test all cases
+        create_verify_csw_proof(true, true, proof_path, pk_path, vk_path, false);
+        create_verify_csw_proof(true, false, proof_path, pk_path, vk_path, false);
+        create_verify_csw_proof(false, true, proof_path, pk_path, vk_path, false);
+        create_verify_csw_proof(false, false, proof_path, pk_path, vk_path, false);
+
+        // Delete files
+        remove(pk_path.c_str());
+        remove(vk_path.c_str());
+    }
 
     TEST_CASE("Proof Verifier: CSW - Darlin") {
         CctpErrorCode ret_code = CctpErrorCode::OK;
@@ -1055,6 +1089,40 @@ TEST_SUITE("Single Proof Verifier") {
         create_verify_csw_proof(true, false, proof_path, pk_path, vk_path, true);
         create_verify_csw_proof(false, true, proof_path, pk_path, vk_path, true);
         create_verify_csw_proof(false, false, proof_path, pk_path, vk_path, true);
+
+        // Delete files
+        remove(pk_path.c_str());
+        remove(vk_path.c_str());
+    }
+    
+    TEST_CASE("Proof Verifier: CSWNoConst - Darlin") {
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Init keys
+        initDlogKeys();
+
+        // Generate cert test circuit pk and vk
+        CHECK(
+           zendoo_generate_mc_test_params(
+               TestCircuitType::CSWNoConstant,
+               ProvingSystem::Darlin,
+               NUM_CONSTRAINTS,
+               (path_char_t*)params_dir.c_str(),
+               params_dir_len,
+               &ret_code
+           ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        auto proof_path = params_dir + std::string("/darlin_csw_no_const_test_proof");
+        auto pk_path = params_dir + std::string("/darlin_csw_no_const_test_pk");
+        auto vk_path = params_dir + std::string("/darlin_csw_no_const_test_vk");
+
+        // Test all cases
+        create_verify_csw_proof(true, true, proof_path, pk_path, vk_path, false);
+        create_verify_csw_proof(true, false, proof_path, pk_path, vk_path, false);
+        create_verify_csw_proof(false, true, proof_path, pk_path, vk_path, false);
+        create_verify_csw_proof(false, false, proof_path, pk_path, vk_path, false);
 
         // Delete files
         remove(pk_path.c_str());
