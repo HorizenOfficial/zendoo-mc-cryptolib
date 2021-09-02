@@ -1146,7 +1146,7 @@ pub extern "C" fn zendoo_unpause_low_priority_threads() {
 }
 
 /// Build thread pool in which executing batch verification according to prioritization
-fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
+fn  get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
     if !prioritize {
         // If prioritize is false, this means that this batch verification can be stopped by
         // other ones with higher priority. We oblige each thread of this thread pool, upon starting,
@@ -1514,7 +1514,11 @@ pub extern "C" fn zendoo_finalize_ginger_mht_in_place(
 
     match finalize_ginger_mht_in_place(tree) {
         Ok(_) => true,
-        Err(_) => false
+        Err(_) => {
+            eprintln!("{:?}", format!("Finalize merkle tree error: {:?}", e));
+            *ret_code = CctpErrorCode::MerkleTreeError;
+            false
+        }
     }
 }
 
