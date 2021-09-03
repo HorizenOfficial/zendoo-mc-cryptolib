@@ -1253,7 +1253,7 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
 
     // Execute batch verification of the proofs with specified id
     let result = match get_batch_verifier_thread_pool(prioritize) {
-        Ok(pool) => pool.install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default())),
+        Ok(pool) => pool.install(|| rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default())),
         Err(e) => {
             eprintln!("{:?}", e);
             *ret_code = CctpErrorCode::GenericError;
