@@ -1417,6 +1417,7 @@ pub extern "C" fn zendoo_new_ginger_mht(
     ret_code: &mut CctpErrorCode,
 ) -> *mut GingerMHT {
 
+    *ret_code = CctpErrorCode::OK;
     match new_ginger_mht(height, processing_step) {
         Ok(gmt) => Box::into_raw(Box::new(gmt)),
         Err(e) => {
