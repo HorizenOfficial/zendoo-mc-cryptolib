@@ -41,7 +41,7 @@ mc-test-circuit = ["proof-systems", "r1cs-crypto", "r1cs-core", "r1cs-std"]
 
 [profile.release]
 #lto = true
-#panic = 'abort'
+panic = 'abort'
 codegen-units = 1
 
 [profile.dev]
