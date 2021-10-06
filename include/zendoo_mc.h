@@ -737,9 +737,11 @@ extern "C" {
      *  and all the data needed to construct proof's public inputs. Return true if
      *  proof verification was successful, false otherwise.
      *  `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
+     *  Also `constant` can be NULL.
      */
     bool zendoo_verify_csw_proof(
         uint64_t amount,
+        const field_t* constant,
         const field_t* sc_id,
         const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
@@ -789,7 +791,9 @@ extern "C" {
      *  and all the data needed to construct proof's public inputs. Return true if
      *  proof verification was successful, false otherwise.
      *  `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
-     *  NOTE: proof, vk and the public input derived from the other data will be
+     *  NOTE: 
+     *      - `constant` can be NULL;
+     *      - proof, vk and the public input derived from the other data will be
      *        copied in order to store them in `batch_verifier` state, so they
      *        can be immediately freed afterwards.
      */
@@ -797,6 +801,7 @@ extern "C" {
         sc_batch_proof_verifier_t* batch_verifier,
         uint32_t proof_id,
         uint64_t amount,
+        const field_t* constant,
         const field_t* sc_id,
         const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,
@@ -918,6 +923,7 @@ extern "C" {
         bool add_csw_proof(
             uint32_t proof_id,
             uint64_t amount,
+            const field_t* constant,
             const field_t* sc_id,
             const field_t* nullifier,
             const BufferWithSize* mc_pk_hash,
@@ -929,7 +935,7 @@ extern "C" {
         )
         {
             return zendoo_add_csw_proof_to_batch_verifier(
-                batch_verifier, proof_id, amount, sc_id, nullifier, mc_pk_hash,
+                batch_verifier, proof_id, amount, constant, sc_id, nullifier, mc_pk_hash,
                 cert_data_hash, end_cum_comm_tree_root, sc_proof, sc_vk, ret_code
             );
         }
@@ -1014,6 +1020,7 @@ extern "C" {
         Certificate,
         CertificateNoConstant,
         CSW,
+        CSWNoConstant,
     } TestCircuitType;
 
     /*
@@ -1063,11 +1070,14 @@ extern "C" {
      * Generates, given the required witnesses and the proving key, a CSWTestCircuit proof and saves it,
      * in compressed or uncompressed form, depending on the value of `compress_proof` flag, at specified path.
      * Return true if operation was successful, false otherwise.
-     * `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
+     * NOTE:
+     *     - `constant` can be null.
+     *     - `cert_data_hash` can be NULL and, if so, it will be replaced with a phantom value.
      */
      bool zendoo_create_csw_test_proof(
         bool zk,
         uint64_t amount,
+        const field_t* constant,
         const field_t* sc_id,
         const field_t* nullifier,
         const BufferWithSize* mc_pk_hash,

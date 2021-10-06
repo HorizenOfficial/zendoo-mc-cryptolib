@@ -7,7 +7,7 @@
 /*
  *  Usage:
  *
- *  1) ./mcTest "generate" "cert/cert_no_const/csw" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
+ *  1) ./mcTest "generate" "cert/cert_no_const/csw/csw_no_const" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
  *
  *  2) ./mcTest "create" "cert/cert_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
@@ -19,9 +19,11 @@
  *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
  *        instead, "constant" param must not be present.
  *
- *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
- *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">,
- *  Generates a TestCSWProof. cert_data_hash is optional
+ *  3) ./mcTest "create" "csw/csw_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
+ *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">, [constant]
+ *  Generates a TestCSWProof. cert_data_hash is optional.
+ *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
+ *        instead, "constant" param must not be present.
  */
 
 void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_type_raw, int argc, char** argv) {
@@ -273,7 +275,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_typ
     }
 }
 
-void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv) {
+void create_verify_test_csw_proof(std::string ps_type_raw, std::string csw_type_raw, int argc, char** argv) {
     int arg = 4;
     bool verify = false;
     if (std::string(argv[arg]) == "-v"){
@@ -305,8 +307,19 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
     auto params_path = std::string(argv[arg++]);
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
+    std::string pk_name;
+    std::string vk_name;
+
+    if (csw_type_raw == "csw") {
+        pk_name = std::string("_csw_test_pk");
+        vk_name = std::string("_csw_test_vk");
+    } else {
+        pk_name = std::string("_csw_no_const_test_pk");
+        vk_name = std::string("_csw_no_const_test_vk");
+    }
+
     // Deserialize pk
-    auto pk_path = params_path + ps_type_raw + std::string("_csw_test_pk");
+    auto pk_path = params_path + ps_type_raw + pk_name;
     size_t pk_path_len = pk_path.size();
     sc_pk_t* pk = zendoo_deserialize_sc_pk_from_file(
         (path_char_t*)pk_path.c_str(),
@@ -360,7 +373,9 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
 
     // Parse cert_data_hash if present
     field_t* cert_data_hash_f;
-    if (arg == argc) {
+    assert(arg <= argc);
+    if (std::string(argv[arg]) == "NO_CERT_DATA_HASH"){
+        arg++;
         cert_data_hash_f = NULL;
     } else {
         assert(IsHex(argv[arg]));
@@ -371,10 +386,24 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
         assert(ret_code == CctpErrorCode::OK);
     }
 
+    // Parse constant if present
+    field_t* constant_f = NULL;
+    if (csw_type_raw == "csw") {
+        assert(arg <= argc);
+        assert(IsHex(argv[arg]));
+        auto constant = ParseHex(argv[arg++]);
+        assert(constant.size() == 32);
+        constant_f = zendoo_deserialize_field(constant.data(), &ret_code);
+        assert(constant_f != NULL);
+        assert(ret_code == CctpErrorCode::OK);
+    }
+
+
     // Generate proof and vk
     assert(zendoo_create_csw_test_proof(
         zk,
         amount,
+        constant_f,
         sc_id_f,
         nullifier_f,
         &mc_pk_hash,
@@ -402,7 +431,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
         assert(ret_code == CctpErrorCode::OK);
 
         // Deserialize vk
-        auto vk_path = params_path + ps_type_raw + std::string("_csw_test_vk");
+        auto vk_path = params_path + ps_type_raw + vk_name;
         size_t vk_path_len = vk_path.size();
 
         sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
@@ -417,6 +446,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
         // Verify proof
         assert(zendoo_verify_csw_proof(
             amount,
+            constant_f,
             sc_id_f,
             nullifier_f,
             &mc_pk_hash,
@@ -432,6 +462,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
         auto wrong_amount = amount + 1;
         assert(!zendoo_verify_csw_proof(
             wrong_amount,
+            constant_f,
             sc_id_f,
             nullifier_f,
             &mc_pk_hash,
@@ -448,6 +479,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
     }
 
     zendoo_sc_pk_free(pk);
+    zendoo_field_free(constant_f);
     zendoo_field_free(sc_id_f);
     zendoo_field_free(nullifier_f);
     zendoo_field_free(cert_data_hash_f);
@@ -467,8 +499,11 @@ void create_verify(int argc, char** argv)
         assert(argc >= 16);
         create_verify_test_cert_proof(ps_type_raw, circ_type_raw, argc, argv);
     } else if (circ_type_raw == "csw") {
+        assert(argc >= 14 && argc <= 17);
+        create_verify_test_csw_proof(ps_type_raw, circ_type_raw, argc, argv);
+    } else if (circ_type_raw == "csw_no_const") {
         assert(argc >= 13 && argc <= 16);
-        create_verify_test_csw_proof(ps_type_raw, argc, argv);
+        create_verify_test_csw_proof(ps_type_raw, circ_type_raw, argc, argv);
     } else {
         abort(); // Invalid TestCircuitType
     }
@@ -485,6 +520,8 @@ void generate(char** argv)
         circ_type = TestCircuitType::CertificateNoConstant;
     } else if (circ_type_raw == "csw") {
         circ_type = TestCircuitType::CSW;
+    } else if (circ_type_raw == "csw_no_const") {
+        circ_type = TestCircuitType::CSWNoConstant;
     } else {
         abort(); // Invalid TestCircuitType
     }

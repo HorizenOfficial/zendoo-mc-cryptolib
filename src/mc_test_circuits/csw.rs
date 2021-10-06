@@ -24,10 +24,35 @@ type FieldElementGadget = FrGadget;
 
 fn enforce_csw_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
     mut cs:             CS,
+    constant_present:   bool,
+    constant:           Option<FieldElement>,
     aggregated_input:   Option<FieldElement>,
     num_constraints:    u32,
 ) -> Result<(), SynthesisError>
 {
+    if constant_present {
+        let constant_g = FieldElementGadget::alloc(
+            cs.ns(|| "alloc constant"),
+            || constant.ok_or(SynthesisError::AssignmentMissing)
+        )?;
+
+        let expected_constant_g = FieldElementGadget::alloc_input(
+            cs.ns(|| "alloc expected_constant"),
+            || constant.ok_or(SynthesisError::AssignmentMissing)
+        )?;
+
+        for i in 0..(num_constraints - 1) / 8 {
+            let b = constant_g.is_eq(
+                cs.ns(|| format!("expected_constant_is_eq_actual_{}", i)),
+                &expected_constant_g
+            )?;
+            b.enforce_equal(
+                cs.ns(|| format!("expected_constant_must_be_eq_actual_{}", i)),
+                &Boolean::Constant(true)
+            )?;
+        }
+    }
+    
     let aggregated_input_g = FieldElementGadget::alloc(
         cs.ns(|| "alloc aggregated_input"),
         || aggregated_input.ok_or(SynthesisError::AssignmentMissing)
@@ -38,7 +63,9 @@ fn enforce_csw_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
         || aggregated_input.ok_or(SynthesisError::AssignmentMissing)
     )?;
 
-    for i in 0..(num_constraints - 1)/4{
+    let remaining_constraints = if constant_present { (num_constraints - 1)/8 } else { (num_constraints - 1)/4 };
+
+    for i in 0..remaining_constraints {
         let b = aggregated_input_g.is_eq(
             cs.ns(|| format!("expected_is_eq_actual_{}", i)),
             &expected_aggregated_input_g
@@ -54,6 +81,8 @@ fn enforce_csw_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
 
 // Simple test circuit, enforcing that the hash of all the witnesses equals the public input
 pub struct CSWTestCircuit {
+    constant_present: bool,
+    constant:         Option<FieldElement>,
     aggregated_input: Option<FieldElement>,
     num_constraints:  u32,
 }
@@ -64,6 +93,8 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuit {
         assert!(self.num_constraints > 2);
         enforce_csw_inputs_gadget(
             cs.ns(|| "enforce witnesses == pub_ins"),
+            self.constant_present,
+            self.constant,
             self.aggregated_input,
             self.num_constraints
         )
@@ -72,6 +103,8 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuit {
 
 // Simple test circuit, enforcing that the hash of all the witnesses equals the public input
 pub struct CSWTestCircuitWithAccumulators {
+    constant_present:   bool,
+    constant:           Option<FieldElement>,
     aggregated_input:   Option<FieldElement>,
     deferred:           Vec<FieldElement>, // Represents deferred data
     num_constraints:    u32,
@@ -119,13 +152,19 @@ impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
 
         enforce_csw_inputs_gadget(
             cs.ns(|| "enforce witnesses == pub_ins"),
+            self.constant_present,
+            self.constant,
             self.aggregated_input,
             self.num_constraints - deferred_len
         )
     }
 }
 
-pub fn generate_parameters(ps: ProvingSystem, num_constraints: u32) -> Result<(ZendooProverKey, ZendooVerifierKey), ProvingSystemError>
+pub fn generate_parameters(
+    ps: ProvingSystem,
+    num_constraints: u32,
+    with_constant:   bool,
+) -> Result<(ZendooProverKey, ZendooVerifierKey), ProvingSystemError>
 {
     let ck_g1 = get_g1_committer_key()?;
     match ps {
@@ -133,6 +172,8 @@ pub fn generate_parameters(ps: ProvingSystem, num_constraints: u32) -> Result<(Z
         ProvingSystem::Darlin => {
             let ck_g2 = get_g2_committer_key()?;
             let circ = CSWTestCircuitWithAccumulators {
+                constant_present: with_constant,
+                constant: None,
                 aggregated_input: None,
                 deferred: FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
                     &mut rand::thread_rng(),
@@ -147,6 +188,8 @@ pub fn generate_parameters(ps: ProvingSystem, num_constraints: u32) -> Result<(Z
         },
         ProvingSystem::CoboundaryMarlin => {
             let circ = CSWTestCircuit {
+                constant_present: with_constant,
+                constant: None,
                 aggregated_input: None,
                 num_constraints
             };
@@ -161,6 +204,7 @@ pub fn generate_proof(
     pk:                                         &ZendooProverKey,
     zk:                                         bool,
     amount:                                     u64,
+    constant:                                   Option<&FieldElement>,
     sc_id:                                      &FieldElement,
     nullifier:                                  &FieldElement,
     pub_key_hash:                               &[u8; UINT_160_SIZE],
@@ -193,6 +237,8 @@ pub fn generate_proof(
             );
             let deferred_fes = deferred.to_field_elements().unwrap();
             let circ = CSWTestCircuitWithAccumulators {
+                constant_present: constant.is_some(),
+                constant: if constant.is_some() { Some(*constant.unwrap()) } else { None },
                 aggregated_input: Some(aggregated_input),
                 deferred: deferred_fes.clone(),
                 num_constraints,
@@ -212,6 +258,8 @@ pub fn generate_proof(
         },
         ZendooProverKey::CoboundaryMarlin(pk) => {
             let circ = CSWTestCircuit {
+                constant_present: constant.is_some(),
+                constant: if constant.is_some() { Some(*constant.unwrap()) } else { None },
                 aggregated_input: Some(aggregated_input),
                 num_constraints
             };
