@@ -368,9 +368,9 @@ pub extern "C" fn zendoo_compress_bit_vector(
 
             Box::into_raw(Box::new(bit_vector_buffer))
         },
-        Err(_) => {
+        Err(e) => {
             *ret_code = CctpErrorCode::CompressError;
-            eprintln!("{:?}", "compress_bit_vector() failed !");
+            eprintln!("compress_bit_vector() failed: {:?}", e.to_string());
             null_mut()
         }
     }
@@ -561,7 +561,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof(
 ) -> *mut ZendooProof
 {
     let sc_proof_bytes = try_get_buffer_variable_size!("sc_proof_buffer", sc_proof_bytes, ret_code, null_mut());
-    try_deserialize_to_raw_pointer!("sc_proof_bytes", sc_proof_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
+    try_deserialize_to_raw_pointer_strict!("sc_proof_bytes", sc_proof_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[no_mangle]
@@ -701,7 +701,7 @@ pub extern "C" fn zendoo_deserialize_sc_vk(
     compressed:      bool,
 ) -> *mut ZendooVerifierKey {
     let sc_vk_bytes = try_get_buffer_variable_size!("sc_vk_buffer", sc_vk_bytes, ret_code, null_mut());
-    try_deserialize_to_raw_pointer!("sc_vk_bytes", sc_vk_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
+    try_deserialize_to_raw_pointer_strict!("sc_vk_bytes", sc_vk_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[no_mangle]

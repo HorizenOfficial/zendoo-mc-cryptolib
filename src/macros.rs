@@ -1,6 +1,6 @@
 use algebra::{CanonicalSerialize, CanonicalDeserialize, SemanticallyValid};
 use cctp_primitives::{
-    utils::serialization::{deserialize_from_buffer, read_from_file},
+    utils::serialization::{deserialize_from_buffer, deserialize_from_buffer_strict, read_from_file},
 };
 use std::{
     slice, path::Path
@@ -337,11 +337,17 @@ pub(crate) fn deserialize_to_raw_pointer<T: CanonicalDeserialize + SemanticallyV
     buffer: &[u8],
     checked: Option<bool>,
     compressed: Option<bool>,
+    strict: bool,
 ) -> (Option<*mut T>, CctpErrorCode)
 {
-    match deserialize_from_buffer(buffer, checked, compressed){
+    match if strict {
+        deserialize_from_buffer_strict(buffer, checked, compressed)
+    } else {
+        deserialize_from_buffer(buffer, checked, compressed)
+    }{
         Ok(t) => (Some(Box::into_raw(Box::new(t))), CctpErrorCode::OK),
-        Err(_) => {
+        Err(e) => {
+            eprintln!("Deserialization error: {}" ,e.to_string());
             (None, CctpErrorCode::InvalidValue)
         }
     }
@@ -349,7 +355,22 @@ pub(crate) fn deserialize_to_raw_pointer<T: CanonicalDeserialize + SemanticallyV
 
 macro_rules! try_deserialize_to_raw_pointer {
     ($param_name: expr, $buffer:expr, $checked:expr, $compressed:expr, $ret_code:expr, $err_ret:expr) => {{
-        let (data, ret_code) = deserialize_to_raw_pointer($buffer, $checked, $compressed);
+        let (data, ret_code) = deserialize_to_raw_pointer($buffer, $checked, $compressed, false);
+        *$ret_code = ret_code;
+
+        match data {
+            Some(x) => {x}
+            None => {
+                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                return $err_ret;
+            }
+        }
+    }};
+}
+
+macro_rules! try_deserialize_to_raw_pointer_strict {
+    ($param_name: expr, $buffer:expr, $checked:expr, $compressed:expr, $ret_code:expr, $err_ret:expr) => {{
+        let (data, ret_code) = deserialize_to_raw_pointer($buffer, $checked, $compressed, true);
         *$ret_code = ret_code;
 
         match data {
@@ -370,7 +391,8 @@ pub(crate) fn deserialize_to_raw_pointer_from_file<T: CanonicalDeserialize + Sem
 {
     match read_from_file(path, checked, compressed){
         Ok(t) => (Some(Box::into_raw(Box::new(t))), CctpErrorCode::OK),
-        Err(_) => {
+        Err(e) => {
+            eprintln!("Deserialization error: {}", e.to_string());
             (None, CctpErrorCode::InvalidFile)
         }
     }
