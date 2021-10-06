@@ -883,7 +883,6 @@ pub extern "C" fn zendoo_verify_certificate_proof(
 
 use cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH;
 use cctp_primitives::utils::serialization::read_from_file;
-
 fn get_csw_proof_usr_ins<'a>(
     amount:                 u64,
     sc_id:                  *const FieldElement,
@@ -1146,8 +1145,8 @@ pub extern "C" fn zendoo_unpause_low_priority_threads() {
 }
 
 /// Build thread pool in which executing batch verification according to prioritization
-fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
-    if !prioritize {
+fn  get_batch_verifier_thread_pool(prioritize: bool) -> Result<rayon::ThreadPool, Error> {
+    let pool = if !prioritize {
         // If prioritize is false, this means that this batch verification can be stopped by
         // other ones with higher priority. We oblige each thread of this thread pool, upon starting,
         // checking the STOP_CTR: if != 0 this means that one or more higher priority thread pools are
@@ -1167,11 +1166,12 @@ fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
                 while *stop != 0 {
                     stop = cvar.wait(stop).unwrap();
                 }
-            }).build().unwrap()
+            }).build()?
     } else {
         // If prioritize is true, construct a normal thread pool
-        rayon::ThreadPoolBuilder::new().build().unwrap()
-    }
+        rayon::ThreadPoolBuilder::new().build()?
+    };
+    Ok(pool)
 }
 
 #[no_mangle]
@@ -1187,11 +1187,10 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
     // If prioritize, pause all low priority threads
     if prioritize { zendoo_pause_low_priority_threads(); }
 
+
     // Execute batch verification
-    let result = match panic::catch_unwind(|| {
-        get_batch_verifier_thread_pool(prioritize).install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default()))
-    }) {
-        Ok(v) => v,
+    let result = match get_batch_verifier_thread_pool(prioritize) {
+        Ok(pool) => pool.install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default())),
         Err(e) => {
             eprintln!("{:?}", e);
             *ret_code = CctpErrorCode::GenericError;
@@ -1253,8 +1252,14 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     if prioritize { zendoo_pause_low_priority_threads(); }
 
     // Execute batch verification of the proofs with specified id
-    let result = get_batch_verifier_thread_pool(prioritize)
-        .install(|| rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default()));
+    let result = match get_batch_verifier_thread_pool(prioritize) {
+        Ok(pool) => pool.install(|| rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default())),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            *ret_code = CctpErrorCode::GenericError;
+            return null_mut();
+        }
+    };
 
     // If prioritize, Unpause all low priority threads
     if prioritize { zendoo_unpause_low_priority_threads(); }
@@ -1412,6 +1417,7 @@ pub extern "C" fn zendoo_new_ginger_mht(
     ret_code: &mut CctpErrorCode,
 ) -> *mut GingerMHT {
 
+    *ret_code = CctpErrorCode::OK;
     match new_ginger_mht(height, processing_step) {
         Ok(gmt) => Box::into_raw(Box::new(gmt)),
         Err(e) => {
@@ -1514,7 +1520,11 @@ pub extern "C" fn zendoo_finalize_ginger_mht_in_place(
 
     match finalize_ginger_mht_in_place(tree) {
         Ok(_) => true,
-        Err(_) => false
+        Err(e) => {
+            eprintln!("{:?}", format!("Finalize merkle tree error: {:?}", e));
+            *ret_code = CctpErrorCode::MerkleTreeError;
+            false
+        }
     }
 }
 
