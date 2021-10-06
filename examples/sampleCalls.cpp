@@ -295,7 +295,8 @@ TEST_CASE("Merkle Tree") {
     }
 
     // Initialize tree
-    auto tree = ZendooGingerMerkleTree(height, leaves_len);
+    auto tree = ZendooGingerMerkleTree(height, leaves_len, &ret_code);
+    CHECK(ret_code == CctpErrorCode::OK);
 
     // Add leaves to tree
     for (int i = 0; i < leaves_len; i++){
@@ -443,7 +444,10 @@ TEST_CASE("Commitment Tree") {
     check_root(expected_root_after_scc_bytes, root_after_scc);
 
     // Add fwt with random data
-    CHECK(zendoo_commitment_tree_add_fwt(cmt, sc_id, amount, &pub_key, &tx_hash, out_idx, &ret_code) == true);
+    std::vector<unsigned char> mc_return_address_vec(MC_PK_SIZE, 222);
+    auto mc_return_address = BufferWithSize(mc_return_address_vec.data(), mc_return_address_vec.size());
+
+    CHECK(zendoo_commitment_tree_add_fwt(cmt, sc_id, amount, &pub_key, &mc_return_address, &tx_hash, out_idx, &ret_code) == true);
     CHECK(ret_code == CctpErrorCode::OK);
 
     // Test root after add fwt
@@ -452,8 +456,8 @@ TEST_CASE("Commitment Tree") {
     CHECK(ret_code == CctpErrorCode::OK);
 
     unsigned char expected_root_after_fwt_bytes[FIELD_SIZE] = {
-        123, 21, 251, 209, 124, 131, 1, 181, 252, 63, 177, 254, 229, 162, 6, 238,
-        78, 249, 207, 112, 48, 46, 36, 96, 248, 119, 84, 57, 74, 229, 233, 26
+        149, 250, 105, 188, 215, 88, 246, 3, 5, 100, 189, 8, 248, 94, 208, 254,
+        158, 166, 97, 10, 162, 131, 153, 14, 26, 90, 101, 54, 11, 23, 9, 14
     };
     check_root(expected_root_after_fwt_bytes, root_after_fwt);
 
@@ -475,8 +479,8 @@ TEST_CASE("Commitment Tree") {
     CHECK(ret_code == CctpErrorCode::OK);
 
     unsigned char expected_root_after_bwtr_bytes[FIELD_SIZE] = {
-        226, 210, 246, 128, 123, 182, 167, 110, 139, 14, 222, 105, 246, 78, 186, 180,
-        190, 223, 145, 188, 185, 199, 236, 226, 103, 240, 164, 131, 32, 30, 211, 26
+        227, 174, 46, 213, 92, 144, 79, 234, 218, 194, 210, 247, 229, 226, 142, 7,
+        40, 248, 93, 132, 155, 183, 167, 61, 72, 203, 63, 176, 173, 82, 251, 10
     };
     check_root(expected_root_after_bwtr_bytes, root_after_bwtr);
 
@@ -491,8 +495,8 @@ TEST_CASE("Commitment Tree") {
     CHECK(ret_code == CctpErrorCode::OK);
 
     unsigned char expected_root_after_csw_bytes[FIELD_SIZE] = {
-        175, 83, 101, 147, 40, 13, 196, 37, 12, 98, 50, 94, 179, 101, 47, 16, 11,
-        147, 119, 27, 52, 188, 128, 101, 210, 146, 56, 209, 51, 128, 158, 34
+        221, 172, 13, 226, 58, 169, 19, 248, 21, 100, 252, 4, 175, 180, 92, 142,
+        242, 145, 59, 175, 118, 152, 238, 224, 151, 26, 220, 243, 37, 12, 97, 23
     };
     check_root(expected_root_after_csw_bytes, root_after_csw);
 
@@ -518,8 +522,8 @@ TEST_CASE("Commitment Tree") {
     CHECK(ret_code == CctpErrorCode::OK);
 
     unsigned char expected_root_after_cert_bytes[FIELD_SIZE] = {
-        170, 55, 27, 126, 252, 168, 162, 120, 2, 225, 63, 210, 253, 205, 193, 12,
-        188, 162, 37, 130, 218, 101, 142, 121, 95, 146, 105, 63, 197, 28, 16, 33
+        51, 180, 196, 214, 89, 68, 232, 156, 104, 198, 180, 202, 189, 126, 41, 26,
+        91, 187, 146, 36, 9, 8, 197, 236, 228, 15, 106, 111, 50, 183, 194, 19
     };
     check_root(expected_root_after_cert_bytes, root_after_cert);
 

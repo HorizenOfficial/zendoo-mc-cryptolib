@@ -155,6 +155,7 @@ extern "C" {
         const field_t* sc_id,
         uint64_t amount,
         const BufferWithSize* pub_key,
+        const BufferWithSize* mc_return_address,
         const BufferWithSize* tx_hash,
         uint32_t out_idx,
         CctpErrorCode* ret_code
@@ -410,7 +411,7 @@ extern "C" {
      * Gets a new instance of a Ginger Merkle Tree, of height `height`.
      * `processing_step` is used to tune the memory usage of the tree.
      */
-    ginger_mht_t* zendoo_new_ginger_mht(size_t height, size_t processing_step);
+    ginger_mht_t* zendoo_new_ginger_mht(size_t height, size_t processing_step, CctpErrorCode* ret_code);
 
     /*
      * Appends `leaf` to `tree` given an opaque FieldElement pointer to it.
@@ -489,8 +490,8 @@ extern "C" {
 
         ZendooGingerMerkleTree(ginger_mht_t* tree): tree(tree) {}
 
-        ZendooGingerMerkleTree(size_t height, size_t processing_step){
-            tree = zendoo_new_ginger_mht(height, processing_step);
+        ZendooGingerMerkleTree(size_t height, size_t processing_step, CctpErrorCode* ret_code){
+            tree = zendoo_new_ginger_mht(height, processing_step, ret_code);
         }
 
         bool append(const field_t* leaf, CctpErrorCode* ret_code) {
