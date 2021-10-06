@@ -1011,6 +1011,7 @@ extern "C" {
 
     typedef enum TestCircuitType {
         Certificate,
+        CertificateNoConstant,
         CSW,
     } TestCircuitType;
 
