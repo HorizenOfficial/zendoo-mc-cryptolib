@@ -433,7 +433,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
 
         // Spawn batch verification threads
         let rng = &mut thread_rng();
-        let num_threads: usize = rng.gen_range(2, 11);
+        let num_threads: usize = rng.gen_range(2..11);
 
         println!("Perform {} separate batch verifications with different priority...", num_threads);
 
