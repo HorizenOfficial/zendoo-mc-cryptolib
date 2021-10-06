@@ -11,10 +11,26 @@ name = "algebra"
 version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes#40d90f11480f471693c0ee3d33255531d7c922bb"
 dependencies = [
- "algebra-derive",
+ "algebra-derive 0.2.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
  "byteorder",
  "derivative",
- "field-assembly",
+ "field-assembly 0.1.1-alpha.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "rand",
+ "rayon",
+ "rustc_version",
+ "serde",
+ "unroll",
+]
+
+[[package]]
+name = "algebra"
+version = "0.1.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization#c7c13d00a632a0bdb614454eca66afa43f053f42"
+dependencies = [
+ "algebra-derive 0.2.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "byteorder",
+ "derivative",
+ "field-assembly 0.1.1-alpha.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
  "rand",
  "rayon",
  "rustc_version",
@@ -33,6 +49,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "algebra-derive"
+version = "0.2.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization#c7c13d00a632a0bdb614454eca66afa43f053f42"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -42,6 +68,11 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 name = "bench-utils"
 version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes#40d90f11480f471693c0ee3d33255531d7c922bb"
+
+[[package]]
+name = "bench-utils"
+version = "0.1.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization#c7c13d00a632a0bdb614454eca66afa43f053f42"
 
 [[package]]
 name = "bit-vec"
@@ -96,28 +127,28 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.69"
+version = "1.0.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e70cc2f62c6ce1868963827bd677764c62d07c3d9a3e1fb1177ee1a9ab199eb2"
+checksum = "d26a6ce4b6a484fa3edb70f7efa6fc430fd2b87285fe8b84304fd0936faa0dc0"
 
 [[package]]
 name = "cctp_primitives"
 version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=ft_return_address#18ad896fc8c006e260d9abcbf7c6654e5f7e78cf"
+source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=ft_return_address#c71ebb670d803f8eecf8c2db1ffe08928ddd3c98"
 dependencies = [
- "algebra",
- "bench-utils",
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
  "bit-vec",
  "blake2",
  "byteorder",
  "bzip2",
  "flate2",
  "lazy_static",
- "marlin",
- "poly-commit",
- "primitives",
- "proof-systems",
- "r1cs-core",
+ "marlin 0.1.0 (git+https://github.com/HorizenLabs/marlin?branch=proof_size_optimization)",
+ "poly-commit 0.1.0 (git+https://github.com/HorizenLabs/poly-commit?branch=proof_size_optimization)",
+ "primitives 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "proof-systems 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "r1cs-core 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
  "rand",
  "sha1",
 ]
@@ -228,7 +259,15 @@ name = "field-assembly"
 version = "0.1.1-alpha.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes#40d90f11480f471693c0ee3d33255531d7c922bb"
 dependencies = [
- "mince",
+ "mince 0.1.1-alpha.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+]
+
+[[package]]
+name = "field-assembly"
+version = "0.1.1-alpha.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization#c7c13d00a632a0bdb614454eca66afa43f053f42"
+dependencies = [
+ "mince 0.1.1-alpha.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
 ]
 
 [[package]]
@@ -293,15 +332,33 @@ checksum = "12b8adadd720df158f4d70dfe7ccc6adb0472d7c55ca83445f6a5ab3e36f8fb6"
 [[package]]
 name = "marlin"
 version = "0.1.0"
-source = "git+https://github.com/HorizenLabs/marlin?branch=audit_fixes#722e234c10443fc69b48e780c5f2fc40b845c318"
+source = "git+https://github.com/HorizenLabs/marlin?branch=audit_fixes#45f171ae34ce2fca91b0f3b89487212443ecbb15"
 dependencies = [
- "algebra",
- "bench-utils",
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
  "derivative",
  "digest",
- "poly-commit",
- "r1cs-core",
- "r1cs-std",
+ "poly-commit 0.1.0 (git+https://github.com/HorizenLabs/poly-commit?branch=audit_fixes)",
+ "r1cs-core 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "rand",
+ "rand_chacha",
+ "rand_core",
+ "rayon",
+]
+
+[[package]]
+name = "marlin"
+version = "0.1.0"
+source = "git+https://github.com/HorizenLabs/marlin?branch=proof_size_optimization#4885c39fdd5a3a4185171750d643639a486ba2a9"
+dependencies = [
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "derivative",
+ "digest",
+ "poly-commit 0.1.0 (git+https://github.com/HorizenLabs/poly-commit?branch=proof_size_optimization)",
+ "r1cs-core 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
  "rand",
  "rand_chacha",
  "rand_core",
@@ -327,6 +384,15 @@ dependencies = [
 name = "mince"
 version = "0.1.1-alpha.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes#40d90f11480f471693c0ee3d33255531d7c922bb"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "mince"
+version = "0.1.1-alpha.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization#c7c13d00a632a0bdb614454eca66afa43f053f42"
 dependencies = [
  "quote",
  "syn",
@@ -378,8 +444,23 @@ name = "poly-commit"
 version = "0.1.0"
 source = "git+https://github.com/HorizenLabs/poly-commit?branch=audit_fixes#a8e1264da6500721e79e2dd1cde441245e44a08c"
 dependencies = [
- "algebra",
- "bench-utils",
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "derivative",
+ "digest",
+ "rand",
+ "rand_chacha",
+ "rand_core",
+ "rayon",
+]
+
+[[package]]
+name = "poly-commit"
+version = "0.1.0"
+source = "git+https://github.com/HorizenLabs/poly-commit?branch=proof_size_optimization#024a9c0d535bea20e9c73abe4dcd1b1b16ae39d1"
+dependencies = [
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
  "derivative",
  "digest",
  "rand",
@@ -399,8 +480,22 @@ name = "primitives"
 version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes#40d90f11480f471693c0ee3d33255531d7c922bb"
 dependencies = [
- "algebra",
- "bench-utils",
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "derivative",
+ "hex",
+ "rand",
+ "rayon",
+ "serde",
+]
+
+[[package]]
+name = "primitives"
+version = "0.1.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization#c7c13d00a632a0bdb614454eca66afa43f053f42"
+dependencies = [
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
  "derivative",
  "hex",
  "rand",
@@ -422,15 +517,35 @@ name = "proof-systems"
 version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes#40d90f11480f471693c0ee3d33255531d7c922bb"
 dependencies = [
- "algebra",
- "bench-utils",
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
  "byteorder",
  "derivative",
  "digest",
- "marlin",
- "poly-commit",
- "r1cs-core",
- "r1cs-std",
+ "marlin 0.1.0 (git+https://github.com/HorizenLabs/marlin?branch=audit_fixes)",
+ "poly-commit 0.1.0 (git+https://github.com/HorizenLabs/poly-commit?branch=audit_fixes)",
+ "r1cs-core 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "rand",
+ "rayon",
+ "serde",
+ "smallvec",
+]
+
+[[package]]
+name = "proof-systems"
+version = "0.1.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization#c7c13d00a632a0bdb614454eca66afa43f053f42"
+dependencies = [
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "byteorder",
+ "derivative",
+ "digest",
+ "marlin 0.1.0 (git+https://github.com/HorizenLabs/marlin?branch=proof_size_optimization)",
+ "poly-commit 0.1.0 (git+https://github.com/HorizenLabs/poly-commit?branch=proof_size_optimization)",
+ "r1cs-core 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
  "rand",
  "rayon",
  "serde",
@@ -451,7 +566,16 @@ name = "r1cs-core"
 version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes#40d90f11480f471693c0ee3d33255531d7c922bb"
 dependencies = [
- "algebra",
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "smallvec",
+]
+
+[[package]]
+name = "r1cs-core"
+version = "0.1.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization#c7c13d00a632a0bdb614454eca66afa43f053f42"
+dependencies = [
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
  "smallvec",
 ]
 
@@ -460,12 +584,12 @@ name = "r1cs-crypto"
 version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes#40d90f11480f471693c0ee3d33255531d7c922bb"
 dependencies = [
- "algebra",
- "bench-utils",
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "bench-utils 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
  "derivative",
- "primitives",
- "r1cs-core",
- "r1cs-std",
+ "primitives 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "r1cs-core 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
  "rand",
  "rayon",
 ]
@@ -475,9 +599,21 @@ name = "r1cs-std"
 version = "0.1.0"
 source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes#40d90f11480f471693c0ee3d33255531d7c922bb"
 dependencies = [
- "algebra",
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
  "derivative",
- "r1cs-core",
+ "r1cs-core 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "radix_trie",
+ "rand",
+]
+
+[[package]]
+name = "r1cs-std"
+version = "0.1.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization#c7c13d00a632a0bdb614454eca66afa43f053f42"
+dependencies = [
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
+ "derivative",
+ "r1cs-core 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib?branch=proof_size_optimization)",
  "radix_trie",
  "rand",
 ]
@@ -681,17 +817,17 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 name = "zendoo-mc-crypto"
 version = "0.1.0"
 dependencies = [
- "algebra",
+ "algebra 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
  "cctp_primitives",
  "cfg-if",
  "lazy_static",
  "libc",
  "maybe-uninit",
- "primitives",
- "proof-systems",
- "r1cs-core",
+ "primitives 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "proof-systems 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
+ "r1cs-core 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
  "r1cs-crypto",
- "r1cs-std",
+ "r1cs-std 0.1.0 (git+https://github.com/HorizenOfficial/ginger-lib.git?branch=audit_fixes)",
  "rand",
  "rayon",
  "winapi",

@@ -7,6 +7,7 @@ use std::{
     path::Path,
     slice,
     fmt::Write,
+    panic
 };
 use lazy_static::lazy_static;
 use std::sync::{Arc, Mutex, Condvar};
@@ -63,15 +64,15 @@ pub(crate) fn free_pointer<T> (ptr: *mut T) {
     unsafe { drop( Box::from_raw(ptr)) }
 }
 
-pub(crate) fn get_hex<T: CanonicalSerialize>(elem: &T, compressed: Option<bool>) -> String {
+pub(crate) fn get_hex<T: CanonicalSerialize>(elem: &T, compressed: Option<bool>) -> Result<String, Error> {
     let mut hex_string = String::from("0x");
-    let elem_bytes = serialize_to_buffer(elem, compressed).unwrap();
+    let elem_bytes = serialize_to_buffer(elem, compressed)?;
 
     for byte in elem_bytes {
-        write!(hex_string, "{:02x}", byte).unwrap();
+        write!(hex_string, "{:02x}", byte)?;
     }
 
-    hex_string
+    Ok(hex_string)
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -369,9 +370,9 @@ pub extern "C" fn zendoo_compress_bit_vector(
 
             Box::into_raw(Box::new(bit_vector_buffer))
         },
-        Err(_) => {
+        Err(e) => {
             *ret_code = CctpErrorCode::CompressError;
-            eprintln!("{:?}", "compress_bit_vector() failed !");
+            eprintln!("compress_bit_vector() failed: {:?}", e.to_string());
             null_mut()
         }
     }
@@ -461,7 +462,10 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) { free_pointer(fie
 pub extern "C" fn zendoo_print_field(field: *const FieldElement) {
     let ret_code = &mut CctpErrorCode::OK;
     let rs_field = try_read_raw_pointer!("field", field, ret_code, ());
-    eprintln!("{:?}", get_hex(rs_field, None));
+    eprintln!("{:?}", match get_hex(rs_field, None) {
+        Ok(v) => v,
+        Err(e) => e.to_string(),
+    });
 }
 
 ////********************Sidechain SNARK functions********************
@@ -559,7 +563,7 @@ pub extern "C" fn zendoo_deserialize_sc_proof(
 ) -> *mut ZendooProof
 {
     let sc_proof_bytes = try_get_buffer_variable_size!("sc_proof_buffer", sc_proof_bytes, ret_code, null_mut());
-    try_deserialize_to_raw_pointer!("sc_proof_bytes", sc_proof_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
+    try_deserialize_to_raw_pointer_strict!("sc_proof_bytes", sc_proof_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[no_mangle]
@@ -699,7 +703,7 @@ pub extern "C" fn zendoo_deserialize_sc_vk(
     compressed:      bool,
 ) -> *mut ZendooVerifierKey {
     let sc_vk_bytes = try_get_buffer_variable_size!("sc_vk_buffer", sc_vk_bytes, ret_code, null_mut());
-    try_deserialize_to_raw_pointer!("sc_vk_bytes", sc_vk_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
+    try_deserialize_to_raw_pointer_strict!("sc_vk_bytes", sc_vk_bytes, Some(semantic_checks), Some(compressed), ret_code, null_mut())
 }
 
 #[no_mangle]
@@ -881,7 +885,6 @@ pub extern "C" fn zendoo_verify_certificate_proof(
 
 use cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH;
 use cctp_primitives::utils::serialization::read_from_file;
-
 fn get_csw_proof_usr_ins<'a>(
     amount:                 u64,
     sc_id:                  *const FieldElement,
@@ -1144,8 +1147,8 @@ pub extern "C" fn zendoo_unpause_low_priority_threads() {
 }
 
 /// Build thread pool in which executing batch verification according to prioritization
-fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
-    if !prioritize {
+fn  get_batch_verifier_thread_pool(prioritize: bool) -> Result<rayon::ThreadPool, Error> {
+    let pool = if !prioritize {
         // If prioritize is false, this means that this batch verification can be stopped by
         // other ones with higher priority. We oblige each thread of this thread pool, upon starting,
         // checking the STOP_CTR: if != 0 this means that one or more higher priority thread pools are
@@ -1165,11 +1168,12 @@ fn get_batch_verifier_thread_pool(prioritize: bool) -> rayon::ThreadPool {
                 while *stop != 0 {
                     stop = cvar.wait(stop).unwrap();
                 }
-            }).build().unwrap()
+            }).build()?
     } else {
         // If prioritize is true, construct a normal thread pool
-        rayon::ThreadPoolBuilder::new().build().unwrap()
-    }
+        rayon::ThreadPoolBuilder::new().build()?
+    };
+    Ok(pool)
 }
 
 #[no_mangle]
@@ -1185,8 +1189,16 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
     // If prioritize, pause all low priority threads
     if prioritize { zendoo_pause_low_priority_threads(); }
 
+
     // Execute batch verification
-    let result = get_batch_verifier_thread_pool(prioritize).install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default()));
+    let result = match get_batch_verifier_thread_pool(prioritize) {
+        Ok(pool) => pool.install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default())),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            *ret_code = CctpErrorCode::GenericError;
+            return null_mut();
+        }
+    };
 
     // If prioritize, Unpause all low priority threads
     if prioritize { zendoo_unpause_low_priority_threads(); }
@@ -1242,8 +1254,14 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     if prioritize { zendoo_pause_low_priority_threads(); }
 
     // Execute batch verification of the proofs with specified id
-    let result = get_batch_verifier_thread_pool(prioritize)
-        .install(|| rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default()));
+    let result = match get_batch_verifier_thread_pool(prioritize) {
+        Ok(pool) => pool.install(|| rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default())),
+        Err(e) => {
+            eprintln!("{:?}", e);
+            *ret_code = CctpErrorCode::GenericError;
+            return null_mut();
+        }
+    };
 
     // If prioritize, Unpause all low priority threads
     if prioritize { zendoo_unpause_low_priority_threads(); }
@@ -1398,10 +1416,19 @@ pub extern "C" fn zendoo_free_poseidon_hash(
 pub extern "C" fn zendoo_new_ginger_mht(
     height: usize,
     processing_step: usize,
+    ret_code: &mut CctpErrorCode,
 ) -> *mut GingerMHT {
 
-    let gmt = new_ginger_mht(height, processing_step);
-    Box::into_raw(Box::new(gmt))
+    *ret_code = CctpErrorCode::OK;
+    match new_ginger_mht(height, processing_step) {
+        Ok(gmt) => Box::into_raw(Box::new(gmt)),
+        Err(e) => {
+            eprintln!("{:?}", format!("New merkle tree error: {:?}", e));
+            *ret_code = CctpErrorCode::MerkleRootBuildError;
+            null_mut()
+        }
+    }
+
 }
 
 #[no_mangle]
@@ -1472,10 +1499,16 @@ pub extern "C" fn zendoo_finalize_ginger_mht(
     let tree = try_read_raw_pointer!("tree", tree, ret_code, null_mut());
 
     // Copy the tree and finalize
-    let tree_copy = finalize_ginger_mht(tree);
-
-    // Return the updated copy
-    Box::into_raw(Box::new(tree_copy))
+    match finalize_ginger_mht(tree) {
+        Ok(tree_copy) => {
+            Box::into_raw(Box::new(tree_copy))
+        },
+        Err(e) => {
+            eprintln!("{:?}", format!("Finalize merkle tree error: {:?}", e));
+            *ret_code = CctpErrorCode::MerkleTreeError;
+            null_mut()
+        }
+    }
 }
 
 #[no_mangle]
@@ -1487,8 +1520,14 @@ pub extern "C" fn zendoo_finalize_ginger_mht_in_place(
     // Read tree
     let tree = try_read_mut_raw_pointer!("tree", tree, ret_code, false);
 
-    finalize_ginger_mht_in_place(tree);
-    true
+    match finalize_ginger_mht_in_place(tree) {
+        Ok(_) => true,
+        Err(e) => {
+            eprintln!("{:?}", format!("Finalize merkle tree error: {:?}", e));
+            *ret_code = CctpErrorCode::MerkleTreeError;
+            false
+        }
+    }
 }
 
 #[no_mangle]
