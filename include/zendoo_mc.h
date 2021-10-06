@@ -155,6 +155,7 @@ extern "C" {
         const field_t* sc_id,
         uint64_t amount,
         const BufferWithSize* pub_key,
+        const BufferWithSize* mc_return_address,
         const BufferWithSize* tx_hash,
         uint32_t out_idx,
         CctpErrorCode* ret_code
