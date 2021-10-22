@@ -1,28 +1,30 @@
-use crate::{zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws, macros::{BufferWithSize, CctpErrorCode}};
+use crate::{
+    macros::{BufferWithSize, CctpErrorCode},
+    zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws,
+};
 use cctp_primitives::bit_vector::compression::CompressionAlgorithm;
 use std::slice;
 
 #[cfg(feature = "mc-test-circuit")]
 use crate::{
-    zendoo_init_dlog_keys, zendoo_generate_mc_test_params, TestCircuitType, zendoo_get_random_field,
-    zendoo_deserialize_sc_pk_from_file, zendoo_create_return_cert_test_proof,
-    zendoo_deserialize_sc_proof, zendoo_deserialize_sc_vk_from_file,
-    zendoo_add_certificate_proof_to_batch_verifier, zendoo_field_free, zendoo_sc_pk_free,
-    zendoo_sc_proof_free, zendoo_sc_vk_free, zendoo_create_return_csw_test_proof,
-    zendoo_add_csw_proof_to_batch_verifier, zendoo_batch_verify_all_proofs,
-    zendoo_free_batch_proof_verifier_result,
+    zendoo_add_certificate_proof_to_batch_verifier, zendoo_add_csw_proof_to_batch_verifier,
+    zendoo_batch_verify_all_proofs, zendoo_create_return_cert_test_proof,
+    zendoo_create_return_csw_test_proof, zendoo_deserialize_sc_pk_from_file,
+    zendoo_deserialize_sc_proof, zendoo_deserialize_sc_vk_from_file, zendoo_field_free,
+    zendoo_free_batch_proof_verifier_result, zendoo_generate_mc_test_params,
+    zendoo_get_random_field, zendoo_init_dlog_keys, zendoo_sc_pk_free, zendoo_sc_proof_free,
+    zendoo_sc_vk_free, TestCircuitType,
 };
 
 #[cfg(feature = "mc-test-circuit")]
 use cctp_primitives::proving_system::{
-    verifier::batch_verifier::ZendooBatchVerifier,
-    ProvingSystem
+    verifier::batch_verifier::ZendooBatchVerifier, ProvingSystem,
 };
 
 #[cfg(feature = "mc-test-circuit")]
 use std::{
     ptr::{null, null_mut},
-    sync::{ Arc, RwLock }
+    sync::{Arc, RwLock},
 };
 
 #[cfg(feature = "mc-test-circuit")]
@@ -33,9 +35,10 @@ use std::ffi::OsString;
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
 
-
 #[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
-fn path_as_ptr(path: &str) -> *const u8 { path.as_ptr() }
+fn path_as_ptr(path: &str) -> *const u8 {
+    path.as_ptr()
+}
 
 #[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
 fn path_as_ptr(path: &str) -> *const u16 {
@@ -47,16 +50,10 @@ fn path_as_ptr(path: &str) -> *const u16 {
 #[ignore]
 #[test]
 fn serialization_deserialization_bench_vk_proof() {
+    use crate::{zendoo_deserialize_sc_vk, zendoo_serialize_sc_proof};
     use algebra::UniformRand;
+    use cctp_primitives::{type_mapping::FieldElement, utils::serialization::serialize_to_buffer};
     use rand::thread_rng;
-    use cctp_primitives::{
-        type_mapping::FieldElement,
-        utils::serialization::serialize_to_buffer
-    };
-    use crate::{
-        zendoo_serialize_sc_proof,
-        zendoo_deserialize_sc_vk
-    };
     use std::convert::TryInto;
 
     let segment_size = 1 << 17;
@@ -71,9 +68,15 @@ fn serialization_deserialization_bench_vk_proof() {
 
     // CSW
     println!("Bench serialize/deserialize CSW...");
-    {   // Generate SNARK keys
+    {
+        // Generate SNARK keys
         println!("Generate SNARK pk and vk...");
-        let (pk, vk) = crate::mc_test_circuits::csw::generate_parameters(ProvingSystem::Darlin, num_constraints, true).unwrap();
+        let (pk, vk) = crate::mc_test_circuits::csw::generate_parameters(
+            ProvingSystem::Darlin,
+            num_constraints,
+            true,
+        )
+        .unwrap();
 
         println!("Generate proof...");
         let proof = crate::mc_test_circuits::csw::generate_proof(
@@ -86,17 +89,20 @@ fn serialization_deserialization_bench_vk_proof() {
             vec![0u8; 20].as_slice().try_into().unwrap(),
             &FieldElement::rand(&mut rng),
             &FieldElement::rand(&mut rng),
-            num_constraints
-        ).unwrap();
+            num_constraints,
+        )
+        .unwrap();
 
         println!("Test deserialization...");
         for compressed in vec![true, false].into_iter() {
-
             // Serialize vk and proof in compressed/uncompressed form
             let mut vk_bytes = serialize_to_buffer(&vk, Some(compressed)).unwrap();
             let data_vk = vk_bytes.as_mut_ptr();
             let len_vk = vk_bytes.len();
-            let vk_bws = BufferWithSize { data: data_vk, len: len_vk };
+            let vk_bws = BufferWithSize {
+                data: data_vk,
+                len: len_vk,
+            };
 
             let proof_bws = zendoo_serialize_sc_proof(&proof, &mut CctpErrorCode::OK, compressed);
             assert!(proof_bws != null_mut());
@@ -114,27 +120,40 @@ fn serialization_deserialization_bench_vk_proof() {
                 let total_deser_vk_time = std::time::Instant::now();
                 for _ in 0..num_proofs {
                     let vk = zendoo_deserialize_sc_vk(
-                        &vk_bws, semantic_checks, &mut CctpErrorCode::OK, compressed
+                        &vk_bws,
+                        semantic_checks,
+                        &mut CctpErrorCode::OK,
+                        compressed,
                     );
                     assert!(vk != null_mut());
                 }
-                println!("Total time to deserialize {} vks: {:?}", num_proofs, total_deser_vk_time.elapsed());
-
+                println!(
+                    "Total time to deserialize {} vks: {:?}",
+                    num_proofs,
+                    total_deser_vk_time.elapsed()
+                );
 
                 let total_deser_proof_time = std::time::Instant::now();
                 for _ in 0..num_proofs {
                     let proof = zendoo_deserialize_sc_proof(
-                        proof_bws, semantic_checks, &mut CctpErrorCode::OK, compressed
+                        proof_bws,
+                        semantic_checks,
+                        &mut CctpErrorCode::OK,
+                        compressed,
                     );
                     assert!(proof != null_mut());
                 }
-                println!("Total time to deserialize {} proofs: {:?}", num_proofs, total_deser_proof_time.elapsed());
+                println!(
+                    "Total time to deserialize {} proofs: {:?}",
+                    num_proofs,
+                    total_deser_proof_time.elapsed()
+                );
             }
 
             zendoo_free_bws(proof_bws);
         }
     }
-    
+
     // CERT
     println!("Bench serialize/deserialize CERT...");
     {
@@ -142,7 +161,12 @@ fn serialization_deserialization_bench_vk_proof() {
 
         // Generate SNARK keys
         println!("Generate SNARK pk and vk...");
-        let (pk, vk) = crate::mc_test_circuits::cert::generate_parameters(ProvingSystem::Darlin, num_constraints, true).unwrap();
+        let (pk, vk) = crate::mc_test_circuits::cert::generate_parameters(
+            ProvingSystem::Darlin,
+            num_constraints,
+            true,
+        )
+        .unwrap();
 
         println!("Generate proof...");
         let proof = crate::mc_test_circuits::cert::generate_proof(
@@ -157,17 +181,20 @@ fn serialization_deserialization_bench_vk_proof() {
             &FieldElement::rand(&mut rng),
             0,
             0,
-            num_constraints
-        ).unwrap();
+            num_constraints,
+        )
+        .unwrap();
 
         println!("Test deserialization...");
         for compressed in vec![true, false].into_iter() {
-
             // Serialize vk and proof in compressed/uncompressed form
             let mut vk_bytes = serialize_to_buffer(&vk, Some(compressed)).unwrap();
             let data_vk = vk_bytes.as_mut_ptr();
             let len_vk = vk_bytes.len();
-            let vk_bws = BufferWithSize { data: data_vk, len: len_vk };
+            let vk_bws = BufferWithSize {
+                data: data_vk,
+                len: len_vk,
+            };
 
             let proof_bws = zendoo_serialize_sc_proof(&proof, &mut CctpErrorCode::OK, compressed);
             assert!(proof_bws != null_mut());
@@ -185,21 +212,34 @@ fn serialization_deserialization_bench_vk_proof() {
                 let total_deser_vk_time = std::time::Instant::now();
                 for _ in 0..num_proofs {
                     let vk = zendoo_deserialize_sc_vk(
-                        &vk_bws, semantic_checks, &mut CctpErrorCode::OK, compressed
+                        &vk_bws,
+                        semantic_checks,
+                        &mut CctpErrorCode::OK,
+                        compressed,
                     );
                     assert!(vk != null_mut());
                 }
-                println!("Total time to deserialize {} vks: {:?}", num_proofs, total_deser_vk_time.elapsed());
-
+                println!(
+                    "Total time to deserialize {} vks: {:?}",
+                    num_proofs,
+                    total_deser_vk_time.elapsed()
+                );
 
                 let total_deser_proof_time = std::time::Instant::now();
                 for _ in 0..num_proofs {
                     let proof = zendoo_deserialize_sc_proof(
-                        proof_bws, semantic_checks, &mut CctpErrorCode::OK, compressed
+                        proof_bws,
+                        semantic_checks,
+                        &mut CctpErrorCode::OK,
+                        compressed,
                     );
                     assert!(proof != null_mut());
                 }
-                println!("Total time to deserialize {} proofs: {:?}", num_proofs, total_deser_proof_time.elapsed());
+                println!(
+                    "Total time to deserialize {} proofs: {:?}",
+                    num_proofs,
+                    total_deser_proof_time.elapsed()
+                );
             }
 
             zendoo_free_bws(proof_bws);
@@ -210,7 +250,6 @@ fn serialization_deserialization_bench_vk_proof() {
 #[cfg(feature = "mc-test-circuit")]
 #[test]
 fn zendoo_batch_verifier_multiple_threads_with_priority() {
-
     let segment_size = 1 << 17;
     let num_proofs = 100;
 
@@ -219,7 +258,6 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
     assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
 
     for j in 15..=16 {
-
         // Get batch verifier
         let mut bv = ZendooBatchVerifier::create();
 
@@ -227,7 +265,11 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
         {
             let num_constraints = 1 << (j + 1);
 
-            println!("Generating {} cert proofs with {} constraints...", num_proofs/2, num_constraints);
+            println!(
+                "Generating {} cert proofs with {} constraints...",
+                num_proofs / 2,
+                num_constraints
+            );
 
             // Generate SNARK keys
             println!("Generate SNARK pk and vk...");
@@ -257,7 +299,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 31,
                 false,
                 &mut CctpErrorCode::OK,
-                true
+                true,
             );
             assert!(pk != null_mut());
 
@@ -278,11 +320,12 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 pk,
                 num_constraints,
                 &mut CctpErrorCode::OK,
-                true
+                true,
             );
             assert!(proof_buff != null_mut());
 
-            let proof = zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK, true);
+            let proof =
+                zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK, true);
             assert!(proof != null_mut());
 
             let vk = zendoo_deserialize_sc_vk_from_file(
@@ -290,7 +333,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 31,
                 false,
                 &mut CctpErrorCode::OK,
-                true
+                true,
             );
             assert!(vk != null_mut());
 
@@ -331,7 +374,11 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
         {
             let num_constraints = 1 << j;
 
-            println!("Generating {} CSW proofs with {} constraints...", num_proofs/2, num_constraints);
+            println!(
+                "Generating {} CSW proofs with {} constraints...",
+                num_proofs / 2,
+                num_constraints
+            );
 
             // Generate SNARK keys
             println!("Generate SNARK pk and vk...");
@@ -373,7 +420,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 30,
                 false,
                 &mut CctpErrorCode::OK,
-                true
+                true,
             );
             assert!(pk != null_mut());
 
@@ -390,11 +437,12 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 pk,
                 num_constraints,
                 &mut CctpErrorCode::OK,
-                true
+                true,
             );
             assert!(proof_buff != null_mut());
 
-            let proof = zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK, true);
+            let proof =
+                zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK, true);
             assert!(proof != null_mut());
 
             let vk = zendoo_deserialize_sc_vk_from_file(
@@ -402,12 +450,12 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 30,
                 false,
                 &mut CctpErrorCode::OK,
-                true
+                true,
             );
             assert!(vk != null_mut());
 
             println!("Add proofs to batch verifier...");
-            for i in num_proofs/2..num_proofs {
+            for i in num_proofs / 2..num_proofs {
                 assert!(zendoo_add_csw_proof_to_batch_verifier(
                     &mut bv,
                     i,
@@ -443,7 +491,10 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
         let rng = &mut thread_rng();
         let num_threads: usize = rng.gen_range(2..11);
 
-        println!("Perform {} separate batch verifications with different priority...", num_threads);
+        println!(
+            "Perform {} separate batch verifications with different priority...",
+            num_threads
+        );
 
         // Keep generating priorities at random, until at least one thread is low priority
         // and at least one thread is high priority
@@ -459,17 +510,24 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
         for i in 0..num_threads {
             let priority = priorities[i];
             let bv_ref = bv_arc.clone();
-            let timings_vec_ref = if priority { high_priority_timings.clone() } else { low_priority_timings.clone() };
+            let timings_vec_ref = if priority {
+                high_priority_timings.clone()
+            } else {
+                low_priority_timings.clone()
+            };
             let handle = std::thread::spawn(move || {
                 println!("Thread {} started", i);
 
                 // Execute batch verification and take the time
                 let start = std::time::Instant::now();
-                let result = zendoo_batch_verify_all_proofs(&*bv_ref, priority, &mut CctpErrorCode::OK);
+                let result =
+                    zendoo_batch_verify_all_proofs(&*bv_ref, priority, &mut CctpErrorCode::OK);
                 let time = start.elapsed();
 
                 // Assert verification successfull
-                unsafe { assert!((*result).result); }
+                unsafe {
+                    assert!((*result).result);
+                }
                 zendoo_free_batch_proof_verifier_result(result);
 
                 println!("Thread {} finished in: {:?}", i, time);
@@ -477,16 +535,32 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 // Push execution time in timings vec
                 timings_vec_ref.write().unwrap().push(time.as_millis());
             });
-            println!("Spawned batch verification thread {} with priority {}", i, priority);
+            println!(
+                "Spawned batch verification thread {} with priority {}",
+                i, priority
+            );
             handles.push(handle);
         }
-        handles.into_iter().for_each(|handle| handle.join().unwrap());
+        handles
+            .into_iter()
+            .for_each(|handle| handle.join().unwrap());
 
         // Assert high priority verifications finished before low priority verifications
         assert!(
-            high_priority_timings.clone().read().unwrap().iter().sum::<u128>()/high_priority_timings.clone().read().unwrap().len() as u128
-                <=
-            low_priority_timings.clone().read().unwrap().iter().sum::<u128>()/low_priority_timings.clone().read().unwrap().len() as u128
+            high_priority_timings
+                .clone()
+                .read()
+                .unwrap()
+                .iter()
+                .sum::<u128>()
+                / high_priority_timings.clone().read().unwrap().len() as u128
+                <= low_priority_timings
+                    .clone()
+                    .read()
+                    .unwrap()
+                    .iter()
+                    .sum::<u128>()
+                    / low_priority_timings.clone().read().unwrap().len() as u128
         );
 
         println!("Cleaning up...");
@@ -506,10 +580,14 @@ fn compress_decompress() {
 
         let buffer = BufferWithSize { data, len };
         let mut ret_code = CctpErrorCode::OK;
-        let compressed_buffer = zendoo_compress_bit_vector(&buffer, CompressionAlgorithm::Bzip2, &mut ret_code);
-        let uncompressed_buffer = zendoo_decompress_bit_vector(compressed_buffer, len, &mut ret_code);
+        let compressed_buffer =
+            zendoo_compress_bit_vector(&buffer, CompressionAlgorithm::Bzip2, &mut ret_code);
+        let uncompressed_buffer =
+            zendoo_decompress_bit_vector(compressed_buffer, len, &mut ret_code);
 
-        let processed_bit_vector = unsafe { slice::from_raw_parts((*uncompressed_buffer).data, (*uncompressed_buffer).len) };
+        let processed_bit_vector = unsafe {
+            slice::from_raw_parts((*uncompressed_buffer).data, (*uncompressed_buffer).len)
+        };
         assert_eq!((0..100).collect::<Vec<u8>>(), processed_bit_vector);
 
         zendoo_free_bws(compressed_buffer);

@@ -1,10 +1,8 @@
-use algebra::{CanonicalSerialize, CanonicalDeserialize, SemanticallyValid};
-use cctp_primitives::{
-    utils::serialization::{deserialize_from_buffer, deserialize_from_buffer_strict, read_from_file},
+use algebra::{CanonicalDeserialize, CanonicalSerialize, SemanticallyValid};
+use cctp_primitives::utils::serialization::{
+    deserialize_from_buffer, deserialize_from_buffer_strict, read_from_file,
 };
-use std::{
-    slice, path::Path
-};
+use std::{path::Path, slice};
 
 #[allow(unused_macros)]
 macro_rules! log {
@@ -24,7 +22,9 @@ macro_rules! log_dbg {
 #[allow(unused_macros)]
 #[cfg(not(debug_assertions))]
 macro_rules! log_dbg {
-    ($msg: expr) => {{ () }};
+    ($msg: expr) => {{
+        ()
+    }};
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -56,23 +56,22 @@ pub struct BufferWithSize {
 }
 
 /// Check that `buffer` it's a valid buffer with non-zero data
-pub(crate) fn check_buffer(buffer: *const BufferWithSize) -> (bool, CctpErrorCode)
-{
+pub(crate) fn check_buffer(buffer: *const BufferWithSize) -> (bool, CctpErrorCode) {
     if buffer.is_null() {
         //eprintln!("===> ERR CODE {:?}", CctpErrorCode::NullPtr);
-        return (false, CctpErrorCode::NullPtr)
+        return (false, CctpErrorCode::NullPtr);
     }
 
     let data_attr = unsafe { (*buffer).data };
     if data_attr.is_null() {
         //eprintln!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferData);
-        return (false, CctpErrorCode::InvalidBufferData)
+        return (false, CctpErrorCode::InvalidBufferData);
     }
 
     let len_attr = unsafe { (*buffer).len };
     if len_attr == 0 {
         //eprintln!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferLength);
-        return (false, CctpErrorCode::InvalidBufferLength)
+        return (false, CctpErrorCode::InvalidBufferLength);
     }
 
     (true, CctpErrorCode::OK)
@@ -80,38 +79,45 @@ pub(crate) fn check_buffer(buffer: *const BufferWithSize) -> (bool, CctpErrorCod
 
 /// Check that `buffer` it's a valid buffer with non-zero data
 /// whose length must be equal to `len`.
-pub(crate) fn check_buffer_length(buffer: *const BufferWithSize, len: usize) -> (bool, CctpErrorCode)
-{
+pub(crate) fn check_buffer_length(
+    buffer: *const BufferWithSize,
+    len: usize,
+) -> (bool, CctpErrorCode) {
     let (is_ok, err) = check_buffer(buffer);
-    if !is_ok { return (false, err) }
+    if !is_ok {
+        return (false, err);
+    }
 
     let len_attr = unsafe { (*buffer).len };
     if len_attr != len {
         eprintln!("===> ERR: buf_len={}, expected={}", len_attr, len);
-        return (false, CctpErrorCode::InvalidBufferLength)
+        return (false, CctpErrorCode::InvalidBufferLength);
     }
 
     (true, CctpErrorCode::OK)
 }
 
-
 pub(crate) fn free_buffer_with_size(buffer: *mut BufferWithSize) {
-    if buffer.is_null() { return };
+    if buffer.is_null() {
+        return;
+    };
     unsafe {
         let buffer = Box::from_raw(buffer);
         Vec::from_raw_parts((*buffer).data, (*buffer).len, (*buffer).len);
     };
 }
 
-
 /// Convert a BufferWithSize to a &[u8], considering that `in_buffer`
 /// and enforces that its length is equal to `checked_len`.
-pub(crate) fn get_buffer_constant_size<'a>(in_buffer: *const BufferWithSize, checked_len: usize) -> (Option<&'a [u8]>, CctpErrorCode) {
+pub(crate) fn get_buffer_constant_size<'a>(
+    in_buffer: *const BufferWithSize,
+    checked_len: usize,
+) -> (Option<&'a [u8]>, CctpErrorCode) {
     let (is_ok, ret_code) = check_buffer_length(in_buffer, checked_len);
     if !is_ok {
         return (None, ret_code);
     }
-    let data = Some(unsafe { slice::from_raw_parts((*in_buffer).data, (*in_buffer).len)});
+    let data = Some(unsafe { slice::from_raw_parts((*in_buffer).data, (*in_buffer).len) });
     (data, CctpErrorCode::OK)
 }
 
@@ -121,7 +127,7 @@ macro_rules! try_get_buffer_constant_size {
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x.try_into().unwrap()}
+            Some(x) => x.try_into().unwrap(),
             None => {
                 eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
@@ -131,12 +137,14 @@ macro_rules! try_get_buffer_constant_size {
 }
 
 /// Convert a BufferWithSize to a &[u8].
-pub(crate) fn get_buffer_variable_size<'a>(in_buffer: *const BufferWithSize) -> (Option<&'a [u8]>, CctpErrorCode) {
+pub(crate) fn get_buffer_variable_size<'a>(
+    in_buffer: *const BufferWithSize,
+) -> (Option<&'a [u8]>, CctpErrorCode) {
     let (is_ok, ret_code) = check_buffer(in_buffer);
     if !is_ok {
         return (None, ret_code);
     }
-    let data = Some(unsafe { slice::from_raw_parts((*in_buffer).data, (*in_buffer).len)});
+    let data = Some(unsafe { slice::from_raw_parts((*in_buffer).data, (*in_buffer).len) });
     (data, CctpErrorCode::OK)
 }
 
@@ -146,7 +154,7 @@ macro_rules! try_get_buffer_variable_size {
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x}
+            Some(x) => x,
             None => {
                 eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
@@ -156,7 +164,9 @@ macro_rules! try_get_buffer_variable_size {
 }
 
 /// Convert a BufferWithSize to a &[u8], considering that `in_buffer` might be null
-pub(crate) fn get_optional_buffer_variable_size<'a>(in_buffer: *const BufferWithSize) -> (Option<&'a [u8]>, CctpErrorCode) {
+pub(crate) fn get_optional_buffer_variable_size<'a>(
+    in_buffer: *const BufferWithSize,
+) -> (Option<&'a [u8]>, CctpErrorCode) {
     if in_buffer.is_null() {
         return (None, CctpErrorCode::OK);
     }
@@ -176,17 +186,19 @@ macro_rules! try_get_optional_buffer_variable_size {
 }
 
 /// Convert a *const T to a &[T].
-pub(crate) fn get_obj_list<'a, T>(in_list: *const T, in_list_size: usize) -> (Option<&'a [T]>, CctpErrorCode) {
-
+pub(crate) fn get_obj_list<'a, T>(
+    in_list: *const T,
+    in_list_size: usize,
+) -> (Option<&'a [T]>, CctpErrorCode) {
     if in_list.is_null() {
-        return (None, CctpErrorCode::NullPtr)
+        return (None, CctpErrorCode::NullPtr);
     }
 
     if in_list_size == 0 {
-        return (None, CctpErrorCode::InvalidListLength)
+        return (None, CctpErrorCode::InvalidListLength);
     }
 
-    let data = Some(unsafe { slice::from_raw_parts(in_list, in_list_size)});
+    let data = Some(unsafe { slice::from_raw_parts(in_list, in_list_size) });
     (data, CctpErrorCode::OK)
 }
 
@@ -196,7 +208,7 @@ macro_rules! try_get_obj_list {
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x}
+            Some(x) => x,
             None => {
                 eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
@@ -206,17 +218,19 @@ macro_rules! try_get_obj_list {
 }
 
 /// Convert a *const T to a &[T].
-pub(crate) fn get_optional_obj_list<'a, T>(in_list: *const T, in_list_size: usize) -> (Option<&'a [T]>, CctpErrorCode) {
-
+pub(crate) fn get_optional_obj_list<'a, T>(
+    in_list: *const T,
+    in_list_size: usize,
+) -> (Option<&'a [T]>, CctpErrorCode) {
     if in_list.is_null() {
-        return (None, CctpErrorCode::OK)
+        return (None, CctpErrorCode::OK);
     }
 
     if in_list_size == 0 {
-        return (None, CctpErrorCode::InvalidListLength)
+        return (None, CctpErrorCode::InvalidListLength);
     }
 
-    let data = Some(unsafe { slice::from_raw_parts(in_list, in_list_size)});
+    let data = Some(unsafe { slice::from_raw_parts(in_list, in_list_size) });
     (data, CctpErrorCode::OK)
 }
 
@@ -247,7 +261,7 @@ macro_rules! try_read_raw_pointer {
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x}
+            Some(x) => x,
             None => {
                 eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
@@ -288,7 +302,7 @@ macro_rules! try_read_mut_raw_pointer {
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x}
+            Some(x) => x,
             None => {
                 eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
@@ -300,9 +314,8 @@ macro_rules! try_read_mut_raw_pointer {
 pub(crate) fn serialize_from_raw_pointer<T: CanonicalSerialize>(
     to_write: *const T,
     buffer: &mut [u8],
-    compressed: Option<bool>
-) -> CctpErrorCode
-{
+    compressed: Option<bool>,
+) -> CctpErrorCode {
     // Read &T from raw_pointer `to_write`
     let (to_write, ret_code) = read_raw_pointer(to_write);
     if to_write.is_none() {
@@ -318,7 +331,11 @@ pub(crate) fn serialize_from_raw_pointer<T: CanonicalSerialize>(
         CanonicalSerialize::serialize_uncompressed(to_write, buffer)
     };
 
-    if result.is_err() { CctpErrorCode::InvalidValue } else { CctpErrorCode::OK }
+    if result.is_err() {
+        CctpErrorCode::InvalidValue
+    } else {
+        CctpErrorCode::OK
+    }
 }
 
 macro_rules! try_serialize_from_raw_pointer {
@@ -338,16 +355,15 @@ pub(crate) fn deserialize_to_raw_pointer<T: CanonicalDeserialize + SemanticallyV
     checked: Option<bool>,
     compressed: Option<bool>,
     strict: bool,
-) -> (Option<*mut T>, CctpErrorCode)
-{
+) -> (Option<*mut T>, CctpErrorCode) {
     match if strict {
         deserialize_from_buffer_strict(buffer, checked, compressed)
     } else {
         deserialize_from_buffer(buffer, checked, compressed)
-    }{
+    } {
         Ok(t) => (Some(Box::into_raw(Box::new(t))), CctpErrorCode::OK),
         Err(e) => {
-            eprintln!("Deserialization error: {}" ,e.to_string());
+            eprintln!("Deserialization error: {}", e.to_string());
             (None, CctpErrorCode::InvalidValue)
         }
     }
@@ -359,7 +375,7 @@ macro_rules! try_deserialize_to_raw_pointer {
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x}
+            Some(x) => x,
             None => {
                 eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
@@ -374,7 +390,7 @@ macro_rules! try_deserialize_to_raw_pointer_strict {
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x}
+            Some(x) => x,
             None => {
                 eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
@@ -387,9 +403,8 @@ pub(crate) fn deserialize_to_raw_pointer_from_file<T: CanonicalDeserialize + Sem
     path: &Path,
     checked: Option<bool>,
     compressed: Option<bool>,
-) -> (Option<*mut T>, CctpErrorCode)
-{
-    match read_from_file(path, checked, compressed){
+) -> (Option<*mut T>, CctpErrorCode) {
+    match read_from_file(path, checked, compressed) {
         Ok(t) => (Some(Box::into_raw(Box::new(t))), CctpErrorCode::OK),
         Err(e) => {
             eprintln!("Deserialization error: {}", e.to_string());
@@ -400,11 +415,12 @@ pub(crate) fn deserialize_to_raw_pointer_from_file<T: CanonicalDeserialize + Sem
 
 macro_rules! try_deserialize_to_raw_pointer_from_file {
     ($param_name: expr, $file_path:expr, $checked:expr, $compressed:expr, $ret_code:expr, $err_ret:expr) => {{
-        let (data, ret_code) = deserialize_to_raw_pointer_from_file($file_path, $checked, $compressed);
+        let (data, ret_code) =
+            deserialize_to_raw_pointer_from_file($file_path, $checked, $compressed);
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x}
+            Some(x) => x,
             None => {
                 eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
@@ -417,14 +433,13 @@ pub(crate) fn read_double_raw_pointer<'a, T>(
     input: *const *const T,
     input_len: usize,
 ) -> (Option<Vec<&'a T>>, CctpErrorCode) {
-
     //Read *const T from *const *const T
     if input.is_null() {
         return (None, CctpErrorCode::NullPtr);
     }
 
     if input_len == 0 {
-        return (None, CctpErrorCode::InvalidListLength)
+        return (None, CctpErrorCode::InvalidListLength);
     }
 
     let input_raw = unsafe { slice::from_raw_parts(input, input_len) };
@@ -448,7 +463,7 @@ macro_rules! try_read_double_raw_pointer {
         *$ret_code = ret_code;
 
         match data {
-            Some(x) => {x}
+            Some(x) => x,
             None => {
                 eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
@@ -461,14 +476,13 @@ pub(crate) fn read_optional_double_raw_pointer<'a, T>(
     input: *const *const T,
     input_len: usize,
 ) -> (Option<Vec<&'a T>>, CctpErrorCode) {
-
     //Read *const T from *const *const T
     if input.is_null() {
         return (None, CctpErrorCode::OK);
     }
 
     if input_len == 0 {
-        return (None, CctpErrorCode::InvalidListLength)
+        return (None, CctpErrorCode::InvalidListLength);
     }
 
     let input_raw = unsafe { slice::from_raw_parts(input, input_len) };
