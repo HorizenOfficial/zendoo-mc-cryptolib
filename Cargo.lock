@@ -2,8 +2,8 @@
 # It is not intended for manual editing.
 [[package]]
 name = "algebra"
-version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?rev=69f3c0b2f80a90379587fa5a5cb0e9be130cba6e#69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+version = "0.2.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.2.0#9abb2e5e0ebafce3bda99e7a3a9171e1df690257"
 dependencies = [
  "byteorder",
  "derivative",
@@ -19,8 +19,8 @@ checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 
 [[package]]
 name = "bench-utils"
-version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?rev=69f3c0b2f80a90379587fa5a5cb0e9be130cba6e#69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+version = "0.2.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.2.0#9abb2e5e0ebafce3bda99e7a3a9171e1df690257"
 
 [[package]]
 name = "byteorder"
@@ -181,8 +181,8 @@ checksum = "237a5ed80e274dbc66f86bd59c1e25edc039660be53194b5fe0a482e0f2612ea"
 
 [[package]]
 name = "primitives"
-version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?rev=69f3c0b2f80a90379587fa5a5cb0e9be130cba6e#69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+version = "0.2.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.2.0#9abb2e5e0ebafce3bda99e7a3a9171e1df690257"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -203,8 +203,8 @@ dependencies = [
 
 [[package]]
 name = "proof-systems"
-version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?rev=69f3c0b2f80a90379587fa5a5cb0e9be130cba6e#69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+version = "0.2.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.2.0#9abb2e5e0ebafce3bda99e7a3a9171e1df690257"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -226,8 +226,8 @@ dependencies = [
 
 [[package]]
 name = "r1cs-core"
-version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?rev=69f3c0b2f80a90379587fa5a5cb0e9be130cba6e#69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+version = "0.2.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.2.0#9abb2e5e0ebafce3bda99e7a3a9171e1df690257"
 dependencies = [
  "algebra",
  "smallvec",
@@ -235,8 +235,8 @@ dependencies = [
 
 [[package]]
 name = "r1cs-crypto"
-version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?rev=69f3c0b2f80a90379587fa5a5cb0e9be130cba6e#69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+version = "0.2.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.2.0#9abb2e5e0ebafce3bda99e7a3a9171e1df690257"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -250,8 +250,8 @@ dependencies = [
 
 [[package]]
 name = "r1cs-std"
-version = "0.1.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?rev=69f3c0b2f80a90379587fa5a5cb0e9be130cba6e#69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
+version = "0.2.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.2.0#9abb2e5e0ebafce3bda99e7a3a9171e1df690257"
 dependencies = [
  "algebra",
  "derivative",

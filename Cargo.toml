@@ -10,13 +10,13 @@ path = "src/lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-# algebra = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development"}
-# primitives = {version = "0.1.0", features = ["merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development"}
-# proof-systems = {version = "0.1.0", features = ["groth16"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development"}
+algebra = {git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.2.0"}
+primitives = {features = ["merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.2.0"}
+proof-systems = {features = ["groth16"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.2.0"}
 
-# r1cs-crypto = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true}
-# r1cs-core = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true}
-# r1cs-std = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true}
+r1cs-crypto = {git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.2.0", optional = true}
+r1cs-core = {git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.2.0", optional = true}
+r1cs-std = {git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.2.0", optional = true}
 
 maybe-uninit = "=2.0.0"
 rand = "0.7.3"
@@ -24,42 +24,6 @@ winapi = "=0.3.6"
 lazy_static = "=1.2.0"
 libc = "=0.2.70"
 cfg-if = "= 0.1.2"
-
-[dependencies.algebra]
-git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
-version = "0.1.0"
-
-[dependencies.primitives]
-git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
-features = ["merkle_tree"]
-version = "0.1.0"
-
-[dependencies.proof-systems]
-git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
-features = ["groth16"]
-version = "0.1.0"
-
-[dependencies.r1cs-crypto]
-git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
-version = "0.1.0"
-optional = true
-
-[dependencies.r1cs-core]
-git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
-version = "0.1.0"
-optional = true
-
-[dependencies.r1cs-std]
-git = "https://github.com/HorizenOfficial/ginger-lib.git"
-rev = "69f3c0b2f80a90379587fa5a5cb0e9be130cba6e"
-version = "0.1.0"
-optional = true
-
 
 [features]
 mc-test-circuit = ["r1cs-crypto", "r1cs-core", "r1cs-std"]
