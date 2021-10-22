@@ -1,3 +1,5 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 use algebra::{CanonicalSerialize, SemanticallyValid, UniformRand};
 use lazy_static::lazy_static;
 use libc::{c_uchar, c_uint};
