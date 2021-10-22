@@ -1,7 +1,14 @@
 [package]
 name = "zendoo-mc-crypto"
-version = "0.1.0"
-authors = ["DanieleDiBenedetto <daniele@horizenlabs.io>"]
+version = "0.2.0"
+authors = [
+    "DanieleDiBenedetto <daniele@horizenlabs.io>",
+    "Maksym Vereshchak <phoinic@gmail.com>",
+    "Oleksandr Iozhytsia <oleksandr@zensystem.io>",
+    "Alberto Sala <alsala@zensystem.io>",
+    "Luigi Varriale <luigi@horizenlabs.io>",
+    "cronicc <cronic@horizenlabs.io>",
+]
 edition = "2018"
 
 [lib]
@@ -10,13 +17,13 @@ path = "src/lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-algebra = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp"}
-primitives = {version = "0.1.0", features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp"}
+algebra = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp" }
+primitives = { features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp" }
 cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "dev" }
-proof-systems = {version = "0.1.0", features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
-r1cs-crypto = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
-r1cs-core = {version = "0.1.0", git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
-r1cs-std = {version = "0.1.0", features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
+proof-systems = { features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
+r1cs-crypto = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
+r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
+r1cs-std = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
 
 maybe-uninit = "=2.0.0"
 rand = "0.8.4"
