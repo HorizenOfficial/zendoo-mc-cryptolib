@@ -17,13 +17,13 @@ path = "src/lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-algebra = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp" }
-primitives = { features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp" }
+algebra = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development" }
+primitives = { features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development" }
 cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "dev" }
-proof-systems = { features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
-r1cs-crypto = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true }
-r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
-r1cs-std = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development_tmp", optional = true}
+proof-systems = { features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true }
+r1cs-crypto = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true }
+r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true}
+r1cs-std = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true}
 
 maybe-uninit = "=2.0.0"
 rand = "0.8.4"
