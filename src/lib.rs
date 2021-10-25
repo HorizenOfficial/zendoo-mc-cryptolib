@@ -1,4 +1,13 @@
-#![allow(clippy::not_unsafe_ptr_arg_deref)]
+#![allow(
+    clippy::upper_case_acronyms,
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::try_err,
+    clippy::map_collect_result_unit,
+    clippy::not_unsafe_ptr_arg_deref,
+    clippy::suspicious_op_assign_impl,
+    clippy::assertions_on_constants
+)]
 
 use algebra::{CanonicalSerialize, SemanticallyValid, UniformRand};
 use lazy_static::lazy_static;
