@@ -24,7 +24,7 @@ In particular it exposes interfaces to:
 ## Release Notes
 
 The proving system has been switched from [Groth16](https://eprint.iacr.org/2016/260.pdf) to our Marlin variant [*Coboundary Marlin*](https://github.com/HorizenLabs/marlin).
-Support has been also introduced to verify *Final Darlin* proofs, as per last step of our recursive PCD scheme (See [HGB](https://eprint.iacr.org/2021/930) for details), but not yet implemented.
+Support has been also introduced to verify *Final Darlin* proofs, as per last step of our recursive PCD scheme (See [HGB](https://eprint.iacr.org/2021/930) for details).
 
 ## Build guide
 
