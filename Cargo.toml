@@ -1,6 +1,6 @@
 [package]
 name = "zendoo-mc-crypto"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
     "DanieleDiBenedetto <daniele@horizenlabs.io>",
     "Maksym Vereshchak <phoinic@gmail.com>",
@@ -17,13 +17,13 @@ path = "src/lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-algebra = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.0" }
-primitives = { features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.0" }
-cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", tag = "0.1.0" }
-proof-systems = { features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.0", optional = true }
-r1cs-crypto = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.0", optional = true }
-r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.0", optional = true}
-r1cs-std = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.0", optional = true}
+algebra = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.1" }
+primitives = { features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.1" }
+cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", tag = "0.1.1" }
+proof-systems = { features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.1", optional = true }
+r1cs-crypto = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.1", optional = true }
+r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.1", optional = true}
+r1cs-std = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.3.1", optional = true}
 
 maybe-uninit = "=2.0.0"
 rand = "0.8.4"
