@@ -7,10 +7,10 @@ use cctp_primitives::{
         ProvingSystem, ZendooProof, ZendooProverKey, ZendooVerifierKey,
     },
     type_mapping::FieldElement,
-    utils::commitment_tree::{hash_vec, ByteAccumulator},
+    utils::commitment_tree::{hash_vec, DataAccumulator},
 };
 use proof_systems::darlin::data_structures::{FinalDarlinDeferredData, FinalDarlinProof};
-use r1cs_core::{ConstraintSynthesizer, ConstraintSystem, SynthesisError};
+use r1cs_core::{ConstraintSynthesizer, ConstraintSystemAbstract, SynthesisError};
 use r1cs_std::{
     alloc::AllocGadget, bits::boolean::Boolean, eq::EqGadget, instantiated::tweedle::FrGadget,
 };
@@ -18,7 +18,7 @@ use rand::rngs::OsRng;
 
 type FieldElementGadget = FrGadget;
 
-fn enforce_csw_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
+fn enforce_csw_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
     mut cs: CS,
     constant_present: bool,
     constant: Option<FieldElement>,
@@ -85,7 +85,7 @@ pub struct CSWTestCircuit {
 }
 
 impl ConstraintSynthesizer<FieldElement> for CSWTestCircuit {
-    fn generate_constraints<CS: ConstraintSystem<FieldElement>>(
+    fn generate_constraints<CS: ConstraintSystemAbstract<FieldElement>>(
         self,
         cs: &mut CS,
     ) -> Result<(), SynthesisError> {
@@ -110,7 +110,7 @@ pub struct CSWTestCircuitWithAccumulators {
 }
 
 impl ConstraintSynthesizer<FieldElement> for CSWTestCircuitWithAccumulators {
-    fn generate_constraints<CS: ConstraintSystem<FieldElement>>(
+    fn generate_constraints<CS: ConstraintSystemAbstract<FieldElement>>(
         self,
         cs: &mut CS,
     ) -> Result<(), SynthesisError> {
@@ -168,25 +168,25 @@ pub fn generate_parameters(
     num_constraints: u32,
     with_constant: bool,
 ) -> Result<(ZendooProverKey, ZendooVerifierKey), ProvingSystemError> {
-    let ck_g1 = get_g1_committer_key()?;
+    let ck_g1 = get_g1_committer_key(None)?;
     match ps {
         ProvingSystem::Undefined => Err(ProvingSystemError::UndefinedProvingSystem),
         ProvingSystem::Darlin => {
-            let ck_g2 = get_g2_committer_key()?;
+            let ck_g2 = get_g2_committer_key(None)?;
             let circ = CSWTestCircuitWithAccumulators {
                 constant_present: with_constant,
                 constant: None,
                 aggregated_input: None,
                 deferred: FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
                     &mut rand::thread_rng(),
-                    ck_g1.as_ref().unwrap(),
-                    ck_g2.as_ref().unwrap(),
+                    &ck_g1,
+                    &ck_g2,
                 )
                 .to_field_elements()
                 .unwrap(),
                 num_constraints,
             };
-            let (pk, vk) = CoboundaryMarlin::index(ck_g1.as_ref().unwrap(), circ)
+            let (pk, vk) = CoboundaryMarlin::index(&ck_g1, circ)
                 .map_err(|e| ProvingSystemError::SetupFailed(e.to_string()))?;
             Ok((ZendooProverKey::Darlin(pk), ZendooVerifierKey::Darlin(vk)))
         }
@@ -197,7 +197,7 @@ pub fn generate_parameters(
                 aggregated_input: None,
                 num_constraints,
             };
-            let (pk, vk) = CoboundaryMarlin::index(ck_g1.as_ref().unwrap(), circ)
+            let (pk, vk) = CoboundaryMarlin::index(&ck_g1, circ)
                 .map_err(|e| ProvingSystemError::SetupFailed(e.to_string()))?;
             Ok((
                 ZendooProverKey::CoboundaryMarlin(pk),
@@ -220,9 +220,9 @@ pub fn generate_proof(
     num_constraints: u32,
 ) -> Result<ZendooProof, ProvingSystemError> {
     let rng = &mut OsRng;
-    let ck_g1 = get_g1_committer_key()?;
+    let ck_g1 = get_g1_committer_key(None)?;
 
-    let mut fes = ByteAccumulator::init()
+    let mut fes = DataAccumulator::init()
         .update(amount)
         .map_err(|e| ProvingSystemError::Other(format!("{:?}", e)))?
         .update(&pub_key_hash[..])
@@ -242,11 +242,11 @@ pub fn generate_proof(
 
     match pk {
         ZendooProverKey::Darlin(pk) => {
-            let ck_g2 = get_g2_committer_key()?;
+            let ck_g2 = get_g2_committer_key(None)?;
             let deferred = FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
                 rng,
-                ck_g1.as_ref().unwrap(),
-                ck_g2.as_ref().unwrap(),
+                &ck_g1,
+                &ck_g2,
             );
             let deferred_fes = deferred.to_field_elements().unwrap();
             let circ = CSWTestCircuitWithAccumulators {
@@ -262,7 +262,7 @@ pub fn generate_proof(
             };
             let proof = CoboundaryMarlin::prove(
                 pk,
-                ck_g1.as_ref().unwrap(),
+                &ck_g1,
                 circ,
                 zk,
                 if zk { Some(rng) } else { None },
@@ -287,7 +287,7 @@ pub fn generate_proof(
             };
             let proof = CoboundaryMarlin::prove(
                 pk,
-                ck_g1.as_ref().unwrap(),
+                &ck_g1,
                 circ,
                 zk,
                 if zk { Some(rng) } else { None },
