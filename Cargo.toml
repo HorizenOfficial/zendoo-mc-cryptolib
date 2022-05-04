@@ -19,7 +19,7 @@ crate-type = ["staticlib"]
 [dependencies]
 algebra = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development" }
 primitives = { features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development" }
-cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "pt/bzip2_dependency_static_build" }
+cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "pt/expose_supported_degree_parameter" }
 proof-systems = { features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true }
 r1cs-crypto = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true }
 r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true}

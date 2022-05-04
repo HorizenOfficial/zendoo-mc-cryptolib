@@ -867,6 +867,15 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
+    ZendooBatchProofVerifierResult* zendoo_batch_verify_proofs_by_id_with_segment_size(
+        const sc_batch_proof_verifier_t* batch_verifier,
+        const uint32_t* ids_list,
+        size_t ids_list_len,
+        bool prioritize,
+        size_t segment_size,
+        CctpErrorCode* ret_code
+    );
+
     /*
      * Free the memory pointed by `batch_verifier`,
     */
@@ -946,6 +955,10 @@ extern "C" {
 
         ZendooBatchProofVerifierResult* batch_verify_subset(const uint32_t* ids_list, size_t ids_list_len, CctpErrorCode* ret_code) {
             return zendoo_batch_verify_proofs_by_id(batch_verifier, ids_list, ids_list_len, highPriorityVerification, ret_code);
+        }
+
+        ZendooBatchProofVerifierResult* batch_verify_subset_with_segment_size(const uint32_t* ids_list, size_t ids_list_len, size_t segment_size, CctpErrorCode* ret_code) {
+            return zendoo_batch_verify_proofs_by_id_with_segment_size(batch_verifier, ids_list, ids_list_len, highPriorityVerification, segment_size, ret_code);
         }
         
         ~ZendooBatchProofVerifier() {
