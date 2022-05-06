@@ -1567,14 +1567,6 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(ret_code == CctpErrorCode::OK);
         zendoo_free_batch_proof_verifier_result(result_5);
 
-        // Check batch verification of all valid proofs fails
-        auto result_6 = batch_verifier.batch_verify_subset_with_segment_size(new_ids, NUM_OF_PROOFS, MAX_SEGMENT_SIZE * 2, &ret_code);
-        CHECK(result_6->result == false);
-        CHECK(result_6->failing_proofs == NULL);
-        CHECK(result_6->failing_proofs_len == 0);
-        CHECK(ret_code == CctpErrorCode::BatchVerifierFailure);
-        zendoo_free_batch_proof_verifier_result(result_6);
-
         // Delete files
         remove((pk_path + std::string("/darlin_csw_test_pk")).c_str());
         remove((vk_path + std::string("/darlin_csw_test_vk")).c_str());
