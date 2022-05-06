@@ -11,7 +11,7 @@
 #include <vector>
 #include <time.h>
 
-static const size_t MAX_SEGMENT_SIZE = 1 << 17;
+static const size_t MAX_SEGMENT_SIZE = 1 << 9;
 static bool dlog_keys_init_result([]{ 
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
