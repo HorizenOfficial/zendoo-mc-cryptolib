@@ -1402,84 +1402,33 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
     prioritize: bool,
     ret_code: &mut CctpErrorCode,
 ) -> *mut ZendooBatchProofVerifierResult {
-    // Read batch verifier
-    let rs_batch_verifier =
-        try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, null_mut());
-
-    // Get ids_list
-    let rs_ids_list = try_get_obj_list!("ids_list", ids_list, ids_list_len, ret_code, null_mut());
-
-    // If prioritize, pause all low priority threads
-    if prioritize {
-        zendoo_pause_low_priority_threads();
-    }
-
-    // Execute batch verification of the proofs with specified id
-    let result = match get_batch_verifier_thread_pool(prioritize) {
-        Ok(pool) => pool.install(|| {
-            rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default())
-        }),
-        Err(e) => {
-            eprintln!("{:?}", e);
-            *ret_code = CctpErrorCode::GenericError;
-            return null_mut();
-        }
-    };
-
-    // If prioritize, Unpause all low priority threads
-    if prioritize {
-        zendoo_unpause_low_priority_threads();
-    }
-
-    let mut ret = ZendooBatchProofVerifierResult::default();
-
-    // Trigger batch verification of the proofs with specified id
-    match result {
-        // If success, return the result
-        Ok(result) => {
-            ret.result = result;
-        }
-
-        // Otherwise, return the indices of the failing proofs if it's possible to estabilish it.
-        Err(e) => {
-            eprintln!("{:?}", format!("Batch proof verification failure: {:?}", e));
-            match e {
-                ProvingSystemError::FailedBatchVerification(maybe_ids) => {
-                    *ret_code = CctpErrorCode::OK;
-                    if maybe_ids.is_some() {
-                        // Return ids
-                        let mut ids = maybe_ids.unwrap();
-                        ids.shrink_to_fit();
-                        let len = ids.len();
-                        assert_eq!(len, ids.capacity());
-                        let ids_ptr = ids.as_mut_ptr();
-                        ret.failing_proofs = ids_ptr;
-                        ret.num_failing_proofs = len;
-                        std::mem::forget(ids);
-                    }
-                }
-                _ => *ret_code = CctpErrorCode::BatchVerifierFailure,
-            }
-        }
-    }
-    Box::into_raw(Box::new(ret))
+    zendoo_batch_verify_proofs_by_id_with_segment_size(
+        batch_verifier,
+        ids_list,
+        ids_list_len,
+        prioritize,
+        std::ptr::null(),
+        ret_code,
+    )
 }
 
-/**
- * This function is basically a clone of zendoo_batch_verify_proofs_by_id(),
- * the only difference is the call to batch_verify_subset_with_segment_size()
- * instead of batch_verify_subset().
- * It is used for testing purpose only.
- */
 #[no_mangle]
 pub extern "C" fn zendoo_batch_verify_proofs_by_id_with_segment_size(
     batch_verifier: *const ZendooBatchVerifier,
     ids_list: *const u32,
     ids_list_len: usize,
     prioritize: bool,
-    segment_size: usize,
+    segment_size: *const usize,
     ret_code: &mut CctpErrorCode,
 ) -> *mut ZendooBatchProofVerifierResult {
+
+    // Get the segment_size (if not null)
+    let rs_segment_size: Option<usize> = if segment_size.is_null() {
+        None
+    } else {
+        Some(*try_read_raw_pointer!("segment_size", segment_size, ret_code, null_mut()))
+    };
+
     // Read batch verifier
     let rs_batch_verifier =
         try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, null_mut());
@@ -1495,7 +1444,7 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id_with_segment_size(
     // Execute batch verification of the proofs with specified id
     let result = match get_batch_verifier_thread_pool(prioritize) {
         Ok(pool) => pool.install(|| {
-            rs_batch_verifier.batch_verify_subset_with_segment_size(rs_ids_list.to_vec(), &mut OsRng::default(), Some(segment_size))
+            rs_batch_verifier.batch_verify_subset_with_segment_size(rs_ids_list.to_vec(), &mut OsRng::default(), rs_segment_size)
         }),
         Err(e) => {
             eprintln!("{:?}", e);
