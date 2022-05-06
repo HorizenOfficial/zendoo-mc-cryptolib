@@ -575,15 +575,6 @@ pub extern "C" fn zendoo_init_dlog_keys(segment_size: usize, ret_code: &mut Cctp
 }
 
 #[no_mangle]
-pub extern "C" fn zendoo_init_dlog_keys_test_mode(
-    max_segment_size: usize,
-    ret_code: &mut CctpErrorCode,
-) -> bool {
-    // Get DLOG keys
-    _zendoo_init_dlog_keys(max_segment_size, ret_code)
-}
-
-#[no_mangle]
 pub extern "C" fn zendoo_serialize_sc_proof(
     sc_proof: *const ZendooProof,
     ret_code: &mut CctpErrorCode,

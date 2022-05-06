@@ -564,15 +564,6 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-    /*
-     * Initialize DLOG keys of specified `supported_segment_size` in memory, derived from keys of size `max_segment_size` .
-     */
-    bool zendoo_init_dlog_keys_test_mode(
-        size_t max_segment_size,
-        size_t supported_segment_size,
-        CctpErrorCode* ret_code
-    );
-
     typedef struct sc_proof sc_proof_t;
 
     /*
