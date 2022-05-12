@@ -5,8 +5,8 @@ FROM $FROM_IMAGE
 RUN set -euxo pipefail \
     && apt-get update \
     && [ "$(grep DISTRIB_CODENAME /etc/lsb-release | cut -d= -f2)" = "bionic" ] \
-    && python_pkgname="python-minimal" \
-    || python_pkgname="python2-minimal" \
+    && python_pkgname="python3-minimal" \
+    || python_pkgname="python3-minimal" \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $python_pkgname \
     && apt-get -y clean \
     && apt-get -y autoclean \
