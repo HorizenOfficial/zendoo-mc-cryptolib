@@ -25,9 +25,9 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_co
 
     # Setup SNARK pk and vk
     if with_constant:
-        generate_params(params_dir, "cert", ps_type);
+        generate_params(params_dir, "cert", ps_type, segment_size);
     else:
-        generate_params(params_dir, "cert_no_const", ps_type);
+        generate_params(params_dir, "cert_no_const", ps_type, segment_size);
 
     # Generate random test data
     sc_id = generate_random_field_element_hex()
@@ -83,9 +83,9 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
 
     # Setup SNARK pk and vk
     if constant is not None:
-        generate_params(params_dir, "csw", ps_type);
+        generate_params(params_dir, "csw", ps_type, segment_size);
     else:
-        generate_params(params_dir, "csw_no_const", ps_type);
+        generate_params(params_dir, "csw_no_const", ps_type, segment_size);
 
     # Generate random test data
     amount = random.randint(0, 1000)
@@ -112,7 +112,6 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
         args.append(str("NO_CERT_DATA_HASH"))
     
     if constant is not None:
-        constant = generate_random_field_element_hex()
         args.append(str(constant))
     
     subprocess.check_call(args)
@@ -137,6 +136,7 @@ if __name__ == "__main__":
     data_dir = os.getcwd() + "/";
 
     # Test certificate proof
+    print('***********Test certificate proof Darlin***********\n')
     cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 10, True)
     cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 0, True)
     cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 10, False)
@@ -146,6 +146,7 @@ if __name__ == "__main__":
     cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 10, False)
     cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 0, False)
 
+    print('***********Test certificate proof Coboundary Marlin***********\n')
     cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 10, True)
     cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 0, True)
     cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 10, False)
@@ -155,7 +156,28 @@ if __name__ == "__main__":
     cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 10, False)
     cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 0, False)
 
+    print('***********Test certificate proof Darlin SS/2***********\n')
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 10, True, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 0, True, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 10, False, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 10, 0, False, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 10, True, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 0, True, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 10, False, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_test_proof"), data_dir, "darlin", 0, 0, False, True, SEGMENT_SIZE/2)
+
+    print('***********Test certificate proof Coboundary Marlin SS/2***********\n')
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 10, True, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 0, True, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 10, False, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 10, 0, False, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 10, True, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 0, True, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 10, False, True, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_test_proof"), data_dir, "cob_marlin", 0, 0, False, True, SEGMENT_SIZE/2)
+
     # Test certificate proof no constant
+    print('***********Test certificate proof w/o constant Darlin***********\n')
     cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 10, 10, True, False)
     cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 10, 0, True, False)
     cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 10, 10, False, False)
@@ -165,6 +187,7 @@ if __name__ == "__main__":
     cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 0, 10, False, False)
     cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 0, 0, False, False)
 
+    print('***********Test certificate proof w/o constant Coboundary Marlin***********\n')
     cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 10, 10, True, False)
     cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 10, 0, True, False)
     cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 10, 10, False, False)
@@ -174,22 +197,74 @@ if __name__ == "__main__":
     cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 0, 10, False, False)
     cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 0, 0, False, False)
 
+    print('***********Test certificate proof w/o constant Darlin SS/2***********\n')
+    cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 10, 10, True, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 10, 0, True, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 10, 10, False, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 10, 0, False, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 0, 10, True, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 0, 0, True, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 0, 10, False, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("darlin_cert_no_const_test_proof"), data_dir, "darlin", 0, 0, False, False, SEGMENT_SIZE/2)
+
+    print('***********Test certificate proof w/o constant Coboundary Marlin SS/2***********\n')
+    cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 10, 10, True, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 10, 0, True, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 10, 10, False, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 10, 0, False, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 0, 10, True, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 0, 0, True, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 0, 10, False, False, SEGMENT_SIZE/2)
+    cert_proof_test(data_dir + str("cob_marlin_cert_no_const_test_proof"), data_dir, "cob_marlin", 0, 0, False, False, SEGMENT_SIZE/2)
+
     # Test csw proof
-    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True, True)
-    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True, False)
-    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False, True)
-    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False, False)
-    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True, True)
-    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True, False)
-    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, True)
-    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, False)
+    constant = generate_random_field_element_hex()
+
+    print('***********Test csw proof Darlin***********\n')
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True, True, constant)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True, False, constant)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False, True, constant)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False, False, constant)
+
+    print('***********Test csw proof Coboundary Marlin***********\n')
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True, True, constant)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True, False, constant)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, True, constant)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, False, constant)
+
+    print('***********Test csw proof Darlin SS/2***********\n')
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True, True, constant, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", True, False, constant, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False, True, constant, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("darlin_csw_test_proof"), data_dir, "darlin", False, False, constant, SEGMENT_SIZE/2)
+
+    print('***********Test csw proof Coboundary Marlin SS/2***********\n')
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True, True, constant, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", True, False, constant, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, True, constant, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("cob_marlin_csw_test_proof"), data_dir, "cob_marlin", False, False, constant, SEGMENT_SIZE/2)
 
     # Test csw proof no constant
+    print('***********Test csw proof no const Darlin***********\n')
     csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", True, True, None)
     csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", True, False, None)
     csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", False, True, None)
     csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", False, False, None)
+
+    print('***********Test csw proof no const Coboundary Marlin***********\n')
     csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", True, True, None)
     csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", True, False, None)
     csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", False, True, None)
     csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", False, False, None)
+
+    print('***********Test csw proof no const Darlin SS/2***********\n')
+    csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", True, True, None, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", True, False, None, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", False, True, None, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("darlin_csw_no_const_test_proof"), data_dir, "darlin", False, False, None, SEGMENT_SIZE/2)
+
+    print('***********Test csw proof no const Coboundary Marlin SS/2***********\n')
+    csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", True, True, None, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", True, False, None, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", False, True, None, SEGMENT_SIZE/2)
+    csw_proof_test(data_dir + str("cob_marlin_csw_no_const_test_proof"), data_dir, "cob_marlin", False, False, None, SEGMENT_SIZE/2)

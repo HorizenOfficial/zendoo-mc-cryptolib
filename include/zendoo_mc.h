@@ -564,15 +564,6 @@ extern "C" {
         CctpErrorCode* ret_code
     );
 
-    /*
-     * Initialize DLOG keys of specified `supported_segment_size` in memory, derived from keys of size `max_segment_size` .
-     */
-    bool zendoo_init_dlog_keys_test_mode(
-        size_t max_segment_size,
-        size_t supported_segment_size,
-        CctpErrorCode* ret_code
-    );
-
     typedef struct sc_proof sc_proof_t;
 
     /*
@@ -1036,7 +1027,8 @@ extern "C" {
         size_t params_dir_len,
         CctpErrorCode* ret_code,
         bool compress_vk = true,
-        bool compress_pk = true
+        bool compress_pk = true,
+        const size_t* segment_size = nullptr // defaults to max segment size
     );
 
     /*
@@ -1063,7 +1055,8 @@ extern "C" {
         size_t proof_path_len,
         uint32_t num_constraints,
         CctpErrorCode* ret_code,
-        bool compress_proof = true
+        bool compress_proof = true,
+        const size_t* segment_size = nullptr // defaults to max segment size
     );
 
     /*
@@ -1088,7 +1081,8 @@ extern "C" {
         size_t proof_path_len,
         uint32_t num_constraints,
         CctpErrorCode* ret_code,
-        bool compress_proof = true
+        bool compress_proof = true,
+        const size_t* segment_size = nullptr // defaults to max segment size
     );
 
     /*
@@ -1113,7 +1107,8 @@ extern "C" {
         const sc_pk_t* pk,
         uint32_t num_constraints,
         CctpErrorCode* ret_code,
-        bool compress_proof = true
+        bool compress_proof = true,
+        const size_t* segment_size = nullptr // defaults to max segment size
     );
 
     /*
@@ -1133,7 +1128,8 @@ extern "C" {
         const sc_pk_t* pk,
         uint32_t num_constraints,
         CctpErrorCode* ret_code,
-        bool compress_proof = true
+        bool compress_proof = true,
+        const size_t* segment_size = nullptr // defaults to max segment size
     );
 
      /* Return `true` if the proofs pointed by `sc_proof_1` and `sc_proof_2` are

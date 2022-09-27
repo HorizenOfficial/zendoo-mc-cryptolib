@@ -75,6 +75,7 @@ fn serialization_deserialization_bench_vk_proof() {
             ProvingSystem::Darlin,
             num_constraints,
             true,
+            None,
         )
         .unwrap();
 
@@ -90,6 +91,7 @@ fn serialization_deserialization_bench_vk_proof() {
             &FieldElement::rand(&mut rng),
             &FieldElement::rand(&mut rng),
             num_constraints,
+            None,
         )
         .unwrap();
 
@@ -165,6 +167,7 @@ fn serialization_deserialization_bench_vk_proof() {
             ProvingSystem::Darlin,
             num_constraints,
             true,
+            None,
         )
         .unwrap();
 
@@ -182,6 +185,7 @@ fn serialization_deserialization_bench_vk_proof() {
             0,
             0,
             num_constraints,
+            None,
         )
         .unwrap();
 
@@ -281,7 +285,8 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 11,
                 &mut CctpErrorCode::OK,
                 true,
-                true
+                true,
+                std::ptr::null()
             ));
 
             // Create test proof
@@ -321,6 +326,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 num_constraints,
                 &mut CctpErrorCode::OK,
                 true,
+                std::ptr::null()
             );
             assert!(proof_buff != null_mut());
 
@@ -390,7 +396,8 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 11,
                 &mut CctpErrorCode::OK,
                 true,
-                true
+                true,
+                std::ptr::null()
             ));
 
             // Create test proof
@@ -438,6 +445,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 num_constraints,
                 &mut CctpErrorCode::OK,
                 true,
+                std::ptr::null()
             );
             assert!(proof_buff != null_mut());
 
