@@ -11,7 +11,7 @@
 #include <vector>
 #include <time.h>
 
-static const size_t MAX_SEGMENT_SIZE = 1 << 9;
+static const uint32_t MAX_SEGMENT_SIZE = 1 << 9;
 static bool dlog_keys_init_result([]{ 
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
@@ -1117,7 +1117,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
     static std::string params_dir = std::string("../examples");
     static size_t params_dir_len = params_dir.size();
     static const uint32_t NUM_CONSTRAINTS = 1 << 10;
-    static const size_t SUPPORTED_SEGMENT_SIZE = MAX_SEGMENT_SIZE/2;
+    static const uint32_t SUPPORTED_SEGMENT_SIZE = MAX_SEGMENT_SIZE/2;
 
     void add_random_csw_proof(
         ZendooBatchProofVerifier* batch_verifier,

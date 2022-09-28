@@ -171,9 +171,9 @@ pub fn generate_parameters(
     ps: ProvingSystem,
     num_constraints: u32,
     with_constant: bool,
-    segment_size: Option<usize>,
+    segment_size: Option<u32>,
 ) -> Result<(ZendooProverKey, ZendooVerifierKey), ProvingSystemError> {
-    let supported_degree = segment_size.map(|ss| ss - 1 );
+    let supported_degree = segment_size.map(|ss| (ss - 1) as usize);
     let ck_g1 = get_g1_committer_key(supported_degree)?;
     match ps {
         ProvingSystem::Undefined => Err(ProvingSystemError::UndefinedProvingSystem),
@@ -226,9 +226,9 @@ pub fn generate_proof(
     btr_fee: u64,
     ft_min_amount: u64,
     num_constraints: u32,
-    segment_size: Option<usize>,
+    segment_size: Option<u32>,
 ) -> Result<ZendooProof, ProvingSystemError> {
-    let supported_degree = segment_size.map(|ss| ss - 1 );
+    let supported_degree = segment_size.map(|ss| (ss - 1) as usize);
     let rng = &mut OsRng;
     let ck_g1 = get_g1_committer_key(supported_degree)?;
 

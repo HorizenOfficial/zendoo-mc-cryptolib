@@ -1028,7 +1028,7 @@ extern "C" {
         CctpErrorCode* ret_code,
         bool compress_vk = true,
         bool compress_pk = true,
-        const size_t* segment_size = nullptr // defaults to max segment size
+        const uint32_t* segment_size = nullptr // defaults to max segment size
     );
 
     /*
@@ -1056,7 +1056,7 @@ extern "C" {
         uint32_t num_constraints,
         CctpErrorCode* ret_code,
         bool compress_proof = true,
-        const size_t* segment_size = nullptr // defaults to max segment size
+        const uint32_t* segment_size = nullptr // defaults to max segment size
     );
 
     /*
@@ -1082,7 +1082,7 @@ extern "C" {
         uint32_t num_constraints,
         CctpErrorCode* ret_code,
         bool compress_proof = true,
-        const size_t* segment_size = nullptr // defaults to max segment size
+        const uint32_t* segment_size = nullptr // defaults to max segment size
     );
 
     /*
@@ -1108,7 +1108,7 @@ extern "C" {
         uint32_t num_constraints,
         CctpErrorCode* ret_code,
         bool compress_proof = true,
-        const size_t* segment_size = nullptr // defaults to max segment size
+        const uint32_t* segment_size = nullptr // defaults to max segment size
     );
 
     /*
@@ -1129,7 +1129,7 @@ extern "C" {
         uint32_t num_constraints,
         CctpErrorCode* ret_code,
         bool compress_proof = true,
-        const size_t* segment_size = nullptr // defaults to max segment size
+        const uint32_t* segment_size = nullptr // defaults to max segment size
     );
 
      /* Return `true` if the proofs pointed by `sc_proof_1` and `sc_proof_2` are
