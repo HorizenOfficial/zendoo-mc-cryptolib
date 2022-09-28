@@ -193,6 +193,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_typ
         (path_char_t*)proof_path.c_str(),
         proof_path_len,
         num_constraints,
+        nullptr, // do not consider V2 SC here
         &ret_code,
         true,
         &segment_size
@@ -239,6 +240,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_typ
             ft_min_amount,
             proof,
             vk,
+            nullptr, // do not consider V2 SC here
             &ret_code
         ));
         assert(ret_code == CctpErrorCode::OK);
@@ -259,6 +261,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_typ
             ft_min_amount,
             proof,
             vk,
+            nullptr, // do not consider V2 SC here
             &ret_code
         ));
         assert(ret_code == CctpErrorCode::OK);
@@ -555,6 +558,7 @@ void generate(char** argv)
         circ_type,
         ps_type,
         num_constraints,
+        false, // do not consider V2 SC here
         (path_char_t*)path.c_str(),
         path.size(),
         &ret_code,

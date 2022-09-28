@@ -659,7 +659,7 @@ TEST_SUITE("Single Proof Verifier") {
             zendoo_create_cert_test_proof(
                 zk, constant, sc_id, epoch_number, quality, bt_list_ptr, bt_list_len,
                 custom_fields, 2, end_cum_comm_tree_root, btr_fee, ft_min_amount,
-                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS, &ret_code
+                sc_pk, (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS, NULL, &ret_code
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -706,7 +706,7 @@ TEST_SUITE("Single Proof Verifier") {
             zendoo_verify_certificate_proof(
                 constant, sc_id, epoch_number, quality, bt_list_ptr, bt_list_len,
                 custom_fields, 2, end_cum_comm_tree_root,
-                btr_fee, ft_min_amount, sc_proof, sc_vk, &ret_code
+                btr_fee, ft_min_amount, sc_proof, sc_vk, NULL, &ret_code
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -717,7 +717,7 @@ TEST_SUITE("Single Proof Verifier") {
             zendoo_verify_certificate_proof(
                 constant, wrong_sc_id, epoch_number, quality, bt_list_ptr, bt_list_len,
                 custom_fields, 2, end_cum_comm_tree_root, btr_fee, ft_min_amount,
-                sc_proof, sc_vk, &ret_code
+                sc_proof, sc_vk, NULL, &ret_code
             ) == false
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -744,6 +744,7 @@ TEST_SUITE("Single Proof Verifier") {
                 TestCircuitType::Certificate,
                 ProvingSystem::CoboundaryMarlin,
                 NUM_CONSTRAINTS,
+                false,
                 (path_char_t*)params_dir.c_str(),
                 params_dir_len,
                 &ret_code
@@ -775,6 +776,7 @@ TEST_SUITE("Single Proof Verifier") {
                 TestCircuitType::CertificateNoConstant,
                 ProvingSystem::CoboundaryMarlin,
                 NUM_CONSTRAINTS,
+                false,
                 (path_char_t*)params_dir.c_str(),
                 params_dir_len,
                 &ret_code
@@ -806,6 +808,7 @@ TEST_SUITE("Single Proof Verifier") {
                TestCircuitType::Certificate,
                ProvingSystem::Darlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -837,6 +840,7 @@ TEST_SUITE("Single Proof Verifier") {
                TestCircuitType::CertificateNoConstant,
                ProvingSystem::Darlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -996,6 +1000,7 @@ TEST_SUITE("Single Proof Verifier") {
                 TestCircuitType::CSW,
                 ProvingSystem::CoboundaryMarlin,
                 NUM_CONSTRAINTS,
+                false,
                 (path_char_t*)params_dir.c_str(),
                 params_dir_len,
                 &ret_code
@@ -1027,6 +1032,7 @@ TEST_SUITE("Single Proof Verifier") {
                 TestCircuitType::CSWNoConstant,
                 ProvingSystem::CoboundaryMarlin,
                 NUM_CONSTRAINTS,
+                false,
                 (path_char_t*)params_dir.c_str(),
                 params_dir_len,
                 &ret_code
@@ -1058,6 +1064,7 @@ TEST_SUITE("Single Proof Verifier") {
                TestCircuitType::CSW,
                ProvingSystem::Darlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -1089,6 +1096,7 @@ TEST_SUITE("Single Proof Verifier") {
                TestCircuitType::CSWNoConstant,
                ProvingSystem::Darlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code
@@ -1252,7 +1260,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                 false, constant, sc_id, epoch_number, quality, NULL, 0,
                 NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
                 (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS,
-                &ret_code, true, &SUPPORTED_SEGMENT_SIZE
+                NULL, &ret_code, true, &SUPPORTED_SEGMENT_SIZE
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -1284,7 +1292,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(
             batch_verifier->add_certificate_proof(
                 proof_id, constant, sc_id, epoch_number, quality, NULL, 0,
-                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_proof, sc_vk, &ret_code
+                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_proof, sc_vk, NULL, &ret_code
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -1314,6 +1322,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                TestCircuitType::CSW,
                ProvingSystem::Darlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code,
@@ -1330,6 +1339,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                TestCircuitType::CSWNoConstant,
                ProvingSystem::Darlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code,
@@ -1346,6 +1356,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                TestCircuitType::CSW,
                ProvingSystem::CoboundaryMarlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code,
@@ -1362,6 +1373,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                TestCircuitType::CSWNoConstant,
                ProvingSystem::CoboundaryMarlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code,
@@ -1378,6 +1390,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                TestCircuitType::Certificate,
                ProvingSystem::Darlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code,
@@ -1395,6 +1408,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                TestCircuitType::CertificateNoConstant,
                ProvingSystem::Darlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code,
@@ -1412,6 +1426,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                TestCircuitType::Certificate,
                ProvingSystem::CoboundaryMarlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code,
@@ -1428,6 +1443,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                TestCircuitType::CertificateNoConstant,
                ProvingSystem::CoboundaryMarlin,
                NUM_CONSTRAINTS,
+               false,
                (path_char_t*)params_dir.c_str(),
                params_dir_len,
                &ret_code,

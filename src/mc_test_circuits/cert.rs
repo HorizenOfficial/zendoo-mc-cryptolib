@@ -15,6 +15,7 @@ use r1cs_std::{
     alloc::AllocGadget, bits::boolean::Boolean, eq::EqGadget, instantiated::tweedle::FrGadget,
 };
 use rand::rngs::OsRng;
+use cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH;
 
 type FieldElementGadget = FrGadget;
 
@@ -23,6 +24,7 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
     constant_present: bool,
     constant: Option<FieldElement>,
     cert_data_hash: Option<FieldElement>,
+    sc_prev_hash: Option<FieldElement>,
     num_constraints: u32,
 ) -> Result<(), SynthesisError> {
     if constant_present {
@@ -56,6 +58,19 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
             cert_data_hash.ok_or(SynthesisError::AssignmentMissing)
         })?;
 
+    let mut sc_prev_hash_g: Option<FieldElementGadget> = None;
+    let mut expected_sc_prev_hash_g: Option<FieldElementGadget> = None;
+    if sc_prev_hash.is_some() {
+        sc_prev_hash_g = Some(FieldElementGadget::alloc(cs.ns(|| "alloc sc_prev_cert_hash"), || {
+            sc_prev_hash.ok_or(SynthesisError::AssignmentMissing)
+        })?);
+
+        expected_sc_prev_hash_g =
+            Some(FieldElementGadget::alloc_input(cs.ns(|| "alloc expected_sc_prev_cert_hash"), || {
+                sc_prev_hash.ok_or(SynthesisError::AssignmentMissing)
+            })?);
+    }
+
     let remaining_constraints = if constant_present {
         (num_constraints - 1) / 8
     } else {
@@ -71,6 +86,23 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
             cs.ns(|| format!("expected_cert_data_hash_must_be_eq_actual_{}", i)),
             &Boolean::Constant(true),
         )?;
+
+    }
+
+    if sc_prev_hash_g.is_some() {
+        let prev_hash = sc_prev_hash_g.unwrap();
+        let expected_prev_hash = expected_sc_prev_hash_g.unwrap();
+
+        for i in 0..remaining_constraints {
+            let c = prev_hash.is_eq(
+                cs.ns(|| format!("expected_sc_prev_hash_is_eq_actual_{}", i)),
+                &expected_prev_hash,
+            )?;
+            c.enforce_equal(
+                cs.ns(|| format!("expected_sc_prev_hash_must_be_eq_actual_{}", i)),
+                &Boolean::Constant(true),
+            )?;
+        }
     }
 
     Ok(())
@@ -82,6 +114,7 @@ pub struct CertTestCircuit {
     constant_present: bool,
     constant: Option<FieldElement>,
     cert_data_hash: Option<FieldElement>,
+    sc_prev_cert_hash: Option<FieldElement>,
     num_constraints: u32,
 }
 
@@ -96,6 +129,7 @@ impl ConstraintSynthesizer<FieldElement> for CertTestCircuit {
             self.constant_present,
             self.constant,
             self.cert_data_hash,
+            self.sc_prev_cert_hash,
             self.num_constraints,
         )
     }
@@ -106,6 +140,7 @@ pub struct CertTestCircuitWithAccumulators {
     constant_present: bool,
     constant: Option<FieldElement>,
     cert_data_hash: Option<FieldElement>,
+    sc_prev_cert_hash: Option<FieldElement>,
     deferred: Vec<FieldElement>, // Represents deferred data
     num_constraints: u32,
 }
@@ -160,6 +195,7 @@ impl ConstraintSynthesizer<FieldElement> for CertTestCircuitWithAccumulators {
             self.constant_present,
             self.constant,
             self.cert_data_hash,
+            self.sc_prev_cert_hash,
             self.num_constraints - deferred_len,
         )?;
 
@@ -172,6 +208,7 @@ pub fn generate_parameters(
     num_constraints: u32,
     with_constant: bool,
     segment_size: Option<u32>,
+    with_prev_hash: bool,
 ) -> Result<(ZendooProverKey, ZendooVerifierKey), ProvingSystemError> {
     let supported_degree = segment_size.map(|ss| (ss - 1) as usize);
     let ck_g1 = get_g1_committer_key(supported_degree)?;
@@ -183,6 +220,11 @@ pub fn generate_parameters(
                 constant_present: with_constant,
                 constant: None,
                 cert_data_hash: None,
+                sc_prev_cert_hash: if with_prev_hash {
+                    Some(PHANTOM_CERT_DATA_HASH)
+                } else {
+                    None
+                },
                 deferred: FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
                     &mut rand::thread_rng(),
                     &ck_g1,
@@ -201,6 +243,11 @@ pub fn generate_parameters(
                 constant_present: with_constant,
                 constant: None,
                 cert_data_hash: None,
+                sc_prev_cert_hash: if with_prev_hash {
+                    Some(PHANTOM_CERT_DATA_HASH)
+                } else {
+                    None
+                },
                 num_constraints,
             };
             let (pk, vk) = CoboundaryMarlin::index(&ck_g1, circ)
@@ -227,6 +274,7 @@ pub fn generate_proof(
     ft_min_amount: u64,
     num_constraints: u32,
     segment_size: Option<u32>,
+    sc_prev_hash: Option<&FieldElement>,
 ) -> Result<ZendooProof, ProvingSystemError> {
     let supported_degree = segment_size.map(|ss| (ss - 1) as usize);
     let rng = &mut OsRng;
@@ -262,6 +310,11 @@ pub fn generate_proof(
                     None
                 },
                 cert_data_hash: Some(cert_data_hash),
+                sc_prev_cert_hash: if sc_prev_hash.is_some() {
+                    Some(*sc_prev_hash.unwrap())
+                } else {
+                    None
+                },
                 deferred: deferred_fes.clone(),
                 num_constraints,
             };
@@ -288,6 +341,11 @@ pub fn generate_proof(
                     None
                 },
                 cert_data_hash: Some(cert_data_hash),
+                sc_prev_cert_hash: if sc_prev_hash.is_some() {
+                    Some(*sc_prev_hash.unwrap())
+                } else {
+                    None
+                },
                 num_constraints,
             };
             let proof = CoboundaryMarlin::prove(

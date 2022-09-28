@@ -168,6 +168,7 @@ fn serialization_deserialization_bench_vk_proof() {
             num_constraints,
             true,
             None,
+            false,
         )
         .unwrap();
 
@@ -185,6 +186,7 @@ fn serialization_deserialization_bench_vk_proof() {
             0,
             0,
             num_constraints,
+            None,
             None,
         )
         .unwrap();
@@ -281,6 +283,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 TestCircuitType::Certificate,
                 ProvingSystem::Darlin,
                 num_constraints,
+                false,
                 path_as_ptr("./src/tests"),
                 11,
                 &mut CctpErrorCode::OK,
@@ -324,6 +327,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 0,
                 pk,
                 num_constraints,
+                null(),
                 &mut CctpErrorCode::OK,
                 true,
                 std::ptr::null()
@@ -361,6 +365,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                     0,
                     proof,
                     vk,
+                    null(),
                     &mut CctpErrorCode::OK
                 ));
             }
@@ -392,6 +397,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 TestCircuitType::CSW,
                 ProvingSystem::Darlin,
                 num_constraints,
+                false,
                 path_as_ptr("./src/tests"),
                 11,
                 &mut CctpErrorCode::OK,

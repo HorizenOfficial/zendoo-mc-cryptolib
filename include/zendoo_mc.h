@@ -92,7 +92,7 @@ extern "C" {
 
     // Commitment Tree related declarations
 
-    typedef enum ProvingSystem {
+    typedef enum class ProvingSystem {
         Undefined,
         Darlin,
         CoboundaryMarlin
@@ -697,6 +697,7 @@ extern "C" {
         uint64_t ft_min_amount,
         const sc_proof_t* sc_proof,
         const sc_vk_t*    sc_vk,
+        const field_t* sc_prev_wcert_hash,
         CctpErrorCode* ret_code
     );
 
@@ -775,6 +776,7 @@ extern "C" {
         uint64_t ft_min_amount,
         const sc_proof_t* sc_proof,
         const sc_vk_t*    sc_vk,
+        const field_t* sc_prev_wcert_hash,
         CctpErrorCode* ret_code
     );
 
@@ -900,6 +902,7 @@ extern "C" {
             uint64_t ft_min_amount,
             const sc_proof_t* sc_proof,
             const sc_vk_t*    sc_vk,
+            const field_t* sc_prev_wcert_hash,
             CctpErrorCode* ret_code
         )
         {
@@ -907,7 +910,7 @@ extern "C" {
                 batch_verifier, proof_id, constant, sc_id, epoch_number, quality,
                 bt_list, bt_list_len, custom_fields, custom_fields_len,
                 end_cum_comm_tree_root, btr_fee, ft_min_amount,
-                sc_proof, sc_vk, ret_code
+                sc_proof, sc_vk, sc_prev_wcert_hash, ret_code
             );
         }
 
@@ -1007,7 +1010,8 @@ extern "C" {
         bool compressed = true
     );
 
-    typedef enum TestCircuitType {
+    typedef enum class TestCircuitType {
+        Undefined,
         Certificate,
         CertificateNoConstant,
         CSW,
@@ -1023,6 +1027,7 @@ extern "C" {
         TestCircuitType circ_type,
         ProvingSystem ps_type,
         uint32_t num_constraints,
+        bool with_prev_hash,
         const path_char_t* params_dir,
         size_t params_dir_len,
         CctpErrorCode* ret_code,
@@ -1054,6 +1059,7 @@ extern "C" {
         const path_char_t* proof_path,
         size_t proof_path_len,
         uint32_t num_constraints,
+        const field_t* sc_prev_wcert_hash,
         CctpErrorCode* ret_code,
         bool compress_proof = true,
         const uint32_t* segment_size = nullptr // defaults to max segment size
