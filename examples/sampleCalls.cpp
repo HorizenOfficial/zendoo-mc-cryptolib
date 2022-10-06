@@ -1260,7 +1260,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                 false, constant, sc_id, epoch_number, quality, NULL, 0,
                 NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
                 (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS,
-                NULL, &ret_code, true, &SUPPORTED_SEGMENT_SIZE
+                NULL, &ret_code, true//, &SUPPORTED_SEGMENT_SIZE
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);

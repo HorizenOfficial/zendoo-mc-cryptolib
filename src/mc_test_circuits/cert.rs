@@ -27,6 +27,18 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
     sc_prev_hash: Option<FieldElement>,
     num_constraints: u32,
 ) -> Result<(), SynthesisError> {
+    let mut num_loops = 1; // cert_data_hash
+    if constant_present {
+        num_loops += 1;    // [constant]
+    }
+    if sc_prev_hash.is_some() {
+        num_loops += 1;    // [sc_prev_hash]
+    }
+
+    let constraints_per_loop = 4; // is_eq adds 3 constraints, enforce_equal adds 1 constraint
+
+    let num_iterations = ((num_constraints - 1) / num_loops) / constraints_per_loop;
+
     if constant_present {
         let constant_g = FieldElementGadget::alloc(cs.ns(|| "alloc constant"), || {
             constant.ok_or(SynthesisError::AssignmentMissing)
@@ -37,7 +49,7 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
                 constant.ok_or(SynthesisError::AssignmentMissing)
             })?;
 
-        for i in 0..(num_constraints - 1) / 8 {
+        for i in 0..num_iterations {
             let b = constant_g.is_eq(
                 cs.ns(|| format!("expected_constant_is_eq_actual_{}", i)),
                 &expected_constant_g,
@@ -71,13 +83,7 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
             })?);
     }
 
-    let remaining_constraints = if constant_present {
-        (num_constraints - 1) / 8
-    } else {
-        (num_constraints - 1) / 4
-    };
-
-    for i in 0..remaining_constraints {
+    for i in 0..num_iterations {
         let b = cert_data_hash_g.is_eq(
             cs.ns(|| format!("expected_cert_data_hash_is_eq_actual_{}", i)),
             &expected_cert_data_hash_g,
@@ -86,14 +92,13 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
             cs.ns(|| format!("expected_cert_data_hash_must_be_eq_actual_{}", i)),
             &Boolean::Constant(true),
         )?;
-
     }
 
     if sc_prev_hash_g.is_some() {
         let prev_hash = sc_prev_hash_g.unwrap();
         let expected_prev_hash = expected_sc_prev_hash_g.unwrap();
 
-        for i in 0..remaining_constraints {
+        for i in 0..num_iterations {
             let c = prev_hash.is_eq(
                 cs.ns(|| format!("expected_sc_prev_hash_is_eq_actual_{}", i)),
                 &expected_prev_hash,
