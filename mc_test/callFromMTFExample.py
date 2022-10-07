@@ -10,24 +10,33 @@ SEGMENT_SIZE = 1 << 9
 FIELD_SIZE = 32
 MC_PK_HASH_SIZE = 20
 
-def generate_params(params_dir, circuit_type, proving_system_type, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
+def generate_params(params_dir, circuit_type, constant, proving_system_type, keyrot, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
     args = [];
     args.append("./mcTest")
     args.append("generate")
-    args.append(str(circuit_type))
-    args.append(str(proving_system_type))
+
+    args += ["-c", str(circuit_type), "-p", str(proving_system_type), "-s", str(segment_size), "-n", str(num_constraints)]
+
+    if constant is not None:
+        args.append("-k")
+        if constant == True:
+            args.append("CONSTANT_PLACEHOLDER")
+        else:
+            args.append(str(constant))
+
+    if keyrot == True:
+        args.append("-r")
+
     args.append(str(params_dir))
-    args.append(str(segment_size))
-    args.append(str(num_constraints))
     subprocess.check_call(args)
 
 def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_constant = True, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
 
     # Setup SNARK pk and vk
     if with_constant:
-        generate_params(params_dir, "cert", ps_type, segment_size);
+        generate_params(params_dir, "cert", True, ps_type, False, segment_size);
     else:
-        generate_params(params_dir, "cert_no_const", ps_type, segment_size);
+        generate_params(params_dir, "cert", None, ps_type, False, segment_size);
 
     # Generate random test data
     sc_id = generate_random_field_element_hex()
@@ -42,22 +51,21 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_co
 
     # Generate and verify proof
     circ_type = "cert"
-    if not with_constant:
-        circ_type = "cert_no_const"
 
-    args = ["./mcTest", "create", circ_type, str(ps_type), "-v"]
-    if zk:
-        args.append("-zk")
-    args.append(str(proof_path))
-    args.append(str(params_dir))
-    args.append(str(segment_size))
-    args += [str(sc_id), str(epoch_number), str(quality)]
+    args = ["./mcTest", "create", "-c", circ_type, "-p", str(ps_type), "-v", "-s", str(segment_size), "-n", str(num_constraints)]
 
     if with_constant:
-        constant = generate_random_field_element_hex()
-        args.append(str(constant))
+        args += ["-k", str(generate_random_field_element_hex())]
 
-    args += [str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount), str(num_constraints), str(bt_num)]
+    if zk:
+        args.append("-z")
+
+    args.append(str(params_dir))
+    args.append(str(proof_path))
+
+    args += [str(sc_id), str(end_cum_comm_tree_root), "NO_PREV_CERT_HASH", str(epoch_number), str(quality)]
+
+    args += [str(btr_fee), str(ft_min_amount), str(bt_num)]
     for (pk, amount) in zip(pks, amounts):
         args.append(str(pk))
         args.append(str(amount))
@@ -83,9 +91,9 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
 
     # Setup SNARK pk and vk
     if constant is not None:
-        generate_params(params_dir, "csw", ps_type, segment_size);
+        generate_params(params_dir, "csw", True, ps_type, None, segment_size);
     else:
-        generate_params(params_dir, "csw_no_const", ps_type, segment_size);
+        generate_params(params_dir, "csw", None, ps_type, None, segment_size);
 
     # Generate random test data
     amount = random.randint(0, 1000)
@@ -96,24 +104,24 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
 
     # Generate and verify proof
     circ_type = "csw"
-    if constant is None:
-        circ_type = "csw_no_const"
-    args = ["./mcTest", "create", circ_type, str(ps_type), "-v"]
+    args = ["./mcTest", "create", "-c", circ_type, "-p", str(ps_type), "-v", "-s", str(segment_size), "-n", str(num_constraints)]
+
+    if constant is not None:
+        args += ["-k", str(constant)]
 
     if zk:
-        args.append("-zk")
-    args.append(str(proof_path))
+        args.append("-z")
+
     args.append(str(params_dir))
-    args.append(str(segment_size))
-    args += [str(amount), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root), str(num_constraints)]
+    args.append(str(proof_path))
+
+    args += [str(sc_id), str(end_cum_comm_tree_root)]
     if cert_data_hash_present:
         args.append(str(generate_random_field_element_hex()))
     else:
         args.append(str("NO_CERT_DATA_HASH"))
-    
-    if constant is not None:
-        args.append(str(constant))
-    
+    args += [str(amount), str(nullifier), str(mc_pk_hash)]
+
     subprocess.check_call(args)
 
     # Delete files
