@@ -30,13 +30,13 @@ def generate_params(params_dir, circuit_type, constant, proving_system_type, key
     args.append(str(params_dir))
     subprocess.check_call(args)
 
-def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_constant = True, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
+def cert_proof_test_in(proof_path, params_dir, ps_type, bt_num, cf_num, zk, keyrot, with_constant = True, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
 
     # Setup SNARK pk and vk
     if with_constant:
-        generate_params(params_dir, "cert", True, ps_type, False, segment_size);
+        generate_params(params_dir, "cert", True, ps_type, keyrot, segment_size);
     else:
-        generate_params(params_dir, "cert", None, ps_type, False, segment_size);
+        generate_params(params_dir, "cert", None, ps_type, keyrot, segment_size);
 
     # Generate random test data
     sc_id = generate_random_field_element_hex()
@@ -63,7 +63,14 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_co
     args.append(str(params_dir))
     args.append(str(proof_path))
 
-    args += [str(sc_id), str(end_cum_comm_tree_root), "NO_PREV_CERT_HASH", str(epoch_number), str(quality)]
+    args += [str(sc_id), str(end_cum_comm_tree_root)]
+
+    if keyrot:
+        args.append(str(generate_random_field_element_hex()))
+    else:
+        args.append("NO_PREV_CERT_HASH")
+
+    args += [str(epoch_number), str(quality)]
 
     args += [str(btr_fee), str(ft_min_amount), str(bt_num)]
     for (pk, amount) in zip(pks, amounts):
@@ -86,6 +93,13 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_co
         vk_name = "_cert_no_const_test_vk"
     os.remove(params_dir + str(ps_type) + pk_name)
     os.remove(params_dir + str(ps_type) + vk_name)
+
+def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_constant = True, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
+    print('-- W/O keyrot --')
+    cert_proof_test_in(proof_path, params_dir, ps_type, bt_num, cf_num, zk, False, with_constant, segment_size, num_constraints)
+    print('-- W/  keyrot --')
+    cert_proof_test_in(proof_path, params_dir, ps_type, bt_num, cf_num, zk, True, with_constant, segment_size, num_constraints)
+
 
 def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, constant = None, segment_size = SEGMENT_SIZE, num_constraints = NUM_CONSTRAINTS):
 
