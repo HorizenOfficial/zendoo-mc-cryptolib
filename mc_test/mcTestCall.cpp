@@ -1,13 +1,7 @@
 #include "zendoo_mc.h"
+#include "mcTestCall.h"
 
-#ifdef W_BASE58
-#include "base58.h" // zend version, needs DecodeBase58
-static const int SEGMENT_SIZE = Sidechain::SEGMENT_SIZE;
-#else
-#include "hex_utils.h" // mc_crypto_lib version
-static const int SEGMENT_SIZE = 1 << 18;
-#endif
-
+#include "hex_utils.h"
 #include <cstdarg>
 #include <iostream>
 #include <cassert>
@@ -222,7 +216,7 @@ void parse_field(char const* argv, field_t*& res) {
     }
 }
 
-CreateParameters parse_args(int argc, char** argv, Operation op) {
+CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_fn) {
     CreateParameters res;
     char opt;
     char const * circuit;
@@ -323,15 +317,8 @@ CreateParameters parse_args(int argc, char** argv, Operation op) {
                 backward_transfer_t& bt = res.bt_list[i];
 
                 std::vector<unsigned char> vchData;
-                size_t offset = 0;
-#ifdef W_BASE58
-                bool res = DecodeBase58(argv[optind++], vchData);
-                assert(res);
-                offset = 2;
-#else
-                vchData = SetHex(argv[optind++], 20);
-#endif
-                memcpy(&bt.pk_dest, vchData.data() + offset, 20);
+                parse_fn(argv[optind++], vchData);
+                memcpy(&bt.pk_dest, vchData.data(), 20);
 
                 uint64_t amount = strtoull(argv[optind++], nullptr, 0);
                 assert(amount >= 0);
@@ -361,33 +348,24 @@ CreateParameters parse_args(int argc, char** argv, Operation op) {
             // Extract pubKeyHash from the address
             unsigned char* buf = new unsigned char[20];
             std::vector<unsigned char> vchData;
-            size_t offset = 0;
-#ifdef W_BASE58
-            if (!DecodeBase58(argv[optind++], vchData)) {
-                printError(__func__, __LINE__, "Failed decoding base58 mc pk hash.");
-            }
-            offset = 2; // skip first 2 bytes
-#else
-            vchData = SetHex(argv[optind++], 20);
-#endif
-            memcpy(buf, vchData.data() + offset, 20);
+            parse_fn(argv[optind++], vchData);
+            memcpy(buf, vchData.data(), 20);
             res.mc_pk_hash = BufferWithSize(buf, 20);
         }
     }
     return res;
 }
 
-void init(Parameters const& pars) {
+void init(Parameters const& pars, int segment_size) {
     // Load DLOG keys
     CctpErrorCode ret_code = CctpErrorCode::OK;
-    zendoo_init_dlog_keys(SEGMENT_SIZE, &ret_code);
+    zendoo_init_dlog_keys(segment_size, &ret_code);
     if (ret_code != CctpErrorCode::OK) {
         printError(__func__, __LINE__, "Failed initializing dlog keys");
     }
 }
 
 void generate(Parameters const& pars) {
-    init(pars);
     CctpErrorCode ret_code = CctpErrorCode::OK;
     bool res = zendoo_generate_mc_test_params(pars.circ,
                                         pars.ps,
@@ -640,7 +618,6 @@ void create_verify_test_csw_proof(CreateParameters const& pars) {
 
 void create_verify(CreateParameters const& pars)
 {
-    init(pars);
     switch (pars.circ) {
     case TestCircuitType::Certificate:
     case TestCircuitType::CertificateNoConstant:
@@ -656,16 +633,21 @@ void create_verify(CreateParameters const& pars)
     }
 }
 
-int main(int argc, char** argv)
+int run(int argc, char** argv, int seg_size, ParseFn parser)
 {
     if (argc < 2) printUsage(argv[0]);
 
     if (strcmp(argv[1], "generate") == 0) {
-        generate(parse_args(argc-1, argv+1, Operation::GENERATE));
+        Parameters par = parse_args(argc-1, argv+1, Operation::GENERATE, parser);
+        init(par, seg_size);
+        generate(par);
     } else if (strcmp(argv[1], "create") == 0) {
-        create_verify(parse_args(argc-1, argv+1, Operation::CREATE));
+        CreateParameters par = parse_args(argc-1, argv+1, Operation::CREATE, parser);
+        init(par, seg_size);
+        create_verify(par);
     } else {
         printError(__func__, __LINE__, "Unsupported operation: %s", argv[1]);
     }
+    return 0;
 }
 
