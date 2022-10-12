@@ -29,17 +29,13 @@ char const* usage = R"(
     -z               use zero knowledge (default: false)
 
     CREATE_PARAMETERS (must be given in the exact order):
-    output_proof_file sc_id end_cum_comm_tree_root cert_datahash
+    output_proof_file sc_id end_cum_comm_tree_root prev_cert_datahash
 
     CERT_PAR
     epoch_number quality btr_fee ft_min_amount bt_list_len mc_dest_addr_0 amount_0 mc_dest_addr_1 amount_1 mc_dest_addr_n amount_n custom_fields_list_len custom_field_0 custom_field_1
 
     CSW_PAR
     nullifier mc_address
-
-    Notes: cert_datahash serves different purposes in different contexts.
-    1) when creating a certificate, it represents the datahash of the last certificate, as needed to support keyrotation
-    2) when creating a csw, it represents the datahash of the certificate
 )";
 
 enum class Operation {
@@ -68,7 +64,7 @@ struct CreateParameters : Parameters {
     uint64_t quality                = 0;
     field_t* constant               = nullptr;
     field_t* end_cum_comm_tree_root = nullptr;
-    field_t* cert_datahash          = nullptr;
+    field_t* prev_cert_datahash          = nullptr;
     uint64_t btr_fee                = 0;
     uint64_t ft_min_amount          = 0;
     uint64_t amount                 = 0;
@@ -144,7 +140,7 @@ void printError(char const* func, uint32_t line, Parameters const* pars, char co
                             cpars->quality,
                             cpars->constant,
                             cpars->end_cum_comm_tree_root,
-                            cpars->cert_datahash,
+                            cpars->prev_cert_datahash,
                             cpars->btr_fee,
                             cpars->ft_min_amount,
                             cpars->amount,
@@ -193,7 +189,7 @@ TestCircuitType get_circuit_type(std::string const& circ_raw, bool constant) {
         return constant ? TestCircuitType::CSW : TestCircuitType::CSWNoConstant;
     }
 
-    printError(__func__, __LINE__, "Unknown circuit: %s", circ_raw);
+    printError(__func__, __LINE__, "Unknown circuit: %s", circ_raw.c_str());
     return TestCircuitType::Undefined;
 }
 
@@ -210,7 +206,9 @@ void parse_field(char const* argv, field_t*& res) {
         printError(__func__, __LINE__, "Cannot parse as hex: %s", argv);
     }
     std::vector<unsigned char> temp = ParseHex(argv);
-    assert(temp.size() == 32);
+    if (temp.size() != 32) {
+        printError(__func__, __LINE__, "Unexpected size [%lu] for deserialized field element: %s", temp.size(), argv);
+    }
     res = zendoo_deserialize_field(temp.data(), &ret_code);
     if (res == nullptr || ret_code != CctpErrorCode::OK) {
         printError(__func__, __LINE__, "Failed deserializing field element: %s", argv);
@@ -276,17 +274,19 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
         assert(optind < argc);
         parse_field(argv[optind++], res.end_cum_comm_tree_root);
 
-        // cert_datahash
+        // prev_cert_datahash
         assert(optind < argc);
         if (strcmp(argv[optind], "NO_PREV_CERT_HASH") == 0) { // for cert
-            res.cert_datahash = nullptr;
+            res.prev_cert_datahash = nullptr;
         } else if (strcmp(argv[optind], "NO_CERT_DATA_HASH") == 0) { //for CSW
-            res.cert_datahash = nullptr;
+            res.prev_cert_datahash = nullptr;
         } else if (strcmp(argv[optind], "PHANTOM_PREV_CERT_HASH") == 0) {
-            res.cert_datahash = zendoo_get_phantom_cert_data_hash();
-            assert(res.cert_datahash != nullptr);
+            res.prev_cert_datahash = zendoo_get_phantom_cert_data_hash();
+            if (res.prev_cert_datahash == nullptr) {
+                printError(__func__, __LINE__, "Phantom cert hash resulted in nullptr!");
+            }
         } else {
-            parse_field(argv[optind], res.cert_datahash);
+            parse_field(argv[optind], res.prev_cert_datahash);
         }
         optind++;
 
@@ -322,7 +322,6 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
                 memcpy(&bt.pk_dest, vchData.data(), 20);
 
                 uint64_t amount = strtoull(argv[optind++], nullptr, 0);
-                assert(amount >= 0);
                 bt.amount = amount;
             }
         
@@ -333,13 +332,11 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
             for (uint32_t i = 0; i < custom_fields_list_length; ++i) {
                 field_t*& field = res.custom_fields_list[i];
                 parse_field(argv[optind++], field);
-                assert(field != nullptr);
             }
         }
         else if (res.circ == TestCircuitType::CSW ||
                  res.circ == TestCircuitType::CSWNoConstant) {
             res.amount = strtoull(argv[optind++], nullptr, 0);
-            assert(res.amount >= 0);
 
             // nullifier 
             assert(optind < argc);
@@ -353,6 +350,9 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
             memcpy(buf, vchData.data(), 20);
             res.mc_pk_hash = BufferWithSize(buf, 20);
         }
+    }
+    if (optind < argc) {
+        printError(__func__, __LINE__, "More parameters than expected are available");
     }
     return res;
 }
@@ -384,8 +384,6 @@ void generate(Parameters const& pars) {
 }
 
 void create_verify_test_cert_proof(CreateParameters const& pars) {
-    assert(pars.proof_path);
-
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
     // Deserialize pk
@@ -467,7 +465,7 @@ void create_verify_test_cert_proof(CreateParameters const& pars) {
             pars.ft_min_amount,
             proof,
             vk,
-            pars.cert_datahash,
+            pars.prev_cert_datahash,
             &ret_code
         );
         if (!res || ret_code != CctpErrorCode::OK) {
@@ -490,7 +488,7 @@ void create_verify_test_cert_proof(CreateParameters const& pars) {
             pars.ft_min_amount,
             proof,
             vk,
-            pars.cert_datahash,
+            pars.prev_cert_datahash,
             &ret_code
         );
         if (res || ret_code != CctpErrorCode::OK) {
@@ -505,7 +503,7 @@ void create_verify_test_cert_proof(CreateParameters const& pars) {
     zendoo_field_free(pars.constant);
     zendoo_field_free(pars.scid);
     zendoo_field_free(pars.end_cum_comm_tree_root);
-    zendoo_field_free(pars.cert_datahash);
+    zendoo_field_free(pars.prev_cert_datahash);
 
     for (field_t* f: pars.custom_fields_list) {
         zendoo_field_free(f);
@@ -513,8 +511,6 @@ void create_verify_test_cert_proof(CreateParameters const& pars) {
 }
 
 void create_verify_test_csw_proof(CreateParameters const& pars) {
-    assert(pars.proof_path);
-
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
     // Deserialize pk
@@ -537,7 +533,7 @@ void create_verify_test_csw_proof(CreateParameters const& pars) {
         pars.scid,
         pars.nullifier,
         &pars.mc_pk_hash,
-        pars.cert_datahash,
+        pars.prev_cert_datahash,
         pars.end_cum_comm_tree_root,
         pk,
         (path_char_t*)pars.proof_path,
@@ -583,7 +579,7 @@ void create_verify_test_csw_proof(CreateParameters const& pars) {
             pars.scid,
             pars.nullifier,
             &pars.mc_pk_hash,
-            pars.cert_datahash,
+            pars.prev_cert_datahash,
             pars.end_cum_comm_tree_root,
             proof,
             vk,
@@ -601,7 +597,7 @@ void create_verify_test_csw_proof(CreateParameters const& pars) {
             pars.scid,
             pars.nullifier,
             &pars.mc_pk_hash,
-            pars.cert_datahash,
+            pars.prev_cert_datahash,
             pars.end_cum_comm_tree_root,
             proof,
             vk,
@@ -619,7 +615,7 @@ void create_verify_test_csw_proof(CreateParameters const& pars) {
     zendoo_field_free(pars.constant);
     zendoo_field_free(pars.scid);
     zendoo_field_free(pars.nullifier);
-    zendoo_field_free(pars.cert_datahash);
+    zendoo_field_free(pars.prev_cert_datahash);
     zendoo_field_free(pars.end_cum_comm_tree_root);
     free((void*)pars.mc_pk_hash.data);
 }
