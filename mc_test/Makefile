@@ -54,6 +54,9 @@ $(MCTEST_LIB): $(MCTEST_OBJ)
 mcTestLib: $(MCTEST_LIB)
 
 .PHONY: build
+mcTestLib: $(MCTEST_LIB)
+
+.PHONY: build
 build: libs $(MCTEST_LIB) ./mcTest
 
 ./mcTest: $(CXX_FILE) $(INCLUDE_FILES) $(MCTEST_LIB)
@@ -72,7 +75,4 @@ test-csw: build
 	python3 ./callFromMTFExample.py -t csw
 
 .PHONY: test
-test: build
-	test-cert
-	test-cert-keyrot
-	test-csw
+test: build test-cert test-cert-keyrot test-csw
