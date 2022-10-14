@@ -10,7 +10,7 @@ use cctp_primitives::{
     utils::{data_structures::BackwardTransfer, get_cert_data_hash},
 };
 use proof_systems::darlin::data_structures::{FinalDarlinDeferredData, FinalDarlinProof};
-use r1cs_core::{ConstraintSynthesizer, ConstraintSystem, SynthesisError};
+use r1cs_core::{ConstraintSynthesizer, ConstraintSystemAbstract, SynthesisError};
 use r1cs_std::{
     alloc::AllocGadget, bits::boolean::Boolean, eq::EqGadget, instantiated::tweedle::FrGadget,
 };
@@ -18,7 +18,7 @@ use rand::rngs::OsRng;
 
 type FieldElementGadget = FrGadget;
 
-fn enforce_cert_inputs_gadget<CS: ConstraintSystem<FieldElement>>(
+fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
     mut cs: CS,
     constant_present: bool,
     constant: Option<FieldElement>,
@@ -86,7 +86,7 @@ pub struct CertTestCircuit {
 }
 
 impl ConstraintSynthesizer<FieldElement> for CertTestCircuit {
-    fn generate_constraints<CS: ConstraintSystem<FieldElement>>(
+    fn generate_constraints<CS: ConstraintSystemAbstract<FieldElement>>(
         self,
         cs: &mut CS,
     ) -> Result<(), SynthesisError> {
@@ -111,7 +111,7 @@ pub struct CertTestCircuitWithAccumulators {
 }
 
 impl ConstraintSynthesizer<FieldElement> for CertTestCircuitWithAccumulators {
-    fn generate_constraints<CS: ConstraintSystem<FieldElement>>(
+    fn generate_constraints<CS: ConstraintSystemAbstract<FieldElement>>(
         self,
         cs: &mut CS,
     ) -> Result<(), SynthesisError> {
@@ -171,26 +171,28 @@ pub fn generate_parameters(
     ps: ProvingSystem,
     num_constraints: u32,
     with_constant: bool,
+    segment_size: Option<u32>,
 ) -> Result<(ZendooProverKey, ZendooVerifierKey), ProvingSystemError> {
-    let ck_g1 = get_g1_committer_key()?;
+    let supported_degree = segment_size.map(|ss| (ss - 1) as usize);
+    let ck_g1 = get_g1_committer_key(supported_degree)?;
     match ps {
         ProvingSystem::Undefined => Err(ProvingSystemError::UndefinedProvingSystem),
         ProvingSystem::Darlin => {
-            let ck_g2 = get_g2_committer_key()?;
+            let ck_g2 = get_g2_committer_key(supported_degree)?;
             let circ = CertTestCircuitWithAccumulators {
                 constant_present: with_constant,
                 constant: None,
                 cert_data_hash: None,
                 deferred: FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
                     &mut rand::thread_rng(),
-                    ck_g1.as_ref().unwrap(),
-                    ck_g2.as_ref().unwrap(),
+                    &ck_g1,
+                    &ck_g2,
                 )
                 .to_field_elements()
                 .unwrap(),
                 num_constraints,
             };
-            let (pk, vk) = CoboundaryMarlin::index(ck_g1.as_ref().unwrap(), circ)
+            let (pk, vk) = CoboundaryMarlin::index(&ck_g1, circ)
                 .map_err(|e| ProvingSystemError::SetupFailed(e.to_string()))?;
             Ok((ZendooProverKey::Darlin(pk), ZendooVerifierKey::Darlin(vk)))
         }
@@ -201,7 +203,7 @@ pub fn generate_parameters(
                 cert_data_hash: None,
                 num_constraints,
             };
-            let (pk, vk) = CoboundaryMarlin::index(ck_g1.as_ref().unwrap(), circ)
+            let (pk, vk) = CoboundaryMarlin::index(&ck_g1, circ)
                 .map_err(|e| ProvingSystemError::SetupFailed(e.to_string()))?;
             Ok((
                 ZendooProverKey::CoboundaryMarlin(pk),
@@ -224,9 +226,11 @@ pub fn generate_proof(
     btr_fee: u64,
     ft_min_amount: u64,
     num_constraints: u32,
+    segment_size: Option<u32>,
 ) -> Result<ZendooProof, ProvingSystemError> {
+    let supported_degree = segment_size.map(|ss| (ss - 1) as usize);
     let rng = &mut OsRng;
-    let ck_g1 = get_g1_committer_key()?;
+    let ck_g1 = get_g1_committer_key(supported_degree)?;
 
     // Read input param into field elements
     let cert_data_hash = get_cert_data_hash(
@@ -243,11 +247,11 @@ pub fn generate_proof(
 
     match pk {
         ZendooProverKey::Darlin(pk) => {
-            let ck_g2 = get_g2_committer_key()?;
+            let ck_g2 = get_g2_committer_key(supported_degree)?;
             let deferred = FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
                 rng,
-                ck_g1.as_ref().unwrap(),
-                ck_g2.as_ref().unwrap(),
+                &ck_g1,
+                &ck_g2,
             );
             let deferred_fes = deferred.to_field_elements().unwrap();
             let circ = CertTestCircuitWithAccumulators {
@@ -263,7 +267,7 @@ pub fn generate_proof(
             };
             let proof = CoboundaryMarlin::prove(
                 pk,
-                ck_g1.as_ref().unwrap(),
+                &ck_g1,
                 circ,
                 zk,
                 if zk { Some(rng) } else { None },
@@ -288,7 +292,7 @@ pub fn generate_proof(
             };
             let proof = CoboundaryMarlin::prove(
                 pk,
-                ck_g1.as_ref().unwrap(),
+                &ck_g1,
                 circ,
                 zk,
                 if zk { Some(rng) } else { None },

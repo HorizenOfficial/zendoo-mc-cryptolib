@@ -536,7 +536,6 @@ pub extern "C" fn zendoo_print_field(field: *const FieldElement) {
 
 fn _zendoo_init_dlog_keys(
     max_segment_size: usize,
-    supported_segment_size: usize,
     ret_code: &mut CctpErrorCode,
 ) -> bool {
     *ret_code = CctpErrorCode::OK;
@@ -544,7 +543,6 @@ fn _zendoo_init_dlog_keys(
     match init_dlog_keys(
         ProvingSystem::Darlin,
         max_segment_size,
-        supported_segment_size,
     ) {
         Ok(()) => true,
         Err(e) => {
@@ -573,17 +571,7 @@ pub extern "C" fn zendoo_get_proving_system_type(
 #[no_mangle]
 pub extern "C" fn zendoo_init_dlog_keys(segment_size: usize, ret_code: &mut CctpErrorCode) -> bool {
     // Get DLOG keys
-    _zendoo_init_dlog_keys(segment_size, segment_size, ret_code)
-}
-
-#[no_mangle]
-pub extern "C" fn zendoo_init_dlog_keys_test_mode(
-    max_segment_size: usize,
-    supported_segment_size: usize,
-    ret_code: &mut CctpErrorCode,
-) -> bool {
-    // Get DLOG keys
-    _zendoo_init_dlog_keys(max_segment_size, supported_segment_size, ret_code)
+    _zendoo_init_dlog_keys(segment_size, ret_code)
 }
 
 #[no_mangle]
@@ -1999,6 +1987,7 @@ fn _zendoo_generate_mc_test_params(
     ret_code: &mut CctpErrorCode,
     compress_vk: bool,
     compress_pk: bool,
+    segment_size: Option<u32>
 ) -> bool {
     let mut params_path = "".to_owned();
 
@@ -2016,19 +2005,19 @@ fn _zendoo_generate_mc_test_params(
     let params = match circ_type {
         TestCircuitType::Certificate => {
             params_path.push_str("cert_");
-            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints, true)
+            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints, true, segment_size)
         }
         TestCircuitType::CertificateNoConstant => {
             params_path.push_str("cert_no_const_");
-            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints, false)
+            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints, false, segment_size)
         }
         TestCircuitType::CSW => {
             params_path.push_str("csw_");
-            mc_test_circuits::csw::generate_parameters(ps_type, num_constraints, true)
+            mc_test_circuits::csw::generate_parameters(ps_type, num_constraints, true, segment_size)
         }
         TestCircuitType::CSWNoConstant => {
             params_path.push_str("csw_no_const_");
-            mc_test_circuits::csw::generate_parameters(ps_type, num_constraints, false)
+            mc_test_circuits::csw::generate_parameters(ps_type, num_constraints, false, segment_size)
         }
     };
 
@@ -2089,11 +2078,19 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     ret_code: &mut CctpErrorCode,
     compress_vk: bool,
     compress_pk: bool,
+    segment_size: *const u32,
 ) -> bool {
     // Read params_dir
     let path_str =
         OsString::from_wide(unsafe { slice::from_raw_parts(params_dir, params_dir_len) });
     let params_dir = Path::new(&path_str);
+
+    // Get the segment_size (if not null)
+    let segment_size: Option<u32> = if segment_size.is_null() {
+        None
+    } else {
+        Some(*try_read_raw_pointer!("segment_size", segment_size, ret_code, false))
+    };
 
     _zendoo_generate_mc_test_params(
         circ_type,
@@ -2103,6 +2100,7 @@ pub extern "C" fn zendoo_generate_mc_test_params(
         ret_code,
         compress_vk,
         compress_pk,
+        segment_size
     )
 }
 
@@ -2117,7 +2115,15 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     ret_code: &mut CctpErrorCode,
     compress_vk: bool,
     compress_pk: bool,
+    segment_size: *const u32,
 ) -> bool {
+    // Get the segment_size (if not null)
+    let segment_size: Option<u32> = if segment_size.is_null() {
+        None
+    } else {
+        Some(*try_read_raw_pointer!("segment_size", segment_size, ret_code, false))
+    };
+
     let params_dir = parse_path(params_dir, params_dir_len);
     _zendoo_generate_mc_test_params(
         circ_type,
@@ -2127,6 +2133,7 @@ pub extern "C" fn zendoo_generate_mc_test_params(
         ret_code,
         compress_vk,
         compress_pk,
+        segment_size
     )
 }
 
@@ -2146,6 +2153,7 @@ fn _zendoo_create_cert_test_proof(
     ft_min_amount: u64,
     sc_pk: *const ZendooProverKey,
     num_constraints: u32,
+    segment_size: *const u32,
     ret_code: &mut CctpErrorCode,
 ) -> Result<ZendooProof, ProvingSystemError> {
     // Read bt_list
@@ -2192,6 +2200,13 @@ fn _zendoo_create_cert_test_proof(
         Err(ProvingSystemError::Other("".to_owned()))
     );
 
+    // Read segment_size (if not null)
+    let rs_segment_size: Option<u32> = if segment_size.is_null() {
+        None
+    } else {
+        Some(*try_read_raw_pointer!("segment_size", segment_size, ret_code, Err(ProvingSystemError::Other("".to_owned()))))
+    };
+
     // Create proof
     mc_test_circuits::cert::generate_proof(
         rs_pk,
@@ -2206,6 +2221,7 @@ fn _zendoo_create_cert_test_proof(
         btr_fee,
         ft_min_amount,
         num_constraints,
+        rs_segment_size
     )
 }
 
@@ -2230,6 +2246,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
     num_constraints: u32,
     ret_code: &mut CctpErrorCode,
     compressed: bool,
+    segment_size: *const u32
 ) -> bool {
     match _zendoo_create_cert_test_proof(
         zk,
@@ -2246,6 +2263,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
         ft_min_amount,
         sc_pk,
         num_constraints,
+        segment_size,
         ret_code,
     ) {
         Ok(proof) => {
@@ -2296,6 +2314,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
     num_constraints: u32,
     ret_code: &mut CctpErrorCode,
     compressed: bool,
+    segment_size: *const u32,
 ) -> bool {
     match _zendoo_create_cert_test_proof(
         zk,
@@ -2312,6 +2331,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
         ft_min_amount,
         sc_pk,
         num_constraints,
+        segment_size,
         ret_code,
     ) {
         Ok(proof) => {
@@ -2355,6 +2375,7 @@ fn _zendoo_create_csw_test_proof(
     end_cum_comm_tree_root: *const FieldElement,
     sc_pk: *const ZendooProverKey,
     num_constraints: u32,
+    segment_size: *const u32,
     ret_code: &mut CctpErrorCode,
 ) -> Result<ZendooProof, ProvingSystemError> {
     let rs_constant = try_read_optional_raw_pointer!(
@@ -2402,6 +2423,13 @@ fn _zendoo_create_csw_test_proof(
         Err(ProvingSystemError::Other("".to_owned()))
     );
 
+    // Read segment_size (if not null)
+    let rs_segment_size: Option<u32> = if segment_size.is_null() {
+        None
+    } else {
+        Some(*try_read_raw_pointer!("segment_size", segment_size, ret_code, Err(ProvingSystemError::Other("".to_owned()))))
+    };
+
     // Create proof
     mc_test_circuits::csw::generate_proof(
         rs_pk,
@@ -2418,6 +2446,7 @@ fn _zendoo_create_csw_test_proof(
         },
         rs_end_cum_comm_tree_root,
         num_constraints,
+        rs_segment_size,
     )
 }
 
@@ -2438,6 +2467,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
     num_constraints: u32,
     ret_code: &mut CctpErrorCode,
     compressed: bool,
+    segment_size: *const u32,
 ) -> bool {
     match _zendoo_create_csw_test_proof(
         zk,
@@ -2450,6 +2480,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
         end_cum_comm_tree_root,
         sc_pk,
         num_constraints,
+        segment_size,
         ret_code,
     ) {
         Ok(proof) => {
@@ -2496,6 +2527,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
     num_constraints: u32,
     ret_code: &mut CctpErrorCode,
     compressed: bool,
+    segment_size: *const u32,
 ) -> bool {
     match _zendoo_create_csw_test_proof(
         zk,
@@ -2508,6 +2540,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
         end_cum_comm_tree_root,
         sc_pk,
         num_constraints,
+        segment_size,
         ret_code,
     ) {
         Ok(proof) => {
@@ -2558,6 +2591,7 @@ pub extern "C" fn zendoo_create_return_cert_test_proof(
     num_constraints: u32,
     ret_code: &mut CctpErrorCode,
     compressed: bool,
+    segment_size: *const u32,
 ) -> *mut BufferWithSize {
     match _zendoo_create_cert_test_proof(
         zk,
@@ -2574,6 +2608,7 @@ pub extern "C" fn zendoo_create_return_cert_test_proof(
         ft_min_amount,
         sc_pk,
         num_constraints,
+        segment_size,
         ret_code,
     ) {
         Ok(sc_proof) => match serialize_to_buffer(&sc_proof, Some(compressed)) {
@@ -2614,6 +2649,7 @@ pub extern "C" fn zendoo_create_return_csw_test_proof(
     num_constraints: u32,
     ret_code: &mut CctpErrorCode,
     compressed: bool,
+    segment_size: *const u32,
 ) -> *mut BufferWithSize {
     match _zendoo_create_csw_test_proof(
         zk,
@@ -2626,6 +2662,7 @@ pub extern "C" fn zendoo_create_return_csw_test_proof(
         end_cum_comm_tree_root,
         sc_pk,
         num_constraints,
+        segment_size,
         ret_code,
     ) {
         Ok(sc_proof) => match serialize_to_buffer(&sc_proof, Some(compressed)) {
