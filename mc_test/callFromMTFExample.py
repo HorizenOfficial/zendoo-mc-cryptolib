@@ -1,8 +1,8 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from itertools import chain
 import subprocess
-import os.path, os, binascii
+import os.path, os
 import random
 
 NUM_CONSTRAINTS = 1 << 10
@@ -36,9 +36,9 @@ def cert_proof_test(proof_path, params_dir, ps_type, bt_num, cf_num, zk, with_co
     btr_fee = random.randint(0, 1000)
     ft_min_amount = random.randint(0, 5000)
     end_cum_comm_tree_root = generate_random_field_element_hex()
-    pks = [binascii.b2a_hex(os.urandom(MC_PK_HASH_SIZE)) for i in xrange(bt_num)]
-    amounts = [random.randint(0, 100) for i in xrange(bt_num)]
-    custom_fields = [generate_random_field_element_hex() for i in xrange(cf_num)]
+    pks = [os.urandom(MC_PK_HASH_SIZE).hex() for i in range(bt_num)]
+    amounts = [random.randint(0, 100) for i in range(bt_num)]
+    custom_fields = [generate_random_field_element_hex() for i in range(cf_num)]
 
     # Generate and verify proof
     circ_type = "cert"
@@ -91,7 +91,7 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
     amount = random.randint(0, 1000)
     sc_id = generate_random_field_element_hex()
     nullifier = generate_random_field_element_hex()
-    mc_pk_hash = binascii.b2a_hex(os.urandom(MC_PK_HASH_SIZE))
+    mc_pk_hash = os.urandom(MC_PK_HASH_SIZE).hex()
     end_cum_comm_tree_root = generate_random_field_element_hex()
 
     # Generate and verify proof
@@ -129,7 +129,7 @@ def csw_proof_test(proof_path, params_dir, ps_type, zk, cert_data_hash_present, 
 
 
 def generate_random_field_element_hex():
-    return (binascii.b2a_hex(os.urandom(FIELD_SIZE - 1)) + "00")
+    return (os.urandom(FIELD_SIZE - 1).hex() + "00")
 
 if __name__ == "__main__":
 
