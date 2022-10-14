@@ -1,4 +1,4 @@
-EXECUTABLES = g++ cargo python2
+EXECUTABLES = g++ cargo python3
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell PATH=$(PATH) command -v $(exec)),,$(error "No $(exec) in PATH")))
 CXX ?= g++
@@ -45,4 +45,4 @@ build: libs ./mcTest
 
 .PHONY: test
 test: build
-	python2 ./callFromMTFExample.py
+	python3 ./callFromMTFExample.py

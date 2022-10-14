@@ -13,7 +13,7 @@ use crate::{
     zendoo_deserialize_sc_proof, zendoo_deserialize_sc_vk_from_file, zendoo_field_free,
     zendoo_free_batch_proof_verifier_result, zendoo_generate_mc_test_params,
     zendoo_get_random_field, zendoo_init_dlog_keys, zendoo_sc_pk_free, zendoo_sc_proof_free,
-    zendoo_sc_vk_free, TestCircuitType,
+    zendoo_sc_vk_free, TestCircuitType, zendoo_verify_certificate_proof
 };
 
 #[cfg(feature = "mc-test-circuit")]
@@ -168,6 +168,7 @@ fn serialization_deserialization_bench_vk_proof() {
             num_constraints,
             true,
             None,
+            false,
         )
         .unwrap();
 
@@ -185,6 +186,7 @@ fn serialization_deserialization_bench_vk_proof() {
             0,
             0,
             num_constraints,
+            None,
             None,
         )
         .unwrap();
@@ -253,6 +255,152 @@ fn serialization_deserialization_bench_vk_proof() {
 
 #[cfg(feature = "mc-test-circuit")]
 #[test]
+fn prev_sc_cert_hash_support() {
+    let segment_size = 1 << 17;
+
+    // Init DLOG keys
+    println!("Setup DLOG keys...");
+    assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
+
+    let num_constraints = 1 << 16;
+
+    println!(
+        "Generating cert proof with {} constraints...",
+        num_constraints
+    );
+
+    std::fs::create_dir_all("./src/tests/keyrot").unwrap();
+
+    // Generate SNARK keys
+    println!("Generate SNARK pk and vk...");
+    assert!(zendoo_generate_mc_test_params(
+        TestCircuitType::Certificate,
+        ProvingSystem::Darlin,
+        num_constraints,
+        true, // use prev_cert_hash
+        path_as_ptr("./src/tests/keyrot"),
+        18,
+        &mut CctpErrorCode::OK,
+        true,
+        true,
+        std::ptr::null()
+    ));
+
+    // Create test proof
+    let sc_id = zendoo_get_random_field();
+    assert!(sc_id != null_mut());
+
+    let constant = zendoo_get_random_field();
+    assert!(constant != null_mut());
+
+    let end_cum_comm_tree_root = zendoo_get_random_field();
+    assert!(end_cum_comm_tree_root != null_mut());
+
+    let pk = zendoo_deserialize_sc_pk_from_file(
+        path_as_ptr("./src/tests/keyrot/darlin_cert_test_pk"),
+        38,
+        false,
+        &mut CctpErrorCode::OK,
+        true,
+    );
+    assert!(pk != null_mut());
+
+    println!("Generate proof...");
+    let random_field_proof = zendoo_get_random_field();
+    let proof_buff = zendoo_create_return_cert_test_proof(
+        true,
+        constant,
+        sc_id,
+        0,
+        10,
+        null(),
+        0,
+        null(),
+        0,
+        end_cum_comm_tree_root,
+        0,
+        0,
+        pk,
+        num_constraints,
+        random_field_proof,
+        &mut CctpErrorCode::OK,
+        true,
+        std::ptr::null()
+    );
+    assert!(proof_buff != null_mut());
+
+    let proof =
+        zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK, true);
+    assert!(proof != null_mut());
+
+    let vk = zendoo_deserialize_sc_vk_from_file(
+        path_as_ptr("./src/tests/keyrot/darlin_cert_test_vk"),
+        38,
+        false,
+        &mut CctpErrorCode::OK,
+        true,
+    );
+    assert!(vk != null_mut());
+
+    println!("Verifying proof...");
+    assert!(zendoo_verify_certificate_proof(
+        constant,
+        sc_id,
+        0,
+        10,
+        null(),
+        0,
+        null(),
+        0,
+        end_cum_comm_tree_root,
+        0,
+        0,
+        proof,
+        vk,
+        random_field_proof,
+        &mut CctpErrorCode::OK
+    ));
+
+    println!("Assert failure with wrong key...");
+    let random_field_wrong = zendoo_get_random_field();
+    assert!(!zendoo_verify_certificate_proof(
+        constant,
+        sc_id,
+        0,
+        10,
+        null(),
+        0,
+        null(),
+        0,
+        end_cum_comm_tree_root,
+        0,
+        0,
+        proof,
+        vk,
+        random_field_wrong,
+        &mut CctpErrorCode::OK
+    ));
+
+    // Free memory
+    println!("Cleaning up...");
+    zendoo_field_free(constant);
+    zendoo_field_free(sc_id);
+    zendoo_field_free(end_cum_comm_tree_root);
+    zendoo_sc_pk_free(pk);
+    zendoo_free_bws(proof_buff);
+    zendoo_sc_proof_free(proof);
+    zendoo_sc_vk_free(vk);
+    zendoo_field_free(random_field_proof);
+    zendoo_field_free(random_field_wrong);
+
+    println!("Cleaning up...");
+    std::fs::remove_file("./src/tests/keyrot/darlin_cert_test_pk").unwrap();
+    std::fs::remove_file("./src/tests/keyrot/darlin_cert_test_vk").unwrap();
+    std::fs::remove_dir("./src/tests/keyrot").unwrap();
+}
+
+#[cfg(feature = "mc-test-circuit")]
+#[test]
 fn zendoo_batch_verifier_multiple_threads_with_priority() {
     let segment_size = 1 << 17;
     let num_proofs = 100;
@@ -281,6 +429,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 TestCircuitType::Certificate,
                 ProvingSystem::Darlin,
                 num_constraints,
+                false,
                 path_as_ptr("./src/tests"),
                 11,
                 &mut CctpErrorCode::OK,
@@ -324,6 +473,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 0,
                 pk,
                 num_constraints,
+                null(),
                 &mut CctpErrorCode::OK,
                 true,
                 std::ptr::null()
@@ -361,6 +511,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                     0,
                     proof,
                     vk,
+                    null(),
                     &mut CctpErrorCode::OK
                 ));
             }
@@ -392,6 +543,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 TestCircuitType::CSW,
                 ProvingSystem::Darlin,
                 num_constraints,
+                false,
                 path_as_ptr("./src/tests"),
                 11,
                 &mut CctpErrorCode::OK,
