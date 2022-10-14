@@ -50,6 +50,9 @@ $(MCTEST_OBJ): $(MCTEST_LIB_SOURCES) $(INCLUDE_FILES)
 $(MCTEST_LIB): $(MCTEST_OBJ)
 	$(AR) rcs $@ $+
 
+.PHONY: mcTestLib
+mcTestLib: $(MCTEST_LIB)
+
 .PHONY: build
 build: libs $(MCTEST_LIB) ./mcTest
 

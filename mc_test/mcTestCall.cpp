@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <cstring>
 #include <sstream>
+#include <cinttypes>
 
 char const* usage = R"(
     OPERATION [OPTIONS...] params_directory [CREATE_PARAMETERS... (CERT_PAR/CSW_PAR)]
@@ -125,16 +126,16 @@ void printError(char const* func, uint32_t line, Parameters const* pars, char co
                             "\nzk                     = %s"
                             "\nscid                   = %p"
                             "\nepoch_number           = %u"
-                            "\nquality                = %lu"
+                            "\nquality                = %" PRIu64
                             "\nconstant               = %p"
                             "\nend_cum_comm_tree_root = %p"
                             "\ncert_datahash          = %p"
-                            "\nbtr_fee                = %lu"
-                            "\nft_min_amount          = %lu"
-                            "\namount                 = %lu"
+                            "\nbtr_fee                = %" PRIu64
+                            "\nft_min_amount          = %" PRIu64
+                            "\namount                 = %" PRIu64
                             "\nnullifier              = %p"
-                            "\nbt_list size           = %lu"
-                            "\ncustom_fields_list size= %lu"
+                            "\nbt_list size           = %" PRIu64
+                            "\ncustom_fields_list size= %" PRIu64
                             "\n\n",
                             cpars->verify ? "true" : "false",
                             cpars->zk ? "true" : "false",
@@ -373,7 +374,10 @@ void generate(Parameters const& pars) {
                                         pars.keyrot,
                                         (path_char_t const*)pars.params_dir,
                                         strlen(pars.params_dir),
-                                        &ret_code);
+                                        &ret_code,
+                                        true,
+                                        true,
+                                        &pars.segment_size);
     if (!res || ret_code != CctpErrorCode::OK) {
         printError(__func__, __LINE__, &pars, "Failed generating mc_test_params. Error code %d", ret_code);
     }
@@ -415,7 +419,9 @@ void create_verify_test_cert_proof(CreateParameters const& pars) {
         strlen(pars.proof_path),
         pars.num_constraints,
         pars.cert_datahash,
-        &ret_code
+        &ret_code,
+        true,
+        &pars.segment_size
     );
     if (!res || ret_code != CctpErrorCode::OK) {
         printError(__func__, __LINE__, &pars, "Failed creating cert test proof. Error code %d", ret_code);
@@ -537,7 +543,9 @@ void create_verify_test_csw_proof(CreateParameters const& pars) {
         (path_char_t*)pars.proof_path,
         strlen(pars.proof_path),
         pars.num_constraints,
-        &ret_code
+        &ret_code,
+        true,
+        &pars.segment_size
     );
     if (!res || ret_code != CctpErrorCode::OK) {
         printError(__func__, __LINE__, &pars, "Failed verifying csw test proof. Error code %d", ret_code);
