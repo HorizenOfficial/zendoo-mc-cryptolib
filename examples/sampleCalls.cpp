@@ -1358,7 +1358,8 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         std::string pk_path,
         std::string vk_path,
         bool constant_present,
-        bool wrong_params
+        bool wrong_params,
+        bool prev_hash_present
     ) {
         CctpErrorCode ret_code = CctpErrorCode::OK;
 
@@ -1384,6 +1385,8 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(sc_pk != NULL);
         CHECK(ret_code == CctpErrorCode::OK);
 
+        field_t* prev_hash = prev_hash_present ? zendoo_get_field_from_long(7) : nullptr;
+
         // Create proof
         auto proof_path = params_dir + std::string("/test_proof");
         CHECK(
@@ -1391,7 +1394,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                 false, constant, sc_id, epoch_number, quality, NULL, 0,
                 NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_pk,
                 (path_char_t*)proof_path.c_str(), proof_path.size(), NUM_CONSTRAINTS,
-                NULL, &ret_code, true, &SUPPORTED_SEGMENT_SIZE
+                prev_hash, &ret_code, true, &SUPPORTED_SEGMENT_SIZE
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -1423,7 +1426,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         CHECK(
             batch_verifier->add_certificate_proof(
                 proof_id, constant, sc_id, epoch_number, quality, NULL, 0,
-                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_proof, sc_vk, NULL, &ret_code
+                NULL, 0, end_cum_comm_tree_root, btr_fee, ft_min_amount, sc_proof, sc_vk, prev_hash, &ret_code
             ) == true
         );
         CHECK(ret_code == CctpErrorCode::OK);
@@ -1619,6 +1622,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                         pk_path + std::string("/darlin_cert_test_pk"),
                         vk_path + std::string("/darlin_cert_test_vk"),
                         true,
+                        false,
                         false
                     );
                     break;
@@ -1628,6 +1632,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                         i,
                         pk_path + std::string("/darlin_cert_no_const_test_pk"),
                         vk_path + std::string("/darlin_cert_no_const_test_vk"),
+                        false,
                         false,
                         false
                     );
@@ -1659,6 +1664,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                         pk_path + std::string("/cob_marlin_cert_test_pk"),
                         vk_path + std::string("/cob_marlin_cert_test_vk"),
                         true,
+                        false,
                         false
                     );
                     break;
@@ -1668,6 +1674,7 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                         i,
                         pk_path + std::string("/cob_marlin_cert_no_const_test_pk"),
                         vk_path + std::string("/cob_marlin_cert_no_const_test_vk"),
+                        false,
                         false,
                         false
                     );
@@ -1703,7 +1710,8 @@ TEST_SUITE("ZendooBatchProofVerifier") {
                 pk_path + std::string("/cob_marlin_cert_test_pk"),
                 vk_path + std::string("/cob_marlin_cert_test_vk"),
                 true,
-                true
+                true,
+                false
             );
         }
 
@@ -1774,6 +1782,214 @@ TEST_SUITE("ZendooBatchProofVerifier") {
         //     CHECK(result_6->failing_proofs[i] == i);
         // }
         // zendoo_free_batch_proof_verifier_result(result_6);
+
+        // Delete files
+        remove((pk_path + std::string("/darlin_csw_test_pk")).c_str());
+        remove((vk_path + std::string("/darlin_csw_test_vk")).c_str());
+        remove((pk_path + std::string("/darlin_csw_no_const_test_pk")).c_str());
+        remove((vk_path + std::string("/darlin_csw_no_const_test_vk")).c_str());
+        remove((pk_path + std::string("/darlin_cert_test_pk")).c_str());
+        remove((vk_path + std::string("/darlin_cert_test_vk")).c_str());
+        remove((pk_path + std::string("/darlin_cert_no_const_test_pk")).c_str());
+        remove((vk_path + std::string("/darlin_cert_no_const_test_vk")).c_str());
+        remove((pk_path + std::string("/cob_marlin_csw_test_pk")).c_str());
+        remove((vk_path + std::string("/cob_marlin_csw_test_vk")).c_str());
+        remove((pk_path + std::string("/cob_marlin_csw_no_const_test_pk")).c_str());
+        remove((vk_path + std::string("/cob_marlin_csw_no_const_test_vk")).c_str());
+        remove((pk_path + std::string("/cob_marlin_cert_test_pk")).c_str());
+        remove((vk_path + std::string("/cob_marlin_cert_test_vk")).c_str());
+        remove((pk_path + std::string("/cob_marlin_cert_no_const_test_pk")).c_str());
+        remove((vk_path + std::string("/cob_marlin_cert_no_const_test_vk")).c_str());
+        // Destructor of ZendooBatchVerifier will be automatically called once
+        // out of scope and the memory Rust-side will be automatically freed.
+    }
+
+    TEST_CASE("ZendooBatchProofVerifierKeyrotTest") {
+        auto batch_verifier = ZendooBatchProofVerifier();
+        static const uint32_t NUM_OF_PROOFS = 8;
+        static const uint32_t NUM_OF_COMBINATIONS = 4;
+
+        CctpErrorCode ret_code = CctpErrorCode::OK;
+
+        // Generate cert test circuit Darlin pk and vk
+        CHECK(
+           zendoo_generate_mc_test_params(
+               TestCircuitType::Certificate,
+               ProvingSystem::Darlin,
+               NUM_CONSTRAINTS,
+               true, // keyrot
+               (path_char_t*)params_dir.c_str(),
+               params_dir_len,
+               &ret_code,
+               true,
+               true,
+               &SUPPORTED_SEGMENT_SIZE
+           ) == true
+        );
+
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Generate cert-no-const test circuit Darlin pk and vk
+        CHECK(
+           zendoo_generate_mc_test_params(
+               TestCircuitType::CertificateNoConstant,
+               ProvingSystem::Darlin,
+               NUM_CONSTRAINTS,
+               true, // keyrot
+               (path_char_t*)params_dir.c_str(),
+               params_dir_len,
+               &ret_code,
+               true,
+               true,
+               &SUPPORTED_SEGMENT_SIZE
+           ) == true
+        );
+
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Generate cert test circuit CobMarlin pk and vk
+        CHECK(
+           zendoo_generate_mc_test_params(
+               TestCircuitType::Certificate,
+               ProvingSystem::CoboundaryMarlin,
+               NUM_CONSTRAINTS,
+               true, // keyrot
+               (path_char_t*)params_dir.c_str(),
+               params_dir_len,
+               &ret_code,
+               true,
+               true,
+               &SUPPORTED_SEGMENT_SIZE
+           ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // Generate cert-no-const test circuit CobMarlin pk and vk
+        CHECK(
+           zendoo_generate_mc_test_params(
+               TestCircuitType::CertificateNoConstant,
+               ProvingSystem::CoboundaryMarlin,
+               NUM_CONSTRAINTS,
+               true, // keyrot
+               (path_char_t*)params_dir.c_str(),
+               params_dir_len,
+               &ret_code,
+               true,
+               true,
+               &SUPPORTED_SEGMENT_SIZE
+           ) == true
+        );
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        std::string pk_path = params_dir;
+        std::string vk_path = params_dir;
+
+        for(uint32_t i = 0; i < NUM_OF_PROOFS; i++) {
+            int comb = i % NUM_OF_COMBINATIONS;
+
+            switch (comb) {
+                case 0: // Darlin - Cert
+                    add_random_cert_proof(
+                        &batch_verifier,
+                        i,
+                        pk_path + std::string("/darlin_cert_test_pk"),
+                        vk_path + std::string("/darlin_cert_test_vk"),
+                        true,
+                        false,
+                        true
+                    );
+                    break;
+                case 1: // Darlin - CertNoConst
+                    add_random_cert_proof(
+                        &batch_verifier,
+                        i,
+                        pk_path + std::string("/darlin_cert_no_const_test_pk"),
+                        vk_path + std::string("/darlin_cert_no_const_test_vk"),
+                        false,
+                        false,
+                        true
+                    );
+                    break;
+                case 2: // CobMarlin - cert
+                    add_random_cert_proof(
+                        &batch_verifier,
+                        i,
+                        pk_path + std::string("/cob_marlin_cert_test_pk"),
+                        vk_path + std::string("/cob_marlin_cert_test_vk"),
+                        true,
+                        false,
+                        true
+                    );
+                    break;
+                case 3: // CobMarlin - cert-no-const
+                    add_random_cert_proof(
+                        &batch_verifier,
+                        i,
+                        pk_path + std::string("/cob_marlin_cert_no_const_test_pk"),
+                        vk_path + std::string("/cob_marlin_cert_no_const_test_vk"),
+                        false,
+                        false,
+                        true
+                    );
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        // POSITIVE TEST: Verify with DLOG keys bigger than the ones used for proving
+        // Batch verify all proofs
+        auto result_1 = batch_verifier.batch_verify_all(&ret_code);
+        CHECK(result_1->result == true);
+        CHECK(result_1->failing_proofs == NULL);
+        CHECK(result_1->failing_proofs_len == 0);
+        CHECK(ret_code == CctpErrorCode::OK);
+        zendoo_free_batch_proof_verifier_result(result_1);
+
+        // Batch verify subset
+        const uint32_t ids[5] = {0, 2, 5, 6, 7};
+        auto result_2 = batch_verifier.batch_verify_subset(ids, 5, &ret_code);
+        CHECK(result_2->result == true);
+        CHECK(result_2->failing_proofs == NULL);
+        CHECK(result_2->failing_proofs_len == 0);
+        CHECK(ret_code == CctpErrorCode::OK);
+        zendoo_free_batch_proof_verifier_result(result_2);
+
+        // Add wrong proofs to the verifier
+        for(uint32_t i = NUM_OF_PROOFS; i < 2 * NUM_OF_PROOFS; i++) {
+            add_random_cert_proof(
+                &batch_verifier,
+                i,
+                pk_path + std::string("/cob_marlin_cert_test_pk"),
+                vk_path + std::string("/cob_marlin_cert_test_vk"),
+                true,
+                true,
+                true
+            );
+        }
+
+        // Check batch verification of all proofs fails
+        auto result_3 = batch_verifier.batch_verify_all(&ret_code);
+        CHECK(result_3->result == false);
+        CHECK(result_3->failing_proofs != NULL);
+        CHECK(result_3->failing_proofs_len == NUM_OF_PROOFS);
+        CHECK(ret_code == CctpErrorCode::OK);
+
+        // We should be able to retrieve the indices of the failing proof
+        for(uint32_t i = 0; i < NUM_OF_PROOFS; i++){
+            CHECK(result_3->failing_proofs[i] == i + NUM_OF_PROOFS);
+        }
+        zendoo_free_batch_proof_verifier_result(result_3);
+
+        static const uint32_t new_ids[NUM_OF_PROOFS] = {0, 1, 2, 3, 4, 5, 6, 7};
+
+        // Check batch verification of all proofs minus the new one passes
+        auto result_4 = batch_verifier.batch_verify_subset(new_ids, NUM_OF_PROOFS, &ret_code);
+        CHECK(result_4->result == true);
+        CHECK(result_4->failing_proofs == NULL);
+        CHECK(result_4->failing_proofs_len == 0);
+        CHECK(ret_code == CctpErrorCode::OK);
+        zendoo_free_batch_proof_verifier_result(result_4);
 
         // Delete files
         remove((pk_path + std::string("/darlin_csw_test_pk")).c_str());

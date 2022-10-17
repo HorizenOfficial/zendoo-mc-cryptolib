@@ -2,4 +2,4 @@
 
 set -xeo pipefail
 
-make -C mc_test/
+make test-csw -C mc_test/

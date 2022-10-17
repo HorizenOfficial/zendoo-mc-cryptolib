@@ -13,7 +13,10 @@ endif
 RUST_FILES := $(shell find ../src/ -type f -name '*.rs')
 CARGO_FILES := $(shell find ../ -maxdepth 1 -type f -name '*.toml' -or -name '*.lock')
 RUST_LIB := ../target/release/libzendoo_mc.a
-CXX_FILE := ./mcTestCall.cpp
+MCTEST_LIB := ../target/release/libmcTestCall.a
+MCTEST_OBJ := ./mcTestCall.o
+MCTEST_LIB_SOURCES := ./mcTestCall.cpp
+CXX_FILE := ./mcTestCallMain.cpp
 INCLUDE := ../include
 INCLUDE_FILES := $(wildcard $(INCLUDE)/*.h)
 
@@ -24,12 +27,16 @@ all: clean test
 clean-cargo:
 	RUSTFLAGS='$(RUSTFLAGS)' $(CARGO_BIN) $(CARGOARGS) clean
 
+.PHONY: clean-lib
+clean-lib:
+	rm -f $(MCTEST_OBJ) $(MCTEST_LIB)
+
 .PHONY: clean-test
 clean-test:
 	rm -f ./mcTest
 
 .PHONY: clean
-clean: clean-cargo clean-test
+clean: clean-cargo clean-lib clean-test
 
 .PHONY: libs
 libs: $(RUST_LIB)
@@ -37,12 +44,35 @@ libs: $(RUST_LIB)
 $(RUST_LIB): $(CARGO_FILES) $(RUST_FILES)
 	RUSTFLAGS='$(RUSTFLAGS)' $(CARGO_BIN) $(CARGOARGS) build --release --all-features
 
-.PHONY: build
-build: libs ./mcTest
+$(MCTEST_OBJ): $(MCTEST_LIB_SOURCES) $(INCLUDE_FILES)
+	$(CXX) $(CXX_FLAGS) -c $(MCTEST_LIB_SOURCES) -I$(INCLUDE)  -L. -l:$(RUST_LIB) -lpthread -ldl
 
-./mcTest: $(CXX_FILE) $(INCLUDE_FILES)
-	$(CXX) $(CXX_FLAGS) -o $@ $(CXX_FILE) -I$(INCLUDE)  -L. -l:$(RUST_LIB) -lpthread -ldl
+$(MCTEST_LIB): $(MCTEST_OBJ)
+	$(AR) rcs $@ $+
+
+.PHONY: mcTestLib
+mcTestLib: $(MCTEST_LIB)
+
+.PHONY: build
+mcTestLib: $(MCTEST_LIB)
+
+.PHONY: build
+build: libs $(MCTEST_LIB) ./mcTest
+
+./mcTest: $(CXX_FILE) $(INCLUDE_FILES) $(MCTEST_LIB)
+	$(CXX) $(CXX_FLAGS) -o $@ $(CXX_FILE) -I$(INCLUDE) -L. -l:$(MCTEST_LIB) -l:$(RUST_LIB) -lpthread -ldl
+
+.PHONY: test-cert
+test-cert: build
+	python3 ./callFromMTFExample.py -t cert
+
+.PHONY: test-cert-keyrot
+test-cert-keyrot: build
+	python3 ./callFromMTFExample.py -t cert -r
+
+.PHONY: test-csw
+test-csw: build
+	python3 ./callFromMTFExample.py -t csw
 
 .PHONY: test
-test: build
-	python3 ./callFromMTFExample.py
+test: build test-cert test-cert-keyrot test-csw
