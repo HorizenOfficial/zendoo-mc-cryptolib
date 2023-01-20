@@ -1,6 +1,6 @@
 [package]
 name = "zendoo-mc-crypto"
-version = "0.2.1"
+version = "0.3.0-alpha2"
 authors = [
     "DanieleDiBenedetto <daniele@horizenlabs.io>",
     "Maksym Vereshchak <phoinic@gmail.com>",
@@ -17,13 +17,13 @@ path = "src/lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-algebra = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development" }
-primitives = { features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development" }
-cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "dev" }
-proof-systems = { features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true }
-r1cs-crypto = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true }
-r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true}
-r1cs-std = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "development", optional = true}
+algebra = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.5.0-alpha1" }
+primitives = { features = ["tweedle", "merkle_tree"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.5.0-alpha1" }
+cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", tag = "0.2.0-alpha2" }
+proof-systems = { features = ["darlin"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.5.0-alpha1", optional = true }
+r1cs-crypto = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.5.0-alpha1", optional = true }
+r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.5.0-alpha1", optional = true}
+r1cs-std = { features = ["tweedle"], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.5.0-alpha1", optional = true}
 crossbeam-utils = "=0.8.7"
 maybe-uninit = "=2.0.0"
 rand = "0.8.4"
@@ -32,6 +32,7 @@ lazy_static = "=1.4.0"
 libc = "=0.2.97"
 cfg-if = "=1.0.0"
 rayon = {version = "1" }
+bzip2 = "0.4.4"
 
 [features]
 default = [ "parallel", "asm" ]
@@ -71,10 +72,4 @@ debug = true
 #r1cs-std = { path = '../ginger-lib/r1cs/gadgets/std' }
 #
 #[patch.'https://github.com/HorizenOfficial/zendoo-cctp-lib.git']
-#cctp_primitives = { path = '../zendoo-cctp-lib/cctp_primitives' }
-#
-#[patch.'https://github.com/HorizenLabs/marlin']
-#marlin = { path = '../marlin' }
-#
-#[patch.'https://github.com/HorizenLabs/poly-commit']
-#poly-commit = { path = '../poly-commit' }
+#cctp_primitives = { path = '../zendoo-cctp-lib/cctp_primitives' 
