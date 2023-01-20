@@ -719,7 +719,6 @@ name = "zendoo-mc-crypto"
 version = "0.3.0-alpha2"
 dependencies = [
  "algebra",
- "bzip2",
  "cctp_primitives",
  "cfg-if",
  "crossbeam-utils",

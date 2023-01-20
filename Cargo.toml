@@ -32,7 +32,6 @@ lazy_static = "=1.4.0"
 libc = "=0.2.97"
 cfg-if = "=1.0.0"
 rayon = {version = "1" }
-bzip2 = "0.4.4"
 
 [features]
 default = [ "parallel", "asm" ]
@@ -72,4 +71,4 @@ debug = true
 #r1cs-std = { path = '../ginger-lib/r1cs/gadgets/std' }
 #
 #[patch.'https://github.com/HorizenOfficial/zendoo-cctp-lib.git']
-#cctp_primitives = { path = '../zendoo-cctp-lib/cctp_primitives' 
+#cctp_primitives = { path = '../zendoo-cctp-lib/cctp_primitives'
