@@ -2,19 +2,15 @@
 
 set -uo pipefail
 echo -e "Start cargo audit\n"
-cargo audit --json > /tmp/audit.json
-jq '.' /tmp/audit.json
-
-
-VULNERABILITIES="$(jq '.vulnerabilities.found' /tmp/audit.json)"
-
 
 if [ "$CARGO_AUDIT_EXIT_ON_ERROR" = "false" ]; then
-  echo -e "\nCargo audit disabled"
-elif [ "$VULNERABILITIES" = "true" ]; then
-  echo -e "\nVulnerabilities have been found"
-  jq '.vulnerabilities' /tmp/audit.json
+  echo -e "\nCargo audit error disabled"
+elif [ "$CARGO_AUDIT_EXIT_ON_ERROR" != "true" ]; then
+  echo -e "\nERROR: CARGO_AUDIT_EXIT_ON_ERROR should be only true|false and not '$CARGO_AUDIT_EXIT_ON_ERROR'"
   exit 1
-else
-  echo -e "\nNo vulnerabilities have been found"
 fi
+
+# Ok: if we want to ignore the `cargo audit` fail but we would see the report
+# we use $CARGO_AUDIT_EXIT_ON_ERROR set to false. In this case we ignore the
+# `cargo audit` output value and we return always `true`.
+cargo audit || ! eval "$CARGO_AUDIT_EXIT_ON_ERROR"
