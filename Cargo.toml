@@ -1,6 +1,6 @@
 [package]
 name = "zendoo-mc-crypto"
-version = "0.3.0-alpha2"
+version = "0.3.0-rc1"
 authors = [
     "DanieleDiBenedetto <daniele@horizenlabs.io>",
     "Maksym Vereshchak <phoinic@gmail.com>",
