@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <iostream>
 #include <string>
@@ -22,12 +24,12 @@ const signed char p_util_hexdigit[256] =
   -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
   -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, };
 
-signed char HexDigit(char c)
+inline signed char HexDigit(char c)
 {
     return p_util_hexdigit[(unsigned char)c];
 }
 
-bool IsHex(const string& str)
+inline bool IsHex(const string& str)
 {
     for(std::string::const_iterator it(str.begin()); it != str.end(); ++it)
     {
@@ -37,8 +39,7 @@ bool IsHex(const string& str)
     return (str.size() > 0) && (str.size()%2 == 0);
 }
 
-
-std::vector<unsigned char> ParseHex(const char* psz)
+inline std::vector<unsigned char> ParseHex(const char* psz)
 {
     // convert hex dump to vector
     std::vector<unsigned char> vch;
@@ -59,7 +60,7 @@ std::vector<unsigned char> ParseHex(const char* psz)
     return vch;
 }
 
-std::vector<unsigned char> SetHex(const char* psz, size_t len)
+inline std::vector<unsigned char> SetHex(const char* psz, size_t len)
 {
     alignas(uint32_t) uint8_t data[len];
 
@@ -94,7 +95,7 @@ std::vector<unsigned char> SetHex(const char* psz, size_t len)
     return vch;
 }
 
-string EncodeHex(const unsigned char* data, size_t len)
+inline string EncodeHex(const unsigned char* data, size_t len)
 {
     char psz[len * 2 + 1];
     for (unsigned int i = 0; i < len; i++)

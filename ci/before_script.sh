@@ -15,7 +15,7 @@ FROM_IMAGE="${DOCKER_ORG}/${IMAGE_NAME}:${IMAGE_TAG}"
 NEW_IMAGE_NAME="zendoo-mc-cryptolib-ci"
 NEW_FROM_IMAGE="${DOCKER_ORG}/${NEW_IMAGE_NAME}:${IMAGE_TAG}"
 
-# build image with python2 installed from base image
+# build image with python3 installed from base image
 if [ -n "${TESTS:-}" ]; then
   if [ "$have_docker" = "true" ]; then
     docker build --build-arg FROM_IMAGE="$FROM_IMAGE" -t "$NEW_FROM_IMAGE" "$workdir"/ci/docker
