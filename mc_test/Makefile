@@ -1,12 +1,13 @@
-EXECUTABLES = g++ cargo python3
-K := $(foreach exec,$(EXECUTABLES),\
-        $(if $(shell PATH=$(PATH) command -v $(exec)),,$(error "No $(exec) in PATH")))
 CXX ?= g++
+CARGO_BIN ?= cargo
+PYTHON_BIN ?= python3
+EXECUTABLES = $(CXX) $(CARGO_BIN) $(PYTHON_BIN)
+K := $(foreach exec,$(EXECUTABLES),\
+        $(if $(shell PATH="${PATH}" command -v $(exec)),,$(error "No $(exec) in PATH")))
 
 # support also not-so-new compilers
 CXX_FLAGS += -std=c++11
 
-CARGO_BIN ?= cargo
 ifeq ($(shell env | grep RUSTFLAGS),)
         RUSTFLAGS := -C target-feature=+bmi2,+adx --emit=asm
 endif
@@ -45,34 +46,29 @@ $(RUST_LIB): $(CARGO_FILES) $(RUST_FILES)
 	RUSTFLAGS='$(RUSTFLAGS)' $(CARGO_BIN) $(CARGOARGS) build --release --all-features
 
 $(MCTEST_OBJ): $(MCTEST_LIB_SOURCES) $(INCLUDE_FILES)
-	$(CXX) $(CXX_FLAGS) -c $(MCTEST_LIB_SOURCES) -I$(INCLUDE)  -L. -l:$(RUST_LIB) -lpthread -ldl
+	$(CXX) $(CXX_FLAGS) -c $(MCTEST_LIB_SOURCES) -I$(INCLUDE)
 
 $(MCTEST_LIB): $(MCTEST_OBJ)
+	mkdir -p $(@D)
 	$(AR) rcs $@ $+
 
 .PHONY: mcTestLib
-mcTestLib: $(MCTEST_LIB)
+mcTestLib: libs $(MCTEST_LIB)
 
-.PHONY: build
-mcTestLib: $(MCTEST_LIB)
-
-.PHONY: build
-build: libs $(MCTEST_LIB) ./mcTest
-
-./mcTest: $(CXX_FILE) $(INCLUDE_FILES) $(MCTEST_LIB)
+./mcTest: $(CXX_FILE) $(INCLUDE_FILES) mcTestLib
 	$(CXX) $(CXX_FLAGS) -o $@ $(CXX_FILE) -I$(INCLUDE) -L. -l:$(MCTEST_LIB) -l:$(RUST_LIB) -lpthread -ldl
 
 .PHONY: test-cert
-test-cert: build
-	python3 ./callFromMTFExample.py -t cert
+test-cert: mcTest
+	$(PYTHON_BIN) ./callFromMTFExample.py -t cert
 
 .PHONY: test-cert-keyrot
-test-cert-keyrot: build
-	python3 ./callFromMTFExample.py -t cert -r
+test-cert-keyrot: mcTest
+	$(PYTHON_BIN) ./callFromMTFExample.py -t cert -r
 
 .PHONY: test-csw
-test-csw: build
-	python3 ./callFromMTFExample.py -t csw
+test-csw: mcTest
+	$(PYTHON_BIN) ./callFromMTFExample.py -t csw
 
 .PHONY: test
-test: build test-cert test-cert-keyrot test-csw
+test: test-cert test-cert-keyrot test-csw
