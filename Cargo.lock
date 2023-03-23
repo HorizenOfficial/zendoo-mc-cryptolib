@@ -9,7 +9,7 @@ checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 [[package]]
 name = "algebra"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "algebra-derive",
  "byteorder",
@@ -26,7 +26,7 @@ dependencies = [
 [[package]]
 name = "algebra-derive"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -42,7 +42,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "bench-utils"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 
 [[package]]
 name = "bit-vec"
@@ -60,27 +60,6 @@ dependencies = [
  "crypto-mac",
  "digest",
  "opaque-debug",
-]
-
-[[package]]
-name = "block-buffer"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0940dc441f31689269e10ac70eb1002a3a1d3ad1390e030043662eb7fe4688b"
-dependencies = [
- "block-padding",
- "byte-tools",
- "byteorder",
- "generic-array",
-]
-
-[[package]]
-name = "block-padding"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa79dedbb091f449f1f39e53edf88d5dbe95f895dae6135a8d7b881fb5af73f5"
-dependencies = [
- "byte-tools",
 ]
 
 [[package]]
@@ -125,7 +104,7 @@ checksum = "22a9137b95ea06864e018375b72adfb7db6e6f68cfc8df5a04d00288050485ee"
 [[package]]
 name = "cctp_primitives"
 version = "0.2.0"
-source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?tag=0.2.0#e4c816a4ebb2c92ee52a63f3777d263200b423b4"
+source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?tag=0.2.0#beb3fcf5c4d48fe2154c768dab1277e9d69f7afc"
 dependencies = [
  "algebra",
  "bit-vec",
@@ -244,15 +223,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 
 [[package]]
-name = "fake-simd"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
-
-[[package]]
 name = "field-assembly"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "mince",
 ]
@@ -305,16 +278,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
-name = "hmac"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dcb5e64cda4c23119ab41ba960d1e170a774c8e4b9d9e6a9bc18aabf5e59695"
-dependencies = [
- "crypto-mac",
- "digest",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -329,7 +292,7 @@ checksum = "12b8adadd720df158f4d70dfe7ccc6adb0472d7c55ca83445f6a5ab3e36f8fb6"
 [[package]]
 name = "marlin"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -363,7 +326,7 @@ dependencies = [
 [[package]]
 name = "mince"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "quote",
  "syn",
@@ -443,7 +406,7 @@ checksum = "12295df4f294471248581bc09bef3c38a5e46f1e36d6a37353621a0c6c357e1f"
 [[package]]
 name = "poly-commit"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -465,19 +428,17 @@ checksum = "ed0cfbc8191465bed66e1718596ee0b0b35d5ee1f41c5df2189d0fe8bde535ba"
 [[package]]
 name = "primitives"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "algebra",
  "bench-utils",
  "derivative",
  "hex",
- "hmac",
  "num-bigint",
  "rand",
  "rayon",
  "rayon-core",
  "serde",
- "sha2",
 ]
 
 [[package]]
@@ -492,7 +453,7 @@ dependencies = [
 [[package]]
 name = "proof-systems"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -522,7 +483,7 @@ dependencies = [
 [[package]]
 name = "r1cs-core"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "algebra",
  "radix_trie",
@@ -533,7 +494,7 @@ dependencies = [
 [[package]]
 name = "r1cs-crypto"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -549,7 +510,7 @@ dependencies = [
 [[package]]
 name = "r1cs-std"
 version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#111879998340423a2debd251de6266e15cad2afc"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.5.0#d022760c1e117deb2fd921999a46a81420e0a4fa"
 dependencies = [
  "algebra",
  "derivative",
@@ -680,18 +641,6 @@ name = "sha1"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2579985fda508104f7587689507983eadd6a6e84dd35d6d115361f530916fa0d"
-
-[[package]]
-name = "sha2"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a256f46ea78a0c0d9ff00077504903ac881a1dafdc20da66545699e7776b3e69"
-dependencies = [
- "block-buffer",
- "digest",
- "fake-simd",
- "opaque-debug",
-]
 
 [[package]]
 name = "smallvec"
