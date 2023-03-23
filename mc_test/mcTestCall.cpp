@@ -130,8 +130,8 @@ void printError(char const* func, uint32_t line, Parameters const* pars, char co
                             "\nft_min_amount          = %" PRIu64
                             "\namount                 = %" PRIu64
                             "\nnullifier              = %p"
-                            "\nbt_list size           = %" PRIu64
-                            "\ncustom_fields_list size= %" PRIu64
+                            "\nbt_list size           = %zu"
+                            "\ncustom_fields_list size= %zu"
                             "\n\n",
                             cpars->verify ? "true" : "false",
                             cpars->zk ? "true" : "false",
@@ -218,7 +218,7 @@ void parse_field(char const* argv, field_t*& res) {
 CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_fn) {
     CreateParameters res;
     char opt;
-    char const * circuit;
+    char const * circuit = nullptr;
 
     res.op = op;
 
@@ -256,7 +256,9 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
     }
 
     assert(optind < argc);
-    res.circ = get_circuit_type(circuit, res.has_constant);
+    if (circuit) {
+        res.circ = get_circuit_type(circuit, res.has_constant);
+    }
 
     assert(optind < argc);
     res.params_dir = argv[optind++];
@@ -278,7 +280,7 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
         assert(optind < argc);
         if (strcmp(argv[optind], "NO_PREV_CERT_HASH") == 0) { // for cert
             res.prev_cert_datahash = nullptr;
-        } else if (strcmp(argv[optind], "NO_CERT_DATA_HASH") == 0) { //for CSW
+        } else if (strcmp(argv[optind], "NO_CERT_DATA_HASH") == 0) { // for CSW
             res.prev_cert_datahash = nullptr;
         } else if (strcmp(argv[optind], "PHANTOM_PREV_CERT_HASH") == 0) {
             res.prev_cert_datahash = zendoo_get_phantom_cert_data_hash();
@@ -627,11 +629,12 @@ void create_verify(CreateParameters const& pars)
     case TestCircuitType::CertificateNoConstant:
         create_verify_test_cert_proof(pars);
         break;
-    
+
     case TestCircuitType::CSW:
     case TestCircuitType::CSWNoConstant:
         create_verify_test_csw_proof(pars);
         break;
+
     default:
         printError(__func__, __LINE__, "Unknown circuit");
     }
