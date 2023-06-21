@@ -60,15 +60,9 @@ echo "CARGOARGS: ${CARGOARGS:-unset}, RUSTFLAGS: ${RUSTFLAGS:-unset}, RUST_CROSS
 # Fix ownership of everything in /build recursively
 chown -fR "$CURRENT_UID":"$CURRENT_GID" /build
 
-# We need to unfortunately do this as we can't guarantee that the unprivileged
-# user doesn't need to install a different version of Rust.
-# The needed Rust version could be overriden by the code in the git repo,
-# see https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file.
-# Without doing this any attempt to install a new version of Rust would fail
-# with permission errors.
-# To guarantee proper regression tests with a static version number of Rust,
-# the CARGOARGS env var can be set to the desired version.
-chown -fR "$CURRENT_UID":"$CURRENT_GID" /opt/rust
+# We need to do this as we can guarantee that the unprivileged
+# user can modify the cargo registry and install cargo apps.
+chown -fR "$CURRENT_UID":"$CURRENT_GID" /opt/rust/cargo
 
 if [ "$USERNAME" = "root" ]; then
   exec "$@"
