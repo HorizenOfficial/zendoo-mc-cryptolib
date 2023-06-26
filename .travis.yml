@@ -31,39 +31,39 @@ script: ci/script.sh
 
 jobs:
   include:
-    #- name: bionic_rust-1.51.0_latest
-    #  env: IMAGE_TAG=bionic_rust-1.51.0_latest TESTS='*' RUSTFLAGS=' '
-    #- name: bionic_rust-1.51.0_latest_asm
-    #  env: IMAGE_TAG=bionic_rust-1.51.0_latest TESTS='*' RUSTFLAGS='--emit=asm'
-    - name: bionic_rust-1.51.0_latest_asm_target-feature_build
-      env: IMAGE_TAG=bionic_rust-1.51.0_latest TESTS='006,007,008' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: bionic_rust-1.51.0_latest_asm_target-feature_cargo-test
-      env: IMAGE_TAG=bionic_rust-1.51.0_latest TESTS='001' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: bionic_rust-1.51.0_latest_asm_target-feature_examples
-      env: IMAGE_TAG=bionic_rust-1.51.0_latest TESTS='002' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: bionic_rust-1.51.0_latest_asm_target-feature_mc-test-cert
-      env: IMAGE_TAG=bionic_rust-1.51.0_latest TESTS='003' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: bionic_rust-1.51.0_latest_asm_target-feature_mc-test-cert-keyrot
-      env: IMAGE_TAG=bionic_rust-1.51.0_latest TESTS='004' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: bionic_rust-1.51.0_latest_asm_target-feature_mc-test-csw
-      env: IMAGE_TAG=bionic_rust-1.51.0_latest TESTS='005' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    #- name: bionic_rust-nightly-2021-04-25_latest
-    #  env: IMAGE_TAG=bionic_rust-nightly-2021-04-25_latest TESTS='*' CARGOARGS='+nightly-2021-04-25' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    #- name: focal_rust-1.51.0_latest
-    #  env: IMAGE_TAG=focal_rust-1.51.0_latest TESTS='*' RUSTFLAGS=' '
-    #- name: focal_rust-1.51.0_latest_asm
-    #  env: IMAGE_TAG=focal_rust-1.51.0_latest TESTS='*' RUSTFLAGS='--emit=asm'
-    - name: focal_rust-1.51.0_latest_asm_target-feature_build
-      env: IMAGE_TAG=focal_rust-1.51.0_latest TESTS='006,007,008' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: focal_rust-1.51.0_latest_asm_target-feature_cargo-test
-      env: IMAGE_TAG=focal_rust-1.51.0_latest TESTS='001' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: focal_rust-1.51.0_latest_asm_target-feature_examples
-      env: IMAGE_TAG=focal_rust-1.51.0_latest TESTS='002' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: focal_rust-1.51.0_latest_asm_target-feature_mc-test-cert
-      env: IMAGE_TAG=focal_rust-1.51.0_latest TESTS='003' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: focal_rust-1.51.0_latest_asm_target-feature_mc-test-cert-keyrot
-      env: IMAGE_TAG=focal_rust-1.51.0_latest TESTS='004' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    - name: focal_rust-1.51.0_latest_asm_target-feature_mc-test-csw
-      env: IMAGE_TAG=focal_rust-1.51.0_latest TESTS='005' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
-    #- name: focal_rust-nightly-2021-04-25_latest
-    #  env: IMAGE_TAG=focal_rust-nightly-2021-04-25_latest TESTS='*' CARGOARGS='+nightly-2021-04-25' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    #- name: bionic_rust-stable_latest
+    #  env: IMAGE_TAG=bionic_rust-stable_latest TESTS='*' RUSTFLAGS=' '
+    #- name: bionic_rust-stable_latest_asm
+    #  env: IMAGE_TAG=bionic_rust-stable_latest TESTS='*' RUSTFLAGS='--emit=asm'
+    - name: bionic_rust-stable_latest_asm_target-feature_build
+      env: IMAGE_TAG=bionic_rust-stable_latest TESTS='006,007,008' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: bionic_rust-stable_latest_asm_target-feature_cargo-test
+      env: IMAGE_TAG=bionic_rust-stable_latest TESTS='001' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: bionic_rust-stable_latest_asm_target-feature_examples
+      env: IMAGE_TAG=bionic_rust-stable_latest TESTS='002' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: bionic_rust-stable_latest_asm_target-feature_mc-test-cert
+      env: IMAGE_TAG=bionic_rust-stable_latest TESTS='003' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: bionic_rust-stable_latest_asm_target-feature_mc-test-cert-keyrot
+      env: IMAGE_TAG=bionic_rust-stable_latest TESTS='004' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: bionic_rust-stable_latest_asm_target-feature_mc-test-csw
+      env: IMAGE_TAG=bionic_rust-stable_latest TESTS='005' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    #- name: bionic_rust-nightly_latest
+    #  env: IMAGE_TAG=bionic_rust-nightly_latest TESTS='*' CARGOARGS='+nightly' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    #- name: focal_rust-stable_latest
+    #  env: IMAGE_TAG=focal_rust-stable_latest TESTS='*' RUSTFLAGS=' '
+    #- name: focal_rust-stable_latest_asm
+    #  env: IMAGE_TAG=focal_rust-stable_latest TESTS='*' RUSTFLAGS='--emit=asm'
+    - name: focal_rust-stable_latest_asm_target-feature_build
+      env: IMAGE_TAG=focal_rust-stable_latest TESTS='006,007,008' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: focal_rust-stable_latest_asm_target-feature_cargo-test
+      env: IMAGE_TAG=focal_rust-stable_latest TESTS='001' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: focal_rust-stable_latest_asm_target-feature_examples
+      env: IMAGE_TAG=focal_rust-stable_latest TESTS='002' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: focal_rust-stable_latest_asm_target-feature_mc-test-cert
+      env: IMAGE_TAG=focal_rust-stable_latest TESTS='003' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: focal_rust-stable_latest_asm_target-feature_mc-test-cert-keyrot
+      env: IMAGE_TAG=focal_rust-stable_latest TESTS='004' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    - name: focal_rust-stable_latest_asm_target-feature_mc-test-csw
+      env: IMAGE_TAG=focal_rust-stable_latest TESTS='005' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
+    #- name: focal_rust-nightly_latest
+    #  env: IMAGE_TAG=focal_rust-nightly_latest TESTS='*' CARGOARGS='+nightly' RUSTFLAGS='-C target-feature=+bmi2,+adx --emit=asm'
