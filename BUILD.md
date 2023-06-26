@@ -6,8 +6,8 @@ To install Rust, just install `rustup` by following the instructions [here](http
 After that, use `cargo`, the standard Rust build tool, to build the library:
 
 ```bash
-git clone https://github.com/HorizenOfficial/zendoo-sc-cryptolib.git
-cd zendoo-sc-cryptolib
+git clone https://github.com/HorizenOfficial/zendoo-mc-cryptolib.git
+cd zendoo-mc-cryptolib
 cargo build --release
 ```
 

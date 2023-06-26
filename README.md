@@ -34,8 +34,8 @@ To install Rust, just install `rustup` by following the instructions [here](http
 After that, use `cargo`, the standard Rust build tool, to build the library:
 
 ```bash
-git clone https://github.com/HorizenOfficial/zendoo-sc-cryptolib.git
-cd zendoo-sc-cryptolib
+git clone https://github.com/HorizenOfficial/zendoo-mc-cryptolib.git
+cd zendoo-mc-cryptolib
 cargo build --release
 ```
 
@@ -43,7 +43,7 @@ This library comes with unit tests for each of the provided crates. Run the test
 
 ```bash
 cargo test
-``` 
+```
 
 More detailed build guide, as well as instructions to build the .jar, can be found in in our [build guide](BUILD.md).
 
