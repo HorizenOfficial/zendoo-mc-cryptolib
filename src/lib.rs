@@ -656,7 +656,7 @@ pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_file(
 ) -> ProvingSystem {
     // Read file path
     let proof_path = parse_path(proof_path, proof_path_len);
-    match read_from_file::<ProvingSystem>(proof_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(proof_path, None, None) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
@@ -681,7 +681,7 @@ pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_file(
         OsString::from_wide(unsafe { slice::from_raw_parts(proof_path, proof_path_len) });
     let proof_path = Path::new(&path_str);
 
-    match read_from_file::<ProvingSystem>(proof_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(proof_path, None, None) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
@@ -804,7 +804,7 @@ pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_file(
 ) -> ProvingSystem {
     // Read file path
     let vk_path = parse_path(vk_path, vk_path_len);
-    match read_from_file::<ProvingSystem>(vk_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(vk_path, None, None) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
@@ -828,7 +828,7 @@ pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_file(
     let path_str = OsString::from_wide(unsafe { slice::from_raw_parts(vk_path, vk_path_len) });
     let vk_path = Path::new(&path_str);
 
-    match read_from_file::<ProvingSystem>(vk_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(vk_path, None, None) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
@@ -962,7 +962,6 @@ pub extern "C" fn zendoo_verify_certificate_proof(
 }
 
 use cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH;
-use cctp_primitives::utils::serialization::read_from_file;
 fn get_csw_proof_usr_ins<'a>(
     amount: u64,
     constant: *const FieldElement,
@@ -1944,7 +1943,7 @@ pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_file(
 ) -> ProvingSystem {
     // Read file path
     let pk_path = parse_path(pk_path, pk_path_len);
-    match read_from_file::<ProvingSystem>(pk_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(pk_path, None, None) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
@@ -1968,7 +1967,7 @@ pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_file(
     let path_str = OsString::from_wide(unsafe { slice::from_raw_parts(pk_path, pk_path_len) });
     let pk_path = Path::new(&path_str);
 
-    match read_from_file::<ProvingSystem>(pk_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(pk_path, None, None) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
