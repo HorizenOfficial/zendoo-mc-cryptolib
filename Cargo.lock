@@ -10,8 +10,8 @@ checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
 name = "algebra"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "algebra-derive",
  "byteorder",
@@ -27,8 +27,8 @@ dependencies = [
 
 [[package]]
 name = "algebra-derive"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -43,8 +43,8 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "bench-utils"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 
 [[package]]
 name = "bit-vec"
@@ -105,8 +105,8 @@ checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
 
 [[package]]
 name = "cctp_primitives"
-version = "0.2.0"
-source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=zend-516-remove-rust-toolchain#88ab7dc5d6646d163155c52aac498dd7e89ad32f"
+version = "0.2.1"
+source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=dev#16b78cdd86bbde87d86d59ea0057beeafe74520d"
 dependencies = [
  "algebra",
  "bit-vec",
@@ -226,8 +226,8 @@ checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 
 [[package]]
 name = "field-assembly"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "quote",
  "syn",
@@ -294,8 +294,8 @@ checksum = "12b8adadd720df158f4d70dfe7ccc6adb0472d7c55ca83445f6a5ab3e36f8fb6"
 
 [[package]]
 name = "marlin"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -399,8 +399,8 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 
 [[package]]
 name = "poly-commit"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -421,8 +421,8 @@ checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
 name = "primitives"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -446,8 +446,8 @@ dependencies = [
 
 [[package]]
 name = "proof-systems"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -476,8 +476,8 @@ dependencies = [
 
 [[package]]
 name = "r1cs-core"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "algebra",
  "radix_trie",
@@ -487,8 +487,8 @@ dependencies = [
 
 [[package]]
 name = "r1cs-crypto"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "algebra",
  "bench-utils",
@@ -503,8 +503,8 @@ dependencies = [
 
 [[package]]
 name = "r1cs-std"
-version = "0.5.0"
-source = "git+https://github.com/HorizenOfficial/ginger-lib.git?branch=zend-516-remove-rust-toolchain#d7382ad1d5bf6c7e95e23dec0d5b40087c3251fd"
+version = "0.6.0"
+source = "git+https://github.com/HorizenOfficial/ginger-lib.git?tag=0.6.0#46a3ce6d7b6f1937bb4e8b81ef8052ac60271142"
 dependencies = [
  "algebra",
  "derivative",
