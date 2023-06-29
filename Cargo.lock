@@ -106,7 +106,7 @@ checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
 [[package]]
 name = "cctp_primitives"
 version = "0.2.1"
-source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?branch=dev#16b78cdd86bbde87d86d59ea0057beeafe74520d"
+source = "git+https://github.com/HorizenOfficial/zendoo-cctp-lib.git?tag=0.2.1#447813da7842db937df3e2d7f2d3eb83675883ff"
 dependencies = [
  "algebra",
  "bit-vec",
@@ -711,7 +711,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "zendoo-mc-crypto"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "algebra",
  "cctp_primitives",
