@@ -6,7 +6,7 @@ K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell PATH="${PATH}" command -v $(exec)),,$(error "No $(exec) in PATH")))
 
 # support also not-so-new compilers
-CXX_FLAGS += -std=c++11
+CXX_FLAGS += -std=c++11 -fPIE
 
 ifeq ($(shell env | grep RUSTFLAGS),)
         RUSTFLAGS := -C target-feature=+bmi2,+adx --emit=asm
