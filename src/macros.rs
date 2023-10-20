@@ -7,7 +7,7 @@ use std::{path::Path, slice};
 #[allow(unused_macros)]
 macro_rules! log {
     ($msg: expr) => {{
-        eprintln!("[{}:{}] {:?}", file!(), line!(), $msg)
+        log::error!("[{}:{}] {:?}", file!(), line!(), $msg)
     }};
 }
 
@@ -15,7 +15,7 @@ macro_rules! log {
 #[cfg(debug_assertions)]
 macro_rules! log_dbg {
     ($msg: expr) => {{
-        eprintln!("[{}:{}] {:?}", file!(), line!(), $msg)
+        log::error!("[{}:{}] {:?}", file!(), line!(), $msg)
     }};
 }
 
@@ -47,6 +47,7 @@ pub enum CctpErrorCode {
     MerkleRootBuildError,
     GenericError,
     TestProofCreationFailure,
+    InitializationError,
 }
 
 #[repr(C)]
@@ -58,19 +59,19 @@ pub struct BufferWithSize {
 /// Check that `buffer` it's a valid buffer with non-zero data
 pub(crate) fn check_buffer(buffer: *const BufferWithSize) -> (bool, CctpErrorCode) {
     if buffer.is_null() {
-        //eprintln!("===> ERR CODE {:?}", CctpErrorCode::NullPtr);
+        //log::error!("===> ERR CODE {:?}", CctpErrorCode::NullPtr);
         return (false, CctpErrorCode::NullPtr);
     }
 
     let data_attr = unsafe { (*buffer).data };
     if data_attr.is_null() {
-        //eprintln!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferData);
+        //log::error!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferData);
         return (false, CctpErrorCode::InvalidBufferData);
     }
 
     let len_attr = unsafe { (*buffer).len };
     if len_attr == 0 {
-        //eprintln!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferLength);
+        //log::error!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferLength);
         return (false, CctpErrorCode::InvalidBufferLength);
     }
 
@@ -90,7 +91,7 @@ pub(crate) fn check_buffer_length(
 
     let len_attr = unsafe { (*buffer).len };
     if len_attr != len {
-        eprintln!("===> ERR: buf_len={}, expected={}", len_attr, len);
+        log::error!("===> ERR: buf_len={}, expected={}", len_attr, len);
         return (false, CctpErrorCode::InvalidBufferLength);
     }
 
@@ -129,7 +130,7 @@ macro_rules! try_get_buffer_constant_size {
         match data {
             Some(x) => x.try_into().unwrap(),
             None => {
-                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -156,7 +157,7 @@ macro_rules! try_get_buffer_variable_size {
         match data {
             Some(x) => x,
             None => {
-                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -178,7 +179,7 @@ macro_rules! try_get_optional_buffer_variable_size {
         let (optional_data, ret_code) = get_optional_buffer_variable_size($in_buffer);
         *$ret_code = ret_code;
         if ret_code != CctpErrorCode::OK {
-            eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+            log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
         optional_data
@@ -210,7 +211,7 @@ macro_rules! try_get_obj_list {
         match data {
             Some(x) => x,
             None => {
-                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -240,7 +241,7 @@ macro_rules! try_get_optional_obj_list {
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+            log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
 
@@ -263,7 +264,7 @@ macro_rules! try_read_raw_pointer {
         match data {
             Some(x) => x,
             None => {
-                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -281,7 +282,7 @@ macro_rules! try_read_optional_raw_pointer {
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+            log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
 
@@ -304,7 +305,7 @@ macro_rules! try_read_mut_raw_pointer {
         match data {
             Some(x) => x,
             None => {
-                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -344,7 +345,7 @@ macro_rules! try_serialize_from_raw_pointer {
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+            log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
     }};
@@ -363,7 +364,7 @@ pub(crate) fn deserialize_to_raw_pointer<T: CanonicalDeserialize + SemanticallyV
     } {
         Ok(t) => (Some(Box::into_raw(Box::new(t))), CctpErrorCode::OK),
         Err(e) => {
-            eprintln!("Deserialization error: {}", e.to_string());
+            log::error!("Deserialization error: {}", e.to_string());
             (None, CctpErrorCode::InvalidValue)
         }
     }
@@ -377,7 +378,7 @@ macro_rules! try_deserialize_to_raw_pointer {
         match data {
             Some(x) => x,
             None => {
-                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -392,7 +393,7 @@ macro_rules! try_deserialize_to_raw_pointer_strict {
         match data {
             Some(x) => x,
             None => {
-                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -407,7 +408,7 @@ pub(crate) fn deserialize_to_raw_pointer_from_file<T: CanonicalDeserialize + Sem
     match read_from_file(path, checked, compressed) {
         Ok(t) => (Some(Box::into_raw(Box::new(t))), CctpErrorCode::OK),
         Err(e) => {
-            eprintln!("Deserialization error: {}", e.to_string());
+            log::error!("Deserialization error: {}", e.to_string());
             (None, CctpErrorCode::InvalidFile)
         }
     }
@@ -422,7 +423,7 @@ macro_rules! try_deserialize_to_raw_pointer_from_file {
         match data {
             Some(x) => x,
             None => {
-                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -465,7 +466,7 @@ macro_rules! try_read_double_raw_pointer {
         match data {
             Some(x) => x,
             None => {
-                eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+                log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
                 return $err_ret;
             }
         }
@@ -506,7 +507,7 @@ macro_rules! try_read_optional_double_raw_pointer {
         *$ret_code = ret_code;
 
         if ret_code != CctpErrorCode::OK {
-            eprintln!("Error with param: {:?}: {:?}", $param_name, ret_code);
+            log::error!("Error with param: {:?}: {:?}", $param_name, ret_code);
             return $err_ret;
         }
 

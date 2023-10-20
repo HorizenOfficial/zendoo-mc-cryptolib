@@ -14,7 +14,7 @@ use lazy_static::lazy_static;
 use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
 use std::sync::{Arc, Condvar, Mutex};
-use std::{convert::TryInto, fmt::Write, panic, path::Path, ptr::null_mut, slice};
+use std::{convert::TryInto, fmt::Write, panic, path::Path, ptr::null_mut, slice,};
 lazy_static! {
     pub static ref STOP_CTR: Arc<(Mutex<usize>, Condvar)> =
         Arc::new((Mutex::new(0), Condvar::new()));
@@ -97,6 +97,50 @@ pub extern "C" fn zendoo_free_bws(buffer: *mut BufferWithSize) {
     free_buffer_with_size(buffer)
 }
 
+pub(crate) fn init_logger<'a>(config_path: &'a Path) -> Result<(), Error> {
+    log4rs::config::init_file(config_path, Default::default())?;
+    log::info!("Log4rs correctly initialized");
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+#[no_mangle]
+pub extern "C" fn zendoo_init(
+    config_path: *const u8,
+    config_path_len: usize,
+    ret_code: &mut CctpErrorCode,
+) {
+    let config_path = parse_path(config_path, config_path_len);
+    match init_logger(config_path) {
+        Ok(()) => *ret_code = CctpErrorCode::OK,
+        Err(e) => {
+            eprintln!("Error initializing logger: {:?}", e);
+            *ret_code = CctpErrorCode::InitializationError
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+#[no_mangle]
+pub extern "C" fn zendoo_init(
+    config_path: *const u16,
+    config_path_len: usize,
+    ret_code: &mut CctpErrorCode,
+) {
+    // Read config file path
+    let path_str = OsString::from_wide(unsafe { slice::from_raw_parts(config_path, config_path_len) });
+    let config_path = Path::new(&path_str);
+
+    // Init logger
+    match init_logger(config_path) {
+        Ok(()) => *ret_code = CctpErrorCode::OK,
+        Err(e) => {
+            log::error!("Error initializing logger: {:?}", e);
+            *ret_code = CctpErrorCode::GenericError
+        }
+    }
+}
+
 //*********** Commitment Tree functions ****************
 
 #[no_mangle]
@@ -126,7 +170,7 @@ pub extern "C" fn zendoo_compute_sc_id(
         Ok(sc_id) => Box::into_raw(Box::new(sc_id)),
         Err(e) => {
             *ret_code = CctpErrorCode::HashingError;
-            eprintln!("{:?}", format!("Error computing sc_id: {:?}", e));
+            log::error!("{:?}", format!("Error computing sc_id: {:?}", e));
             null_mut()
         }
     }
@@ -206,7 +250,7 @@ pub extern "C" fn zendoo_commitment_tree_add_scc(
 
     if !ret {
         *ret_code = CctpErrorCode::GenericError;
-        eprintln!("{:?}", "add_scc() failed!");
+        log::error!("{:?}", "add_scc() failed!");
     }
     ret
 }
@@ -251,7 +295,7 @@ pub extern "C" fn zendoo_commitment_tree_add_fwt(
 
     if !ret {
         *ret_code = CctpErrorCode::GenericError;
-        eprintln!("{:?}", "add_fwt() failed!");
+        log::error!("{:?}", "add_fwt() failed!");
     }
     ret
 }
@@ -293,7 +337,7 @@ pub extern "C" fn zendoo_commitment_tree_add_bwtr(
 
     if !ret {
         *ret_code = CctpErrorCode::GenericError;
-        eprintln!("{:?}", "add_bwtr() failed!");
+        log::error!("{:?}", "add_bwtr() failed!");
     }
     ret
 }
@@ -319,7 +363,7 @@ pub extern "C" fn zendoo_commitment_tree_add_csw(
 
     if !ret {
         *ret_code = CctpErrorCode::GenericError;
-        eprintln!("{:?}", "add_csw() failed !");
+        log::error!("{:?}", "add_csw() failed !");
     }
     ret
 }
@@ -377,7 +421,7 @@ pub extern "C" fn zendoo_commitment_tree_add_cert(
 
     if !ret {
         *ret_code = CctpErrorCode::GenericError;
-        eprintln!("{:?}", "add_cert() failed");
+        log::error!("{:?}", "add_cert() failed");
     }
     ret
 }
@@ -394,7 +438,7 @@ pub extern "C" fn zendoo_commitment_tree_get_commitment(
         Some(commitment) => Box::into_raw(Box::new(commitment)),
         None => {
             *ret_code = CctpErrorCode::GenericError;
-            eprintln!("{:?}", "get_commitment() failed!");
+            log::error!("{:?}", "get_commitment() failed!");
             null_mut()
         }
     }
@@ -423,7 +467,7 @@ pub extern "C" fn zendoo_compress_bit_vector(
         }
         Err(e) => {
             *ret_code = CctpErrorCode::CompressError;
-            eprintln!("compress_bit_vector() failed: {:?}", e.to_string());
+            log::error!("compress_bit_vector() failed: {:?}", e.to_string());
             null_mut()
         }
     }
@@ -450,7 +494,7 @@ pub extern "C" fn zendoo_decompress_bit_vector(
             Box::into_raw(Box::new(bit_vector_buffer))
         }
         Err(e) => {
-            eprintln!("===> {}", e);
+            log::error!("===> {}", e);
             *ret_code = CctpErrorCode::UncompressError;
             null_mut()
         }
@@ -469,7 +513,7 @@ pub extern "C" fn zendoo_merkle_root_from_compressed_bytes(
     match merkle_root_from_compressed_bytes(compressed_slice, expected_uncompressed_size) {
         Ok(x) => Box::into_raw(Box::new(x)),
         Err(e) => {
-            eprintln!("===> {}", e);
+            log::error!("===> {}", e);
             *ret_code = CctpErrorCode::MerkleRootBuildError;
             null_mut()
         }
@@ -523,7 +567,7 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) {
 pub extern "C" fn zendoo_print_field(field: *const FieldElement) {
     let ret_code = &mut CctpErrorCode::OK;
     let rs_field = try_read_raw_pointer!("field", field, ret_code, ());
-    eprintln!(
+    log::error!(
         "{:?}",
         match get_hex(rs_field, None) {
             Ok(v) => v,
@@ -534,19 +578,13 @@ pub extern "C" fn zendoo_print_field(field: *const FieldElement) {
 
 ////********************Sidechain SNARK functions********************
 
-fn _zendoo_init_dlog_keys(
-    max_segment_size: usize,
-    ret_code: &mut CctpErrorCode,
-) -> bool {
+fn _zendoo_init_dlog_keys(max_segment_size: usize, ret_code: &mut CctpErrorCode) -> bool {
     *ret_code = CctpErrorCode::OK;
 
-    match init_dlog_keys(
-        ProvingSystem::Darlin,
-        max_segment_size,
-    ) {
+    match init_dlog_keys(ProvingSystem::Darlin, max_segment_size) {
         Ok(()) => true,
         Err(e) => {
-            eprintln!("{:?}", format!("Error bootstrapping DLOG keys: {:?}", e));
+            log::error!("{:?}", format!("Error bootstrapping DLOG keys: {:?}", e));
             *ret_code = CctpErrorCode::GenericError;
             false
         }
@@ -561,7 +599,7 @@ pub extern "C" fn zendoo_get_proving_system_type(
     match deserialize_from_buffer::<ProvingSystem>(&[byte], None, None) {
         Ok(ps_type) => ps_type,
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -591,7 +629,7 @@ pub extern "C" fn zendoo_serialize_sc_proof(
             Box::into_raw(Box::new(BufferWithSize { data, len }))
         }
         Err(e) => {
-            eprintln!("{:?}", format!("Error serializing proof {:?}", e));
+            log::error!("{:?}", format!("Error serializing proof {:?}", e));
             *ret_code = CctpErrorCode::InvalidValue;
             null_mut()
         }
@@ -640,7 +678,7 @@ pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_buffer(
     match deserialize_from_buffer::<ProvingSystem>(&sc_proof_bytes[..1], None, None) {
         Ok(ps_type) => ps_type,
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -656,13 +694,15 @@ pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_file(
 ) -> ProvingSystem {
     // Read file path
     let proof_path = parse_path(proof_path, proof_path_len);
-    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(proof_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(
+        proof_path, None, None,
+    ) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
         }
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -681,13 +721,15 @@ pub extern "C" fn zendoo_get_sc_proof_proving_system_type_from_file(
         OsString::from_wide(unsafe { slice::from_raw_parts(proof_path, proof_path_len) });
     let proof_path = Path::new(&path_str);
 
-    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(proof_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(
+        proof_path, None, None,
+    ) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
         }
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -788,7 +830,7 @@ pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_buffer(
     match deserialize_from_buffer::<ProvingSystem>(&sc_vk_bytes[..1], None, None) {
         Ok(ps_type) => ps_type,
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -804,13 +846,15 @@ pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_file(
 ) -> ProvingSystem {
     // Read file path
     let vk_path = parse_path(vk_path, vk_path_len);
-    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(vk_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(
+        vk_path, None, None,
+    ) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
         }
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -828,13 +872,15 @@ pub extern "C" fn zendoo_get_sc_vk_proving_system_type_from_file(
     let path_str = OsString::from_wide(unsafe { slice::from_raw_parts(vk_path, vk_path_len) });
     let vk_path = Path::new(&path_str);
 
-    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(vk_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(
+        vk_path, None, None,
+    ) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
         }
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -883,7 +929,8 @@ fn get_cert_proof_usr_ins<'a>(
     );
     let rs_constant = try_read_optional_raw_pointer!("constant", constant, ret_code, None);
 
-    let rs_sc_prev_wcert_hash = try_read_optional_raw_pointer!("sc_prev_wcert_hash", sc_prev_wcert_hash, ret_code, None);
+    let rs_sc_prev_wcert_hash =
+        try_read_optional_raw_pointer!("sc_prev_wcert_hash", sc_prev_wcert_hash, ret_code, None);
 
     // Create and return inputs
     Some(CertificateProofUserInputs {
@@ -896,7 +943,7 @@ fn get_cert_proof_usr_ins<'a>(
         end_cumulative_sc_tx_commitment_tree_root: rs_end_cum_comm_tree_root,
         btr_fee,
         ft_min_amount,
-        sc_prev_wcert_hash: rs_sc_prev_wcert_hash
+        sc_prev_wcert_hash: rs_sc_prev_wcert_hash,
     })
 }
 
@@ -951,7 +998,7 @@ pub extern "C" fn zendoo_verify_certificate_proof(
     ) {
         Ok(res) => res,
         Err(e) => {
-            eprintln!("{:?}", format!("Proof verification failure {:?}", e));
+            log::error!("{:?}", format!("Proof verification failure {:?}", e));
             match e {
                 ProvingSystemError::ProofVerificationFailed(_) => *ret_code = CctpErrorCode::OK,
                 _ => *ret_code = CctpErrorCode::ProofVerificationFailure,
@@ -1059,7 +1106,7 @@ pub extern "C" fn zendoo_get_cert_data_hash(
     ) {
         Ok(hash) => Box::into_raw(Box::new(hash)),
         Err(e) => {
-            eprintln!("{:?}", format!("Error computing cert_data_hash: {:?}", e));
+            log::error!("{:?}", format!("Error computing cert_data_hash: {:?}", e));
             *ret_code = CctpErrorCode::HashingError;
             null_mut()
         }
@@ -1107,7 +1154,7 @@ pub extern "C" fn zendoo_verify_csw_proof(
     ) {
         Ok(res) => res,
         Err(e) => {
-            eprintln!("{:?}", format!("Proof verification failure {:?}", e));
+            log::error!("{:?}", format!("Proof verification failure {:?}", e));
             match e {
                 ProvingSystemError::ProofVerificationFailed(_) => *ret_code = CctpErrorCode::OK,
                 _ => *ret_code = CctpErrorCode::ProofVerificationFailure,
@@ -1215,7 +1262,7 @@ pub extern "C" fn zendoo_add_certificate_proof_to_batch_verifier(
     ) {
         Ok(()) => true,
         Err(e) => {
-            eprintln!("{:?}", format!("Error adding proof to the batch: {:?}", e));
+            log::error!("{:?}", format!("Error adding proof to the batch: {:?}", e));
             *ret_code = CctpErrorCode::BatchVerifierFailure;
             false
         }
@@ -1269,7 +1316,7 @@ pub extern "C" fn zendoo_add_csw_proof_to_batch_verifier(
     ) {
         Ok(()) => true,
         Err(e) => {
-            eprintln!("{:?}", format!("Error adding proof to the batch: {:?}", e));
+            log::error!("{:?}", format!("Error adding proof to the batch: {:?}", e));
             *ret_code = CctpErrorCode::BatchVerifierFailure;
             false
         }
@@ -1350,7 +1397,7 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
     let result = match get_batch_verifier_thread_pool(prioritize) {
         Ok(pool) => pool.install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default())),
         Err(e) => {
-            eprintln!("{:?}", e);
+            log::error!("{:?}", e);
             *ret_code = CctpErrorCode::GenericError;
             return null_mut();
         }
@@ -1369,7 +1416,7 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
 
         // Otherwise, return the indices of the failing proofs if it's possible to estabilish it.
         Err(e) => {
-            eprintln!("{:?}", format!("Batch proof verification failure: {:?}", e));
+            log::error!("{:?}", format!("Batch proof verification failure: {:?}", e));
             match e {
                 ProvingSystemError::FailedBatchVerification(maybe_ids) => {
                     *ret_code = CctpErrorCode::OK;
@@ -1418,7 +1465,7 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
             rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default())
         }),
         Err(e) => {
-            eprintln!("{:?}", e);
+            log::error!("{:?}", e);
             *ret_code = CctpErrorCode::GenericError;
             return null_mut();
         }
@@ -1440,7 +1487,7 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
 
         // Otherwise, return the indices of the failing proofs if it's possible to estabilish it.
         Err(e) => {
-            eprintln!("{:?}", format!("Batch proof verification failure: {:?}", e));
+            log::error!("{:?}", format!("Batch proof verification failure: {:?}", e));
             match e {
                 ProvingSystemError::FailedBatchVerification(maybe_ids) => {
                     *ret_code = CctpErrorCode::OK;
@@ -1544,7 +1591,7 @@ pub extern "C" fn zendoo_update_poseidon_hash_from_raw(
         }
         Err(e) => {
             *ret_code = CctpErrorCode::InvalidBufferData;
-            eprintln!("{:?}", format!("Error deserializing input: {:?}", e));
+            log::error!("{:?}", format!("Error deserializing input: {:?}", e));
             false
         }
     }
@@ -1560,7 +1607,7 @@ pub extern "C" fn zendoo_finalize_poseidon_hash(
     match finalize_poseidon_hash(digest) {
         Ok(output) => Box::into_raw(Box::new(output)),
         Err(e) => {
-            eprintln!("{:?}", format!("Error finalizing the hash: {:?}", e));
+            log::error!("{:?}", format!("Error finalizing the hash: {:?}", e));
             *ret_code = CctpErrorCode::HashingError;
             null_mut()
         }
@@ -1602,7 +1649,7 @@ pub extern "C" fn zendoo_new_ginger_mht(
     match new_ginger_mht(height, processing_step) {
         Ok(gmt) => Box::into_raw(Box::new(gmt)),
         Err(e) => {
-            eprintln!("{:?}", format!("New merkle tree error: {:?}", e));
+            log::error!("{:?}", format!("New merkle tree error: {:?}", e));
             *ret_code = CctpErrorCode::MerkleRootBuildError;
             null_mut()
         }
@@ -1622,7 +1669,7 @@ pub extern "C" fn zendoo_append_leaf_to_ginger_mht(
         Ok(_) => true,
         Err(e) => {
             *ret_code = CctpErrorCode::MerkleTreeError;
-            eprintln!("{:?}", format!("Error appending leaf: {:?}", e));
+            log::error!("{:?}", format!("Error appending leaf: {:?}", e));
             false
         }
     }
@@ -1648,7 +1695,7 @@ pub extern "C" fn zendoo_append_leaf_to_ginger_mht_from_raw(
                 Ok(_) => true,
                 Err(e) => {
                     *ret_code = CctpErrorCode::MerkleTreeError;
-                    eprintln!("{:?}", format!("Error appending leaf: {:?}", e));
+                    log::error!("{:?}", format!("Error appending leaf: {:?}", e));
                     false
                 }
             }
@@ -1657,7 +1704,7 @@ pub extern "C" fn zendoo_append_leaf_to_ginger_mht_from_raw(
         // Deserialization failure
         Err(e) => {
             *ret_code = CctpErrorCode::InvalidBufferData;
-            eprintln!("{:?}", format!("Error deserializing leaf: {:?}", e));
+            log::error!("{:?}", format!("Error deserializing leaf: {:?}", e));
             false
         }
     }
@@ -1675,7 +1722,7 @@ pub extern "C" fn zendoo_finalize_ginger_mht(
     match finalize_ginger_mht(tree) {
         Ok(tree_copy) => Box::into_raw(Box::new(tree_copy)),
         Err(e) => {
-            eprintln!("{:?}", format!("Finalize merkle tree error: {:?}", e));
+            log::error!("{:?}", format!("Finalize merkle tree error: {:?}", e));
             *ret_code = CctpErrorCode::MerkleTreeError;
             null_mut()
         }
@@ -1693,7 +1740,7 @@ pub extern "C" fn zendoo_finalize_ginger_mht_in_place(
     match finalize_ginger_mht_in_place(tree) {
         Ok(_) => true,
         Err(e) => {
-            eprintln!("{:?}", format!("Finalize merkle tree error: {:?}", e));
+            log::error!("{:?}", format!("Finalize merkle tree error: {:?}", e));
             *ret_code = CctpErrorCode::MerkleTreeError;
             false
         }
@@ -1713,7 +1760,7 @@ pub extern "C" fn zendoo_get_ginger_mht_root(
         Some(root) => Box::into_raw(Box::new(root)),
         None => {
             *ret_code = CctpErrorCode::MerkleRootBuildError;
-            eprintln!("{:?}", "Error: tree not finalized");
+            log::error!("{:?}", "Error: tree not finalized");
             null_mut()
         }
     }
@@ -1733,7 +1780,7 @@ pub extern "C" fn zendoo_get_ginger_merkle_path(
         Some(path) => Box::into_raw(Box::new(path)),
         None => {
             *ret_code = CctpErrorCode::MerkleTreeError;
-            eprintln!("{:?}", "Error: tree not finalized");
+            log::error!("{:?}", "Error: tree not finalized");
             null_mut()
         }
     }
@@ -1766,7 +1813,7 @@ pub extern "C" fn zendoo_verify_ginger_merkle_path(
     let leaf = try_read_raw_pointer!("leaf", leaf, ret_code, false);
 
     if !path.is_valid() {
-        eprintln!("Invalid Merkle Path");
+        log::error!("Invalid Merkle Path");
         *ret_code = CctpErrorCode::InvalidValue;
         return false;
     }
@@ -1775,7 +1822,7 @@ pub extern "C" fn zendoo_verify_ginger_merkle_path(
         Ok(result) => result,
         Err(e) => {
             *ret_code = CctpErrorCode::MerkleTreeError;
-            eprintln!("{:?}", format!("Error verifying merkle path: {:?}", e));
+            log::error!("{:?}", format!("Error verifying merkle path: {:?}", e));
             false
         }
     }
@@ -1927,7 +1974,7 @@ pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_buffer(
     match deserialize_from_buffer::<ProvingSystem>(&sc_pk_bytes[..1], None, None) {
         Ok(ps_type) => ps_type,
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -1943,13 +1990,15 @@ pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_file(
 ) -> ProvingSystem {
     // Read file path
     let pk_path = parse_path(pk_path, pk_path_len);
-    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(pk_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(
+        pk_path, None, None,
+    ) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
         }
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -1967,13 +2016,15 @@ pub extern "C" fn zendoo_get_sc_pk_proving_system_type_from_file(
     let path_str = OsString::from_wide(unsafe { slice::from_raw_parts(pk_path, pk_path_len) });
     let pk_path = Path::new(&path_str);
 
-    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(pk_path, None, None) {
+    match cctp_primitives::utils::serialization::read_from_file::<ProvingSystem>(
+        pk_path, None, None,
+    ) {
         Ok(ps_type) => {
             *ret_code = CctpErrorCode::OK;
             ps_type
         }
         Err(e) => {
-            eprintln!("Error reading ProvingSystem: {:?}", e);
+            log::error!("Error reading ProvingSystem: {:?}", e);
             *ret_code = CctpErrorCode::InvalidValue;
             ProvingSystem::Undefined
         }
@@ -1996,7 +2047,7 @@ fn _zendoo_generate_mc_test_params(
     ret_code: &mut CctpErrorCode,
     compress_vk: bool,
     compress_pk: bool,
-    segment_size: Option<u32>
+    segment_size: Option<u32>,
 ) -> bool {
     let mut params_path = "".to_owned();
 
@@ -2004,7 +2055,7 @@ fn _zendoo_generate_mc_test_params(
         ProvingSystem::Darlin => params_path.push_str("darlin_"),
         ProvingSystem::CoboundaryMarlin => params_path.push_str("cob_marlin_"),
         ProvingSystem::Undefined => {
-            eprintln!("Error: Undefined proving system");
+            log::error!("Error: Undefined proving system");
             *ret_code = CctpErrorCode::InvalidValue;
             return false;
         }
@@ -2014,11 +2065,23 @@ fn _zendoo_generate_mc_test_params(
     let params = match circ_type {
         TestCircuitType::Certificate => {
             params_path.push_str("cert_");
-            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints, true, segment_size, with_prev_hash)
+            mc_test_circuits::cert::generate_parameters(
+                ps_type,
+                num_constraints,
+                true,
+                segment_size,
+                with_prev_hash,
+            )
         }
         TestCircuitType::CertificateNoConstant => {
             params_path.push_str("cert_no_const_");
-            mc_test_circuits::cert::generate_parameters(ps_type, num_constraints, false, segment_size, with_prev_hash)
+            mc_test_circuits::cert::generate_parameters(
+                ps_type,
+                num_constraints,
+                false,
+                segment_size,
+                with_prev_hash,
+            )
         }
         TestCircuitType::CSW => {
             params_path.push_str("csw_");
@@ -2026,10 +2089,15 @@ fn _zendoo_generate_mc_test_params(
         }
         TestCircuitType::CSWNoConstant => {
             params_path.push_str("csw_no_const_");
-            mc_test_circuits::csw::generate_parameters(ps_type, num_constraints, false, segment_size)
+            mc_test_circuits::csw::generate_parameters(
+                ps_type,
+                num_constraints,
+                false,
+                segment_size,
+            )
         }
         TestCircuitType::Undefined => {
-            eprintln!("Error: Undefined circuit type");
+            log::error!("Error: Undefined circuit type");
             *ret_code = CctpErrorCode::InvalidValue;
             return false;
         }
@@ -2053,7 +2121,7 @@ fn _zendoo_generate_mc_test_params(
 
             let pk_ser_res = write_to_file(&pk, &pk_path, Some(compress_pk));
             if pk_ser_res.is_err() {
-                eprintln!(
+                log::error!(
                     "{:?}",
                     format!("Error writing pk to file: {:?}", pk_ser_res.unwrap_err())
                 );
@@ -2063,7 +2131,7 @@ fn _zendoo_generate_mc_test_params(
 
             let vk_ser_res = write_to_file(&vk, &vk_path, Some(compress_vk));
             if vk_ser_res.is_err() {
-                eprintln!(
+                log::error!(
                     "{:?}",
                     format!("Error writing vk to file: {:?}", vk_ser_res.unwrap_err())
                 );
@@ -2074,7 +2142,7 @@ fn _zendoo_generate_mc_test_params(
             true
         }
         Err(e) => {
-            eprintln!("{:?}", format!("Error generating test params: {:?}", e));
+            log::error!("{:?}", format!("Error generating test params: {:?}", e));
             *ret_code = CctpErrorCode::GenericError;
             false
         }
@@ -2104,7 +2172,12 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     let segment_size: Option<u32> = if segment_size.is_null() {
         None
     } else {
-        Some(*try_read_raw_pointer!("segment_size", segment_size, ret_code, false))
+        Some(*try_read_raw_pointer!(
+            "segment_size",
+            segment_size,
+            ret_code,
+            false
+        ))
     };
 
     _zendoo_generate_mc_test_params(
@@ -2116,7 +2189,7 @@ pub extern "C" fn zendoo_generate_mc_test_params(
         ret_code,
         compress_vk,
         compress_pk,
-        segment_size
+        segment_size,
     )
 }
 
@@ -2138,7 +2211,12 @@ pub extern "C" fn zendoo_generate_mc_test_params(
     let segment_size: Option<u32> = if segment_size.is_null() {
         None
     } else {
-        Some(*try_read_raw_pointer!("segment_size", segment_size, ret_code, false))
+        Some(*try_read_raw_pointer!(
+            "segment_size",
+            segment_size,
+            ret_code,
+            false
+        ))
     };
 
     let params_dir = parse_path(params_dir, params_dir_len);
@@ -2151,7 +2229,7 @@ pub extern "C" fn zendoo_generate_mc_test_params(
         ret_code,
         compress_vk,
         compress_pk,
-        segment_size
+        segment_size,
     )
 }
 
@@ -2223,7 +2301,12 @@ fn _zendoo_create_cert_test_proof(
     let rs_segment_size: Option<u32> = if segment_size.is_null() {
         None
     } else {
-        Some(*try_read_raw_pointer!("segment_size", segment_size, ret_code, Err(ProvingSystemError::Other("".to_owned()))))
+        Some(*try_read_raw_pointer!(
+            "segment_size",
+            segment_size,
+            ret_code,
+            Err(ProvingSystemError::Other("".to_owned()))
+        ))
     };
 
     // Read sc_prev_wcert_hash
@@ -2249,7 +2332,7 @@ fn _zendoo_create_cert_test_proof(
         ft_min_amount,
         num_constraints,
         rs_segment_size,
-        rs_sc_prev_wcert_hash
+        rs_sc_prev_wcert_hash,
     )
 }
 
@@ -2275,7 +2358,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
     sc_prev_hash: *const FieldElement,
     ret_code: &mut CctpErrorCode,
     compressed: bool,
-    segment_size: *const u32
+    segment_size: *const u32,
 ) -> bool {
     match _zendoo_create_cert_test_proof(
         zk,
@@ -2302,7 +2385,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
             // Write proof to file
             let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
-                eprintln!(
+                log::error!(
                     "{:?}",
                     format!(
                         "Error writing proof to file {:?}",
@@ -2316,7 +2399,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
             true
         }
         Err(e) => {
-            eprintln!("{:?}", format!("Error creating proof {:?}", e));
+            log::error!("{:?}", format!("Error creating proof {:?}", e));
             *ret_code = CctpErrorCode::TestProofCreationFailure;
             false
         }
@@ -2374,7 +2457,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
             // Write proof to file
             let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
-                eprintln!(
+                log::error!(
                     "{:?}",
                     format!(
                         "Error writing proof to file {:?}",
@@ -2388,7 +2471,7 @@ pub extern "C" fn zendoo_create_cert_test_proof(
             true
         }
         Err(e) => {
-            eprintln!("{:?}", format!("Error creating proof {:?}", e));
+            log::error!("{:?}", format!("Error creating proof {:?}", e));
             *ret_code = CctpErrorCode::TestProofCreationFailure;
             false
         }
@@ -2459,7 +2542,12 @@ fn _zendoo_create_csw_test_proof(
     let rs_segment_size: Option<u32> = if segment_size.is_null() {
         None
     } else {
-        Some(*try_read_raw_pointer!("segment_size", segment_size, ret_code, Err(ProvingSystemError::Other("".to_owned()))))
+        Some(*try_read_raw_pointer!(
+            "segment_size",
+            segment_size,
+            ret_code,
+            Err(ProvingSystemError::Other("".to_owned()))
+        ))
     };
 
     // Create proof
@@ -2521,7 +2609,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
             // Write proof to file
             let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
-                eprintln!(
+                log::error!(
                     "{:?}",
                     format!(
                         "Error writing proof to file {:?}",
@@ -2535,7 +2623,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
             true
         }
         Err(e) => {
-            eprintln!("{:?}", format!("Error creating proof {:?}", e));
+            log::error!("{:?}", format!("Error creating proof {:?}", e));
             *ret_code = CctpErrorCode::TestProofCreationFailure;
             false
         }
@@ -2583,7 +2671,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
             // Write proof to file
             let proof_ser_res = write_to_file(&proof, &proof_path, Some(compressed));
             if proof_ser_res.is_err() {
-                eprintln!(
+                log::error!(
                     "{:?}",
                     format!(
                         "Error writing proof to file {:?}",
@@ -2597,7 +2685,7 @@ pub extern "C" fn zendoo_create_csw_test_proof(
             true
         }
         Err(e) => {
-            eprintln!("{:?}", format!("Error creating proof {:?}", e));
+            log::error!("{:?}", format!("Error creating proof {:?}", e));
             *ret_code = CctpErrorCode::TestProofCreationFailure;
             false
         }
@@ -2655,13 +2743,13 @@ pub extern "C" fn zendoo_create_return_cert_test_proof(
                 Box::into_raw(Box::new(BufferWithSize { data, len }))
             }
             Err(e) => {
-                eprintln!("{:?}", format!("Error serializing proof {:?}", e));
+                log::error!("{:?}", format!("Error serializing proof {:?}", e));
                 *ret_code = CctpErrorCode::InvalidValue;
                 null_mut()
             }
         },
         Err(e) => {
-            eprintln!("{:?}", format!("Error creating proof {:?}", e));
+            log::error!("{:?}", format!("Error creating proof {:?}", e));
             *ret_code = CctpErrorCode::TestProofCreationFailure;
             null_mut()
         }
@@ -2709,13 +2797,13 @@ pub extern "C" fn zendoo_create_return_csw_test_proof(
                 Box::into_raw(Box::new(BufferWithSize { data, len }))
             }
             Err(e) => {
-                eprintln!("{:?}", format!("Error serializing proof {:?}", e));
+                log::error!("{:?}", format!("Error serializing proof {:?}", e));
                 *ret_code = CctpErrorCode::InvalidValue;
                 null_mut()
             }
         },
         Err(e) => {
-            eprintln!("{:?}", format!("Error creating proof {:?}", e));
+            log::error!("{:?}", format!("Error creating proof {:?}", e));
             *ret_code = CctpErrorCode::TestProofCreationFailure;
             null_mut()
         }

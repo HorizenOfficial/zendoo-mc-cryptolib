@@ -360,8 +360,20 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
 }
 
 void init(Parameters const& pars, int segment_size) {
-    // Load DLOG keys
     CctpErrorCode ret_code = CctpErrorCode::OK;
+
+    // Init library
+    const char* log_config_path = "../src/tests/log/sample_log_config.yaml";
+    zendoo_init(
+        (path_char_t const*) log_config_path,
+        strlen(log_config_path),
+        &ret_code
+    );
+    if (ret_code != CctpErrorCode::OK) {
+        printError(__func__, __LINE__, "Failed initializing library");
+    }
+
+    // Load DLOG keys
     zendoo_init_dlog_keys(segment_size, &ret_code);
     if (ret_code != CctpErrorCode::OK) {
         printError(__func__, __LINE__, "Failed initializing dlog keys");
@@ -641,7 +653,7 @@ void create_verify(CreateParameters const& pars)
 }
 
 int run(int argc, char** argv, int seg_size, ParseFn parser)
-{
+{    
     if (argc < 2) printUsage(argv[0]);
 
     if (strcmp(argv[1], "generate") == 0) {
