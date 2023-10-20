@@ -4,29 +4,6 @@ use cctp_primitives::utils::serialization::{
 };
 use std::{path::Path, slice};
 
-#[allow(unused_macros)]
-macro_rules! log {
-    ($msg: expr) => {{
-        log::error!("[{}:{}] {:?}", file!(), line!(), $msg)
-    }};
-}
-
-#[allow(unused_macros)]
-#[cfg(debug_assertions)]
-macro_rules! log_dbg {
-    ($msg: expr) => {{
-        log::error!("[{}:{}] {:?}", file!(), line!(), $msg)
-    }};
-}
-
-#[allow(unused_macros)]
-#[cfg(not(debug_assertions))]
-macro_rules! log_dbg {
-    ($msg: expr) => {{
-        ()
-    }};
-}
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub enum CctpErrorCode {
