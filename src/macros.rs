@@ -36,19 +36,16 @@ pub struct BufferWithSize {
 /// Check that `buffer` it's a valid buffer with non-zero data
 pub(crate) fn check_buffer(buffer: *const BufferWithSize) -> (bool, CctpErrorCode) {
     if buffer.is_null() {
-        //log::error!("===> ERR CODE {:?}", CctpErrorCode::NullPtr);
         return (false, CctpErrorCode::NullPtr);
     }
 
     let data_attr = unsafe { (*buffer).data };
     if data_attr.is_null() {
-        //log::error!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferData);
         return (false, CctpErrorCode::InvalidBufferData);
     }
 
     let len_attr = unsafe { (*buffer).len };
     if len_attr == 0 {
-        //log::error!("===> ERR CODE {:?}", CctpErrorCode::InvalidBufferLength);
         return (false, CctpErrorCode::InvalidBufferLength);
     }
 

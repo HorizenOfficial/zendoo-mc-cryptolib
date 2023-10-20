@@ -67,6 +67,7 @@ pub fn init_test_logger() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn init_logger_multiple() {
+    init_test_logger();
     let config_path = parse_path(LOG_CONFIG_PATH.as_ptr(), LOG_CONFIG_PATH.len());
     assert!(init_logger(config_path).is_err());
 }
@@ -74,6 +75,8 @@ fn init_logger_multiple() {
 #[cfg(target_os = "windows")]
 #[test]
 fn init_logger_multiple() {
+    init_test_logger();
+    
     // Read config file path
     let path_str = OsString::from_wide(unsafe {
         slice::from_raw_parts(LOG_CONFIG_PATH, LOG_CONFIG_PATH.len())
