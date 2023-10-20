@@ -14,7 +14,7 @@ use lazy_static::lazy_static;
 use libc::{c_uchar, c_uint};
 use rand::rngs::OsRng;
 use std::sync::{Arc, Condvar, Mutex};
-use std::{convert::TryInto, fmt::Write, panic, path::Path, ptr::null_mut, slice,};
+use std::{convert::TryInto, fmt::Write, panic, path::Path, ptr::null_mut, slice};
 lazy_static! {
     pub static ref STOP_CTR: Arc<(Mutex<usize>, Condvar)> =
         Arc::new((Mutex::new(0), Condvar::new()));
@@ -128,7 +128,8 @@ pub extern "C" fn zendoo_init(
     ret_code: &mut CctpErrorCode,
 ) {
     // Read config file path
-    let path_str = OsString::from_wide(unsafe { slice::from_raw_parts(config_path, config_path_len) });
+    let path_str =
+        OsString::from_wide(unsafe { slice::from_raw_parts(config_path, config_path_len) });
     let config_path = Path::new(&path_str);
 
     // Init logger

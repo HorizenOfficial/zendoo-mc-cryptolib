@@ -1,6 +1,7 @@
 use crate::{
+    init_logger,
     macros::{BufferWithSize, CctpErrorCode},
-    zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws, init_logger, parse_path,
+    parse_path, zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws,
 };
 use cctp_primitives::bit_vector::compression::CompressionAlgorithm;
 use std::slice;
@@ -12,8 +13,8 @@ use crate::{
     zendoo_create_return_csw_test_proof, zendoo_deserialize_sc_pk_from_file,
     zendoo_deserialize_sc_proof, zendoo_deserialize_sc_vk_from_file, zendoo_field_free,
     zendoo_free_batch_proof_verifier_result, zendoo_generate_mc_test_params,
-    zendoo_get_random_field, zendoo_init_dlog_keys, zendoo_sc_pk_free, zendoo_sc_proof_free,
-    zendoo_sc_vk_free, zendoo_verify_certificate_proof, TestCircuitType, zendoo_init
+    zendoo_get_random_field, zendoo_init, zendoo_init_dlog_keys, zendoo_sc_pk_free,
+    zendoo_sc_proof_free, zendoo_sc_vk_free, zendoo_verify_certificate_proof, TestCircuitType,
 };
 
 #[cfg(feature = "mc-test-circuit")]
@@ -54,7 +55,11 @@ static INIT: Once = Once::new();
 pub fn init_test_logger() {
     INIT.call_once(|| {
         let mut ret_code = CctpErrorCode::OK;
-        zendoo_init(path_as_ptr(LOG_CONFIG_PATH), LOG_CONFIG_PATH.len(), &mut ret_code);
+        zendoo_init(
+            path_as_ptr(LOG_CONFIG_PATH),
+            LOG_CONFIG_PATH.len(),
+            &mut ret_code,
+        );
         assert_eq!(ret_code, CctpErrorCode::OK);
     });
 }
@@ -69,11 +74,12 @@ fn init_logger_multiple() {
 #[cfg(target_os = "windows")]
 #[test]
 fn init_logger_multiple() {
-
     // Read config file path
-    let path_str = OsString::from_wide(unsafe { slice::from_raw_parts(LOG_CONFIG_PATH, LOG_CONFIG_PATH.len())});
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(LOG_CONFIG_PATH, LOG_CONFIG_PATH.len())
+    });
     let config_path = Path::new(&path_str);
-    
+
     assert!(init_logger(config_path).is_err());
 }
 

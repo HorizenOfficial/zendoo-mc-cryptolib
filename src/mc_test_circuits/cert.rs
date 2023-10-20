@@ -1,5 +1,6 @@
 use crate::type_mapping::*;
 use algebra::ToConstraintField;
+use cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH;
 use cctp_primitives::{
     proving_system::{
         error::ProvingSystemError,
@@ -15,7 +16,6 @@ use r1cs_std::{
     alloc::AllocGadget, bits::boolean::Boolean, eq::EqGadget, instantiated::tweedle::FrGadget,
 };
 use rand::rngs::OsRng;
-use cctp_primitives::proving_system::verifier::ceased_sidechain_withdrawal::PHANTOM_CERT_DATA_HASH;
 
 type FieldElementGadget = FrGadget;
 
@@ -29,10 +29,10 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
 ) -> Result<(), SynthesisError> {
     let mut num_loops = 1; // cert_data_hash
     if constant_present {
-        num_loops += 1;    // [constant]
+        num_loops += 1; // [constant]
     }
     if sc_prev_hash.is_some() {
-        num_loops += 1;    // [sc_prev_hash]
+        num_loops += 1; // [sc_prev_hash]
     }
 
     let constraints_per_loop = 4; // is_eq adds 3 constraints, enforce_equal adds 1 constraint
@@ -73,14 +73,15 @@ fn enforce_cert_inputs_gadget<CS: ConstraintSystemAbstract<FieldElement>>(
     let mut sc_prev_hash_g: Option<FieldElementGadget> = None;
     let mut expected_sc_prev_hash_g: Option<FieldElementGadget> = None;
     if sc_prev_hash.is_some() {
-        sc_prev_hash_g = Some(FieldElementGadget::alloc(cs.ns(|| "alloc sc_prev_cert_hash"), || {
-            sc_prev_hash.ok_or(SynthesisError::AssignmentMissing)
-        })?);
+        sc_prev_hash_g = Some(FieldElementGadget::alloc(
+            cs.ns(|| "alloc sc_prev_cert_hash"),
+            || sc_prev_hash.ok_or(SynthesisError::AssignmentMissing),
+        )?);
 
-        expected_sc_prev_hash_g =
-            Some(FieldElementGadget::alloc_input(cs.ns(|| "alloc expected_sc_prev_cert_hash"), || {
-                sc_prev_hash.ok_or(SynthesisError::AssignmentMissing)
-            })?);
+        expected_sc_prev_hash_g = Some(FieldElementGadget::alloc_input(
+            cs.ns(|| "alloc expected_sc_prev_cert_hash"),
+            || sc_prev_hash.ok_or(SynthesisError::AssignmentMissing),
+        )?);
     }
 
     for i in 0..num_iterations {
@@ -302,9 +303,7 @@ pub fn generate_proof(
         ZendooProverKey::Darlin(pk) => {
             let ck_g2 = get_g2_committer_key(supported_degree)?;
             let deferred = FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
-                rng,
-                &ck_g1,
-                &ck_g2,
+                rng, &ck_g1, &ck_g2,
             );
             let deferred_fes = deferred.to_field_elements().unwrap();
             let circ = CertTestCircuitWithAccumulators {
@@ -323,14 +322,9 @@ pub fn generate_proof(
                 deferred: deferred_fes.clone(),
                 num_constraints,
             };
-            let proof = CoboundaryMarlin::prove(
-                pk,
-                &ck_g1,
-                circ,
-                zk,
-                if zk { Some(rng) } else { None },
-            )
-            .map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
+            let proof =
+                CoboundaryMarlin::prove(pk, &ck_g1, circ, zk, if zk { Some(rng) } else { None })
+                    .map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
             let darlin_proof = FinalDarlinProof::<G1, G2, Digest> {
                 proof: MarlinProof(proof),
                 deferred,
@@ -353,14 +347,9 @@ pub fn generate_proof(
                 },
                 num_constraints,
             };
-            let proof = CoboundaryMarlin::prove(
-                pk,
-                &ck_g1,
-                circ,
-                zk,
-                if zk { Some(rng) } else { None },
-            )
-            .map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
+            let proof =
+                CoboundaryMarlin::prove(pk, &ck_g1, circ, zk, if zk { Some(rng) } else { None })
+                    .map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
             Ok(ZendooProof::CoboundaryMarlin(MarlinProof(proof)))
         }
     }
