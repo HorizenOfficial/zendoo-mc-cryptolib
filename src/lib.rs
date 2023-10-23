@@ -1389,6 +1389,8 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
     let rs_batch_verifier =
         try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, null_mut());
 
+    log::info!("Begin batch verification of {} proofs...", rs_batch_verifier.num_proofs());
+
     // If prioritize, pause all low priority threads
     if prioritize {
         zendoo_pause_low_priority_threads();
