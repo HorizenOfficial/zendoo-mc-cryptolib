@@ -36,12 +36,12 @@ use std::ffi::OsString;
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
 
-#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[cfg(not(target_os = "windows"))]
 fn path_as_ptr(path: &str) -> *const u8 {
     path.as_ptr()
 }
 
-#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[cfg(target_os = "windows")]
 fn path_as_ptr(path: &str) -> *const u16 {
     let tmp: Vec<u16> = OsString::from(path).encode_wide().collect();
     tmp.as_ptr()
@@ -104,14 +104,14 @@ fn serialization_deserialization_bench_vk_proof() {
     init_test_logger();
 
     // Init DLOG keys
-    log::info!("Setup DLOG keys...");
+    println!("Setup DLOG keys...");
     assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
 
     // CSW
-    log::info!("Bench serialize/deserialize CSW...");
+    println!("Bench serialize/deserialize CSW...");
     {
         // Generate SNARK keys
-        log::info!("Generate SNARK pk and vk...");
+        println!("Generate SNARK pk and vk...");
         let (pk, vk) = crate::mc_test_circuits::csw::generate_parameters(
             ProvingSystem::Darlin,
             num_constraints,
@@ -120,7 +120,7 @@ fn serialization_deserialization_bench_vk_proof() {
         )
         .unwrap();
 
-        log::info!("Generate proof...");
+        println!("Generate proof...");
         let proof = crate::mc_test_circuits::csw::generate_proof(
             &pk,
             true,
@@ -136,7 +136,7 @@ fn serialization_deserialization_bench_vk_proof() {
         )
         .unwrap();
 
-        log::info!("Test deserialization...");
+        println!("Test deserialization...");
         for compressed in vec![true, false].into_iter() {
             // Serialize vk and proof in compressed/uncompressed form
             let mut vk_bytes = serialize_to_buffer(&vk, Some(compressed)).unwrap();
@@ -153,13 +153,13 @@ fn serialization_deserialization_bench_vk_proof() {
 
             // Deserialize with various combinations
             for semantic_checks in vec![true, false].into_iter() {
-                log::info!(
+                println!(
                     "Compressed: {}, Semantic checks: {}",
                     compressed,
                     semantic_checks
                 );
-                log::info!("Vk len: {}", len_vk);
-                log::info!("Proof len: {}", len_proof);
+                println!("Vk len: {}", len_vk);
+                println!("Proof len: {}", len_proof);
 
                 let total_deser_vk_time = std::time::Instant::now();
                 for _ in 0..num_proofs {
@@ -171,7 +171,7 @@ fn serialization_deserialization_bench_vk_proof() {
                     );
                     assert!(vk != null_mut());
                 }
-                log::info!(
+                println!(
                     "Total time to deserialize {} vks: {:?}",
                     num_proofs,
                     total_deser_vk_time.elapsed()
@@ -187,7 +187,7 @@ fn serialization_deserialization_bench_vk_proof() {
                     );
                     assert!(proof != null_mut());
                 }
-                log::info!(
+                println!(
                     "Total time to deserialize {} proofs: {:?}",
                     num_proofs,
                     total_deser_proof_time.elapsed()
@@ -199,12 +199,12 @@ fn serialization_deserialization_bench_vk_proof() {
     }
 
     // CERT
-    log::info!("Bench serialize/deserialize CERT...");
+    println!("Bench serialize/deserialize CERT...");
     {
         let num_constraints = num_constraints * 2;
 
         // Generate SNARK keys
-        log::info!("Generate SNARK pk and vk...");
+        println!("Generate SNARK pk and vk...");
         let (pk, vk) = crate::mc_test_circuits::cert::generate_parameters(
             ProvingSystem::Darlin,
             num_constraints,
@@ -214,7 +214,7 @@ fn serialization_deserialization_bench_vk_proof() {
         )
         .unwrap();
 
-        log::info!("Generate proof...");
+        println!("Generate proof...");
         let proof = crate::mc_test_circuits::cert::generate_proof(
             &pk,
             true,
@@ -233,7 +233,7 @@ fn serialization_deserialization_bench_vk_proof() {
         )
         .unwrap();
 
-        log::info!("Test deserialization...");
+        println!("Test deserialization...");
         for compressed in vec![true, false].into_iter() {
             // Serialize vk and proof in compressed/uncompressed form
             let mut vk_bytes = serialize_to_buffer(&vk, Some(compressed)).unwrap();
@@ -250,13 +250,13 @@ fn serialization_deserialization_bench_vk_proof() {
 
             // Deserialize with various combinations
             for semantic_checks in vec![true, false].into_iter() {
-                log::info!(
+                println!(
                     "Compressed: {}, Semantic checks: {}",
                     compressed,
                     semantic_checks
                 );
-                log::info!("Vk len: {}", len_vk);
-                log::info!("Proof len: {}", len_proof);
+                println!("Vk len: {}", len_vk);
+                println!("Proof len: {}", len_proof);
 
                 let total_deser_vk_time = std::time::Instant::now();
                 for _ in 0..num_proofs {
@@ -268,7 +268,7 @@ fn serialization_deserialization_bench_vk_proof() {
                     );
                     assert!(vk != null_mut());
                 }
-                log::info!(
+                println!(
                     "Total time to deserialize {} vks: {:?}",
                     num_proofs,
                     total_deser_vk_time.elapsed()
@@ -284,7 +284,7 @@ fn serialization_deserialization_bench_vk_proof() {
                     );
                     assert!(proof != null_mut());
                 }
-                log::info!(
+                println!(
                     "Total time to deserialize {} proofs: {:?}",
                     num_proofs,
                     total_deser_proof_time.elapsed()
@@ -303,12 +303,12 @@ fn prev_sc_cert_hash_support() {
     init_test_logger();
 
     // Init DLOG keys
-    log::info!("Setup DLOG keys...");
+    println!("Setup DLOG keys...");
     assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
 
     let num_constraints = 1 << 16;
 
-    log::info!(
+    println!(
         "Generating cert proof with {} constraints...",
         num_constraints
     );
@@ -316,7 +316,7 @@ fn prev_sc_cert_hash_support() {
     std::fs::create_dir_all("./src/tests/keyrot").unwrap();
 
     // Generate SNARK keys
-    log::info!("Generate SNARK pk and vk...");
+    println!("Generate SNARK pk and vk...");
     assert!(zendoo_generate_mc_test_params(
         TestCircuitType::Certificate,
         ProvingSystem::Darlin,
@@ -349,7 +349,7 @@ fn prev_sc_cert_hash_support() {
     );
     assert!(pk != null_mut());
 
-    log::info!("Generate proof...");
+    println!("Generate proof...");
     let random_field_proof = zendoo_get_random_field();
     let proof_buff = zendoo_create_return_cert_test_proof(
         true,
@@ -385,7 +385,7 @@ fn prev_sc_cert_hash_support() {
     );
     assert!(vk != null_mut());
 
-    log::info!("Verifying proof...");
+    println!("Verifying proof...");
     assert!(zendoo_verify_certificate_proof(
         constant,
         sc_id,
@@ -404,7 +404,7 @@ fn prev_sc_cert_hash_support() {
         &mut CctpErrorCode::OK
     ));
 
-    log::info!("Assert failure with wrong key...");
+    println!("Assert failure with wrong key...");
     let random_field_wrong = zendoo_get_random_field();
     assert!(!zendoo_verify_certificate_proof(
         constant,
@@ -425,7 +425,7 @@ fn prev_sc_cert_hash_support() {
     ));
 
     // Free memory
-    log::info!("Cleaning up...");
+    println!("Cleaning up...");
     zendoo_field_free(constant);
     zendoo_field_free(sc_id);
     zendoo_field_free(end_cum_comm_tree_root);
@@ -436,7 +436,7 @@ fn prev_sc_cert_hash_support() {
     zendoo_field_free(random_field_proof);
     zendoo_field_free(random_field_wrong);
 
-    log::info!("Cleaning up...");
+    println!("Cleaning up...");
     std::fs::remove_file("./src/tests/keyrot/darlin_cert_test_pk").unwrap();
     std::fs::remove_file("./src/tests/keyrot/darlin_cert_test_vk").unwrap();
     std::fs::remove_dir("./src/tests/keyrot").unwrap();
@@ -450,7 +450,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
 
     // Init DLOG keys
     init_test_logger();
-    log::info!("Setup DLOG keys...");
+    println!("Setup DLOG keys...");
     assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
 
     for j in 15..=16 {
@@ -461,14 +461,14 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
         {
             let num_constraints = 1 << (j + 1);
 
-            log::info!(
+            println!(
                 "Generating {} cert proofs with {} constraints...",
                 num_proofs / 2,
                 num_constraints
             );
 
             // Generate SNARK keys
-            log::info!("Generate SNARK pk and vk...");
+            println!("Generate SNARK pk and vk...");
             assert!(zendoo_generate_mc_test_params(
                 TestCircuitType::Certificate,
                 ProvingSystem::Darlin,
@@ -501,7 +501,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             );
             assert!(pk != null_mut());
 
-            log::info!("Generate proof...");
+            println!("Generate proof...");
             let proof_buff = zendoo_create_return_cert_test_proof(
                 true,
                 constant,
@@ -537,7 +537,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             );
             assert!(vk != null_mut());
 
-            log::info!("Add proofs to batch verifier...");
+            println!("Add proofs to batch verifier...");
             for i in 0..num_proofs / 2 {
                 assert!(zendoo_add_certificate_proof_to_batch_verifier(
                     &mut bv,
@@ -561,7 +561,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             }
 
             // Free memory
-            log::info!("Cleaning up...");
+            println!("Cleaning up...");
             zendoo_field_free(constant);
             zendoo_field_free(sc_id);
             zendoo_field_free(end_cum_comm_tree_root);
@@ -575,14 +575,14 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
         {
             let num_constraints = 1 << j;
 
-            log::info!(
+            println!(
                 "Generating {} CSW proofs with {} constraints...",
                 num_proofs / 2,
                 num_constraints
             );
 
             // Generate SNARK keys
-            log::info!("Generate SNARK pk and vk...");
+            println!("Generate SNARK pk and vk...");
             assert!(zendoo_generate_mc_test_params(
                 TestCircuitType::CSW,
                 ProvingSystem::Darlin,
@@ -627,7 +627,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             );
             assert!(pk != null_mut());
 
-            log::info!("Generate proof...");
+            println!("Generate proof...");
             let proof_buff = zendoo_create_return_csw_test_proof(
                 true,
                 0,
@@ -658,7 +658,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             );
             assert!(vk != null_mut());
 
-            log::info!("Add proofs to batch verifier...");
+            println!("Add proofs to batch verifier...");
             for i in num_proofs / 2..num_proofs {
                 assert!(zendoo_add_csw_proof_to_batch_verifier(
                     &mut bv,
@@ -677,7 +677,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             }
 
             // Free memory
-            log::info!("Cleaning up...");
+            println!("Cleaning up...");
             zendoo_field_free(constant);
             zendoo_field_free(sc_id);
             zendoo_field_free(nullifier);
@@ -695,7 +695,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
         let rng = &mut thread_rng();
         let num_threads: usize = rng.gen_range(2..11);
 
-        log::info!(
+        println!(
             "Perform {} separate batch verifications with different priority...",
             num_threads
         );
@@ -720,7 +720,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 low_priority_timings.clone()
             };
             let handle = std::thread::spawn(move || {
-                log::info!("Thread {} started", i);
+                println!("Thread {} started", i);
 
                 // Execute batch verification and take the time
                 let start = std::time::Instant::now();
@@ -734,12 +734,12 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 }
                 zendoo_free_batch_proof_verifier_result(result);
 
-                log::info!("Thread {} finished in: {:?}", i, time);
+                println!("Thread {} finished in: {:?}", i, time);
 
                 // Push execution time in timings vec
                 timings_vec_ref.write().unwrap().push(time.as_millis());
             });
-            log::info!(
+            println!(
                 "Spawned batch verification thread {} with priority {}",
                 i,
                 priority
@@ -768,7 +768,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                     / low_priority_timings.clone().read().unwrap().len() as u128
         );
 
-        log::info!("Cleaning up...");
+        println!("Cleaning up...");
         std::fs::remove_file("./src/tests/darlin_cert_test_pk").unwrap();
         std::fs::remove_file("./src/tests/darlin_cert_test_vk").unwrap();
         std::fs::remove_file("./src/tests/darlin_csw_test_pk").unwrap();
