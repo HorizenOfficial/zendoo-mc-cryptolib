@@ -312,3 +312,8 @@ if __name__ == "__main__":
     else:
         print('Unknown test')
         sys.exit(2)
+
+    # Delete log files
+    for fname in os.listdir(data_dir):
+        if fname.startswith("test_log"):
+            os.remove(os.path.join(data_dir, fname))

@@ -1,6 +1,6 @@
 [package]
 name = "zendoo-mc-crypto"
-version = "0.4.0"
+version = "0.5.0"
 authors = [
     "DanieleDiBenedetto <daniele@horizenlabs.io>",
     "Maksym Vereshchak <phoinic@gmail.com>",
@@ -19,22 +19,22 @@ crate-type = ["staticlib"]
 [dependencies]
 algebra = { features = [
     "tweedle",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.0" }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1" }
 primitives = { features = [
     "tweedle",
     "merkle_tree",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.0" }
-cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", tag = "0.2.1" }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1" }
+cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", tag = "0.2.2" }
 proof-systems = { features = [
     "darlin",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.0", optional = true }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1", optional = true }
 r1cs-crypto = { features = [
     "tweedle",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.0", optional = true }
-r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.0", optional = true }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1", optional = true }
+r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1", optional = true }
 r1cs-std = { features = [
     "tweedle",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.0", optional = true }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1", optional = true }
 crossbeam-utils = "0.8.7"
 maybe-uninit = "2.0.0"
 rand = "0.8.4"
@@ -43,6 +43,8 @@ lazy_static = "1.4.0"
 libc = "0.2.97"
 cfg-if = "1.0.0"
 rayon = { version = "1" }
+log4rs = { version = "1.2.0", features = ["gzip", "config_parsing"] }
+log = { version = "0.4.0", features = ["std"] }
 
 [features]
 default = ["parallel", "asm"]
@@ -74,18 +76,15 @@ debug = true
 
 # Uncomment these lines for local development paths
 #
-#[patch.'https://github.com/HorizenOfficial/ginger-lib.git']
-#algebra = { path = '../ginger-lib/algebra' }
-#primitives = { path = '../ginger-lib/primitives' }
-#r1cs-core = { path = '../ginger-lib/r1cs/core' }
-#r1cs-crypto = { path = '../ginger-lib/r1cs/gadgets/crypto' }
-#r1cs-std = { path = '../ginger-lib/r1cs/gadgets/std' }
-#
-#[patch.'https://github.com/HorizenOfficial/zendoo-cctp-lib.git']
-#cctp_primitives = { path = '../zendoo-cctp-lib/cctp_primitives' }
-#
-#[patch.'https://github.com/HorizenLabs/marlin']
-#marlin = { path = '../marlin' }
-#
-#[patch.'https://github.com/HorizenLabs/poly-commit']
-#poly-commit = { path = '../poly-commit' }
+# [patch.'https://github.com/HorizenOfficial/ginger-lib.git']
+# algebra = { path = '../ginger-lib/algebra' }
+# primitives = { path = '../ginger-lib/primitives' }
+# proof-systems = { path = "../ginger-lib/proof-systems"}
+# r1cs-core = { path = '../ginger-lib/r1cs/core' }
+# r1cs-crypto = { path = '../ginger-lib/r1cs/gadgets/crypto' }
+# r1cs-std = { path = '../ginger-lib/r1cs/gadgets/std' }
+# marlin = { path = '../ginger-lib/proof-systems/src/marlin' }
+# poly-commit = { path = '../ginger-lib/proof-systems/src/poly-commit' }
+
+# [patch.'https://github.com/HorizenOfficial/zendoo-cctp-lib.git']
+# cctp_primitives = { path = '../zendoo-cctp-lib/cctp_primitives' }

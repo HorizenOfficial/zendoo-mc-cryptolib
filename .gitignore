@@ -2,6 +2,7 @@ target
 examples/bin_SampleCalls
 mc_test/mcTest
 mc_test/*.o
+/*.log
 
 # Intellij
 .idea

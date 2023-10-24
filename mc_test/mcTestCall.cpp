@@ -1,7 +1,8 @@
 #include "zendoo_mc.h"
 #include "mcTestCall.h"
-
 #include "hex_utils.h"
+
+#include <sys/stat.h> // stat
 #include <cstdarg>
 #include <iostream>
 #include <cassert>
@@ -54,6 +55,7 @@ struct Parameters {
     uint32_t        num_constraints = 1024;
     char const*     params_dir      = nullptr;
     char const*     proof_path      = nullptr;
+    char const*     log_config_path = "../src/tests/log/sample_log_config.yaml";
 };
 
 struct CreateParameters : Parameters {
@@ -154,6 +156,11 @@ void printError(char const* func, uint32_t line, Parameters const* pars, char co
     printError(func, line, msg);
 }
 
+bool file_exists(char const* filename) {
+  struct stat buffer;
+  return (stat(filename, &buffer) == 0);
+}
+
 std::string get_key_path(Parameters const& pars, bool is_verification) {
     std::stringstream res;
     res << pars.params_dir << pars.ps_type_raw;
@@ -222,7 +229,7 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
 
     res.op = op;
 
-    while ((opt = getopt(argc, argv, "c:k:p:s:n:rvz")) != -1) {
+    while ((opt = getopt(argc, argv, "c:k:p:s:n:l:rvz")) != -1) {
         switch (opt) {
         case 'c':
             circuit = optarg;
@@ -251,6 +258,9 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
             break;
         case 'z':
             res.zk = true;
+            break;
+        case 'l':
+            res.log_config_path = optarg;
             break;
         }
     }
@@ -360,8 +370,22 @@ CreateParameters parse_args(int argc, char** argv, Operation op, ParseFn parse_f
 }
 
 void init(Parameters const& pars, int segment_size) {
-    // Load DLOG keys
     CctpErrorCode ret_code = CctpErrorCode::OK;
+
+    // Init library
+    if (!file_exists(pars.log_config_path)) {
+        printError(__func__, __LINE__, "Cannot read config file %s", pars.log_config_path);
+    }
+    zendoo_init(
+        (path_char_t const*) pars.log_config_path,
+        strlen(pars.log_config_path),
+        &ret_code
+    );
+    if (ret_code != CctpErrorCode::OK) {
+        printError(__func__, __LINE__, "Failed initializing library");
+    }
+
+    // Load DLOG keys
     zendoo_init_dlog_keys(segment_size, &ret_code);
     if (ret_code != CctpErrorCode::OK) {
         printError(__func__, __LINE__, "Failed initializing dlog keys");
