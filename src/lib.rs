@@ -137,7 +137,7 @@ pub extern "C" fn zendoo_init(
         Ok(()) => *ret_code = CctpErrorCode::OK,
         Err(e) => {
             eprintln!("Error initializing logger: {:?}", e);
-            *ret_code = CctpErrorCode::GenericError
+            *ret_code = CctpErrorCode::LoggerInitializationError
         }
     }
 }
