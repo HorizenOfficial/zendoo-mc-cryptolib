@@ -41,13 +41,13 @@ extern "C"
         MerkleRootBuildError,
         GenericError,
         TestProofCreationFailure,
-        InitializationError,
+        LoggerInitializationError,
     } CctpErrorCode;
 
     /*
      * Initialize Rust library. In particular:
      *  - Initializes a logger Rust-side using as config the one supplied at `config_path_len`.
-     * Set `ret_code` to Ok if initialization was successfull, `InitializationError` otherwise.
+     * Set `ret_code` to Ok if initialization was successfull, `LoggerInitializationError` otherwise.
      * This function is supposed to be called only once.
      */
     void zendoo_init(

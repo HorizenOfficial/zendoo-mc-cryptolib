@@ -115,7 +115,7 @@ pub extern "C" fn zendoo_init(
         Ok(()) => *ret_code = CctpErrorCode::OK,
         Err(e) => {
             eprintln!("Error initializing logger: {:?}", e);
-            *ret_code = CctpErrorCode::InitializationError
+            *ret_code = CctpErrorCode::LoggerInitializationError
         }
     }
 }
@@ -514,7 +514,10 @@ pub extern "C" fn zendoo_merkle_root_from_compressed_bytes(
     match merkle_root_from_compressed_bytes(compressed_slice, expected_uncompressed_size) {
         Ok(x) => Box::into_raw(Box::new(x)),
         Err(e) => {
-            log::error!("merkle_root_from_compressed_bytes() failed: {:?}", e.to_string());
+            log::error!(
+                "merkle_root_from_compressed_bytes() failed: {:?}",
+                e.to_string()
+            );
             *ret_code = CctpErrorCode::MerkleRootBuildError;
             null_mut()
         }
@@ -1389,7 +1392,10 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
     let rs_batch_verifier =
         try_read_raw_pointer!("batch_verifier", batch_verifier, ret_code, null_mut());
 
-    log::info!("Begin batch verification of {} proofs...", rs_batch_verifier.num_proofs());
+    log::info!(
+        "Begin batch verification of {} proofs...",
+        rs_batch_verifier.num_proofs()
+    );
 
     // If prioritize, pause all low priority threads
     if prioritize {
@@ -1400,7 +1406,10 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
     let result = match get_batch_verifier_thread_pool(prioritize) {
         Ok(pool) => pool.install(|| rs_batch_verifier.batch_verify_all(&mut OsRng::default())),
         Err(e) => {
-            log::error!("Unable to initialize thread pool for proof verification {:?}", e);
+            log::error!(
+                "Unable to initialize thread pool for proof verification {:?}",
+                e
+            );
             *ret_code = CctpErrorCode::GenericError;
             return null_mut();
         }
@@ -1468,7 +1477,10 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
             rs_batch_verifier.batch_verify_subset(rs_ids_list.to_vec(), &mut OsRng::default())
         }),
         Err(e) => {
-            log::error!("Unable to initialize thread pool for batch verification: {:?}", e);
+            log::error!(
+                "Unable to initialize thread pool for batch verification: {:?}",
+                e
+            );
             *ret_code = CctpErrorCode::GenericError;
             return null_mut();
         }

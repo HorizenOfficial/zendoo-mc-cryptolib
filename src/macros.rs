@@ -24,7 +24,7 @@ pub enum CctpErrorCode {
     MerkleRootBuildError,
     GenericError,
     TestProofCreationFailure,
-    InitializationError,
+    LoggerInitializationError,
 }
 
 #[repr(C)]
