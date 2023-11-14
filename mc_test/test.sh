@@ -1,2 +1,0 @@
-make
-python callFromMTFExample.py

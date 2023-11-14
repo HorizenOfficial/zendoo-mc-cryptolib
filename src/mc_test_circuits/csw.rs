@@ -248,9 +248,7 @@ pub fn generate_proof(
         ZendooProverKey::Darlin(pk) => {
             let ck_g2 = get_g2_committer_key(supported_degree)?;
             let deferred = FinalDarlinDeferredData::<G1, G2>::generate_random::<_, Digest>(
-                rng,
-                &ck_g1,
-                &ck_g2,
+                rng, &ck_g1, &ck_g2,
             );
             let deferred_fes = deferred.to_field_elements().unwrap();
             let circ = CSWTestCircuitWithAccumulators {
@@ -264,14 +262,9 @@ pub fn generate_proof(
                 deferred: deferred_fes.clone(),
                 num_constraints,
             };
-            let proof = CoboundaryMarlin::prove(
-                pk,
-                &ck_g1,
-                circ,
-                zk,
-                if zk { Some(rng) } else { None },
-            )
-            .map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
+            let proof =
+                CoboundaryMarlin::prove(pk, &ck_g1, circ, zk, if zk { Some(rng) } else { None })
+                    .map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
             let darlin_proof = FinalDarlinProof::<G1, G2, Digest> {
                 proof: MarlinProof(proof),
                 deferred,
@@ -289,14 +282,9 @@ pub fn generate_proof(
                 aggregated_input: Some(aggregated_input),
                 num_constraints,
             };
-            let proof = CoboundaryMarlin::prove(
-                pk,
-                &ck_g1,
-                circ,
-                zk,
-                if zk { Some(rng) } else { None },
-            )
-            .map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
+            let proof =
+                CoboundaryMarlin::prove(pk, &ck_g1, circ, zk, if zk { Some(rng) } else { None })
+                    .map_err(|e| ProvingSystemError::ProofCreationFailed(e.to_string()))?;
             Ok(ZendooProof::CoboundaryMarlin(MarlinProof(proof)))
         }
     }

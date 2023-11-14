@@ -1,6 +1,7 @@
 use crate::{
+    init_logger,
     macros::{BufferWithSize, CctpErrorCode},
-    zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws,
+    parse_path, zendoo_compress_bit_vector, zendoo_decompress_bit_vector, zendoo_free_bws,
 };
 use cctp_primitives::bit_vector::compression::CompressionAlgorithm;
 use std::slice;
@@ -12,8 +13,8 @@ use crate::{
     zendoo_create_return_csw_test_proof, zendoo_deserialize_sc_pk_from_file,
     zendoo_deserialize_sc_proof, zendoo_deserialize_sc_vk_from_file, zendoo_field_free,
     zendoo_free_batch_proof_verifier_result, zendoo_generate_mc_test_params,
-    zendoo_get_random_field, zendoo_init_dlog_keys, zendoo_sc_pk_free, zendoo_sc_proof_free,
-    zendoo_sc_vk_free, TestCircuitType, zendoo_verify_certificate_proof
+    zendoo_get_random_field, zendoo_init_dlog_keys, zendoo_init_logger, zendoo_sc_pk_free,
+    zendoo_sc_proof_free, zendoo_sc_vk_free, zendoo_verify_certificate_proof, TestCircuitType,
 };
 
 #[cfg(feature = "mc-test-circuit")]
@@ -35,15 +36,85 @@ use std::ffi::OsString;
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
 
-#[cfg(all(feature = "mc-test-circuit", not(target_os = "windows")))]
+#[cfg(not(target_os = "windows"))]
 fn path_as_ptr(path: &str) -> *const u8 {
     path.as_ptr()
 }
 
-#[cfg(all(feature = "mc-test-circuit", target_os = "windows"))]
+#[cfg(target_os = "windows")]
 fn path_as_ptr(path: &str) -> *const u16 {
     let tmp: Vec<u16> = OsString::from(path).encode_wide().collect();
     tmp.as_ptr()
+}
+
+const LOG_CONFIG_PATH: &str = "./src/tests/log/sample_log_config.yaml";
+use std::sync::Once;
+
+static INIT_LOGGER: Once = Once::new();
+static INIT_KEYS: Once = Once::new();
+
+pub fn init_test_logger() {
+    INIT_LOGGER.call_once(|| {
+
+        // Initialize logger
+        let mut ret_code = CctpErrorCode::OK;
+        zendoo_init_logger(
+            path_as_ptr(LOG_CONFIG_PATH),
+            LOG_CONFIG_PATH.len(),
+            &mut ret_code,
+        );
+        assert_eq!(ret_code, CctpErrorCode::OK);
+
+        
+    });
+}
+
+pub fn init_test_dlog_keys(segment_size: usize) {
+    INIT_KEYS.call_once(|| {
+        let mut ret_code = CctpErrorCode::OK;
+        assert!(zendoo_init_dlog_keys(segment_size, &mut ret_code));
+        assert_eq!(ret_code, CctpErrorCode::OK);
+    });
+}
+
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn init_logger_multiple() {
+    init_test_logger();
+    let config_path = parse_path(LOG_CONFIG_PATH.as_ptr(), LOG_CONFIG_PATH.len());
+    assert!(init_logger(config_path).is_err());
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn init_logger_multiple() {
+    init_test_logger();
+    // Read config file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts(LOG_CONFIG_PATH, LOG_CONFIG_PATH.len())
+    });
+    let config_path = Path::new(&path_str);
+
+    assert!(init_logger(config_path).is_err());
+}
+
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn init_logger_wrong_file() {
+    let config_path = parse_path("".as_ptr(), 0);
+    assert!(init_logger(config_path).is_err());
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn init_logger_wrong_file() {
+    // Read config file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts("", 0)
+    });
+    let config_path = Path::new(&path_str);
+
+    assert!(init_logger(config_path).is_err());
 }
 
 #[cfg(feature = "mc-test-circuit")]
@@ -61,10 +132,11 @@ fn serialization_deserialization_bench_vk_proof() {
     let num_proofs = 100;
 
     let mut rng = &mut thread_rng();
+    init_test_logger();
 
     // Init DLOG keys
     println!("Setup DLOG keys...");
-    assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
+    init_test_dlog_keys(segment_size);
 
     // CSW
     println!("Bench serialize/deserialize CSW...");
@@ -114,7 +186,8 @@ fn serialization_deserialization_bench_vk_proof() {
             for semantic_checks in vec![true, false].into_iter() {
                 println!(
                     "Compressed: {}, Semantic checks: {}",
-                    compressed, semantic_checks
+                    compressed,
+                    semantic_checks
                 );
                 println!("Vk len: {}", len_vk);
                 println!("Proof len: {}", len_proof);
@@ -210,7 +283,8 @@ fn serialization_deserialization_bench_vk_proof() {
             for semantic_checks in vec![true, false].into_iter() {
                 println!(
                     "Compressed: {}, Semantic checks: {}",
-                    compressed, semantic_checks
+                    compressed,
+                    semantic_checks
                 );
                 println!("Vk len: {}", len_vk);
                 println!("Proof len: {}", len_proof);
@@ -257,10 +331,11 @@ fn serialization_deserialization_bench_vk_proof() {
 #[test]
 fn prev_sc_cert_hash_support() {
     let segment_size = 1 << 17;
+    init_test_logger();
 
     // Init DLOG keys
     println!("Setup DLOG keys...");
-    assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
+    init_test_dlog_keys(segment_size);
 
     let num_constraints = 1 << 16;
 
@@ -325,12 +400,11 @@ fn prev_sc_cert_hash_support() {
         random_field_proof,
         &mut CctpErrorCode::OK,
         true,
-        std::ptr::null()
+        std::ptr::null(),
     );
     assert!(proof_buff != null_mut());
 
-    let proof =
-        zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK, true);
+    let proof = zendoo_deserialize_sc_proof(proof_buff, false, &mut CctpErrorCode::OK, true);
     assert!(proof != null_mut());
 
     let vk = zendoo_deserialize_sc_vk_from_file(
@@ -406,8 +480,9 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
     let num_proofs = 100;
 
     // Init DLOG keys
+    init_test_logger();
     println!("Setup DLOG keys...");
-    assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
+    init_test_dlog_keys(segment_size);
 
     for j in 15..=16 {
         // Get batch verifier
@@ -476,7 +551,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 null(),
                 &mut CctpErrorCode::OK,
                 true,
-                std::ptr::null()
+                std::ptr::null(),
             );
             assert!(proof_buff != null_mut());
 
@@ -597,7 +672,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
                 num_constraints,
                 &mut CctpErrorCode::OK,
                 true,
-                std::ptr::null()
+                std::ptr::null(),
             );
             assert!(proof_buff != null_mut());
 
@@ -697,7 +772,8 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
             });
             println!(
                 "Spawned batch verification thread {} with priority {}",
-                i, priority
+                i,
+                priority
             );
             handles.push(handle);
         }
@@ -733,6 +809,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
 
 #[test]
 fn compress_decompress() {
+    init_test_logger();
     for _ in 0..10 {
         let mut bit_vector: Vec<u8> = (0..100).collect();
         let data = bit_vector.as_mut_ptr();

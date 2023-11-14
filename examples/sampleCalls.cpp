@@ -12,6 +12,7 @@
 #include <time.h>
 
 static const uint32_t MAX_SEGMENT_SIZE = 1 << 9;
+
 static bool dlog_keys_init_result([]{ 
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
@@ -24,6 +25,19 @@ static bool dlog_keys_init_result([]{
     assert(ret_code == CctpErrorCode::OK);
 
     return init_result;
+}());
+
+static bool init_zendoo([]{
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+
+    const char* log_config_path = "../src/tests/log/sample_log_config.yaml";
+    zendoo_init_logger(
+        (path_char_t const*) log_config_path,
+        strlen(log_config_path),
+        &ret_code
+    );
+    assert(ret_code == CctpErrorCode::OK);
+    return true;
 }());
 
 TEST_SUITE("Field Element") {
