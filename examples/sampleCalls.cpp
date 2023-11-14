@@ -31,7 +31,7 @@ static bool init_zendoo([]{
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
     const char* log_config_path = "../src/tests/log/sample_log_config.yaml";
-    zendoo_init(
+    zendoo_init_logger(
         (path_char_t const*) log_config_path,
         strlen(log_config_path),
         &ret_code
