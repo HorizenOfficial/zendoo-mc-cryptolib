@@ -98,48 +98,58 @@ pub extern "C" fn zendoo_free_bws(buffer: *mut BufferWithSize) {
 }
 
 pub(crate) fn init_logger<'a>(config_path: &'a Path) -> Result<(), Error> {
-    log4rs::config::init_file(config_path, Default::default())?;
-    log::info!("Log4rs correctly initialized");
-    Ok(())
+    // Determine if config file exists or not. If yes, initialize the logger.
+    match config_path.try_exists(){
+        Ok(true) => {
+            log4rs::config::init_file(config_path, Default::default())?;
+            log::info!("Log4rs correctly initialized");
+            Ok(())
+        },
+        Ok(false) => {
+            Err("Config file doesn't exist.")?
+        },
+        Err(e) => Err(format!("Unable to read config file: {:?}", e))?
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
 #[no_mangle]
-pub extern "C" fn zendoo_init(
+pub extern "C" fn zendoo_init_logger(
     config_path: *const u8,
     config_path_len: usize,
     ret_code: &mut CctpErrorCode,
 ) {
+    *ret_code = CctpErrorCode::OK;
+
+    // Read config path
     let config_path = parse_path(config_path, config_path_len);
-    match init_logger(config_path) {
-        Ok(()) => *ret_code = CctpErrorCode::OK,
-        Err(e) => {
-            eprintln!("Error initializing logger: {:?}", e);
-            *ret_code = CctpErrorCode::LoggerInitializationError
-        }
-    }
+
+    // Initialize logger if possible
+    init_logger(config_path).unwrap_or_else(|e| {
+        eprintln!("Error initializing logger. {:?}", e);
+        *ret_code = CctpErrorCode::LoggerInitializationError;
+    });
 }
 
 #[cfg(target_os = "windows")]
 #[no_mangle]
-pub extern "C" fn zendoo_init(
+pub extern "C" fn zendoo_init_logger(
     config_path: *const u16,
     config_path_len: usize,
     ret_code: &mut CctpErrorCode,
 ) {
+    *ret_code = CctpErrorCode::OK;
+
     // Read config file path
     let path_str =
         OsString::from_wide(unsafe { slice::from_raw_parts(config_path, config_path_len) });
     let config_path = Path::new(&path_str);
 
-    // Init logger
-    match init_logger(config_path) {
-        Ok(()) => *ret_code = CctpErrorCode::OK,
-        Err(e) => {
-            eprintln!("Error initializing logger: {:?}", e);
-            *ret_code = CctpErrorCode::LoggerInitializationError
-        }
-    }
+    // Initialize logger if possible
+    init_logger(config_path).unwrap_or_else(|e| {
+        eprintln!("Error initializing logger. {:?}", e);
+        *ret_code = CctpErrorCode::LoggerInitializationError;
+    });
 }
 
 //*********** Commitment Tree functions ****************

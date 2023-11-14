@@ -376,7 +376,7 @@ void init(Parameters const& pars, int segment_size) {
     if (!file_exists(pars.log_config_path)) {
         printError(__func__, __LINE__, "Cannot read config file %s", pars.log_config_path);
     }
-    zendoo_init(
+    zendoo_init_logger(
         (path_char_t const*) pars.log_config_path,
         strlen(pars.log_config_path),
         &ret_code

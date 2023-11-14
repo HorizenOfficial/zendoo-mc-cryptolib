@@ -13,7 +13,7 @@ use crate::{
     zendoo_create_return_csw_test_proof, zendoo_deserialize_sc_pk_from_file,
     zendoo_deserialize_sc_proof, zendoo_deserialize_sc_vk_from_file, zendoo_field_free,
     zendoo_free_batch_proof_verifier_result, zendoo_generate_mc_test_params,
-    zendoo_get_random_field, zendoo_init, zendoo_init_dlog_keys, zendoo_sc_pk_free,
+    zendoo_get_random_field, zendoo_init_dlog_keys, zendoo_init_logger, zendoo_sc_pk_free,
     zendoo_sc_proof_free, zendoo_sc_vk_free, zendoo_verify_certificate_proof, TestCircuitType,
 };
 
@@ -50,16 +50,29 @@ fn path_as_ptr(path: &str) -> *const u16 {
 const LOG_CONFIG_PATH: &str = "./src/tests/log/sample_log_config.yaml";
 use std::sync::Once;
 
-static INIT: Once = Once::new();
+static INIT_LOGGER: Once = Once::new();
+static INIT_KEYS: Once = Once::new();
 
 pub fn init_test_logger() {
-    INIT.call_once(|| {
+    INIT_LOGGER.call_once(|| {
+
+        // Initialize logger
         let mut ret_code = CctpErrorCode::OK;
-        zendoo_init(
+        zendoo_init_logger(
             path_as_ptr(LOG_CONFIG_PATH),
             LOG_CONFIG_PATH.len(),
             &mut ret_code,
         );
+        assert_eq!(ret_code, CctpErrorCode::OK);
+
+        
+    });
+}
+
+pub fn init_test_dlog_keys(segment_size: usize) {
+    INIT_KEYS.call_once(|| {
+        let mut ret_code = CctpErrorCode::OK;
+        assert!(zendoo_init_dlog_keys(segment_size, &mut ret_code));
         assert_eq!(ret_code, CctpErrorCode::OK);
     });
 }
@@ -76,10 +89,28 @@ fn init_logger_multiple() {
 #[test]
 fn init_logger_multiple() {
     init_test_logger();
-    
     // Read config file path
     let path_str = OsString::from_wide(unsafe {
         slice::from_raw_parts(LOG_CONFIG_PATH, LOG_CONFIG_PATH.len())
+    });
+    let config_path = Path::new(&path_str);
+
+    assert!(init_logger(config_path).is_err());
+}
+
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn init_logger_wrong_file() {
+    let config_path = parse_path("".as_ptr(), 0);
+    assert!(init_logger(config_path).is_err());
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn init_logger_wrong_file() {
+    // Read config file path
+    let path_str = OsString::from_wide(unsafe {
+        slice::from_raw_parts("", 0)
     });
     let config_path = Path::new(&path_str);
 
@@ -105,7 +136,7 @@ fn serialization_deserialization_bench_vk_proof() {
 
     // Init DLOG keys
     println!("Setup DLOG keys...");
-    assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
+    init_test_dlog_keys(segment_size);
 
     // CSW
     println!("Bench serialize/deserialize CSW...");
@@ -304,7 +335,7 @@ fn prev_sc_cert_hash_support() {
 
     // Init DLOG keys
     println!("Setup DLOG keys...");
-    assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
+    init_test_dlog_keys(segment_size);
 
     let num_constraints = 1 << 16;
 
@@ -451,7 +482,7 @@ fn zendoo_batch_verifier_multiple_threads_with_priority() {
     // Init DLOG keys
     init_test_logger();
     println!("Setup DLOG keys...");
-    assert!(zendoo_init_dlog_keys(segment_size, &mut CctpErrorCode::OK));
+    init_test_dlog_keys(segment_size);
 
     for j in 15..=16 {
         // Get batch verifier

@@ -50,7 +50,7 @@ extern "C"
      *    Set `ret_code` to Ok if initialization was successfull, `LoggerInitializationError` otherwise.
      * This function is supposed to be called only once.
      */
-    void zendoo_init(
+    void zendoo_init_logger(
         const path_char_t *config_path,
         size_t config_path_len,
         CctpErrorCode *ret_code);
