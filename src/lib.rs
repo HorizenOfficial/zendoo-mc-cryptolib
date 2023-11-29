@@ -581,7 +581,7 @@ pub extern "C" fn zendoo_field_free(field: *mut FieldElement) {
 pub extern "C" fn zendoo_print_field(field: *const FieldElement) {
     let ret_code = &mut CctpErrorCode::OK;
     let rs_field = try_read_raw_pointer!("field", field, ret_code, ());
-    log::error!(
+    println!(
         "{:?}",
         match get_hex(rs_field, None) {
             Ok(v) => v,
@@ -1003,6 +1003,11 @@ pub extern "C" fn zendoo_verify_certificate_proof(
     let sc_proof = try_read_raw_pointer!("sc_proof", sc_proof, ret_code, false);
     let sc_vk = try_read_raw_pointer!("sc_vk", sc_vk, ret_code, false);
 
+    log::info!("Begin verification of certificate proof");
+    log::debug!("Proof: {:?}", sc_proof);
+    log::debug!("Verification key: {:?}", sc_vk);
+    log::debug!("Public inputs: {:?}", usr_ins.clone().unwrap());
+
     // Verify proof
     match verify_zendoo_proof(
         usr_ins.unwrap(),
@@ -1010,7 +1015,10 @@ pub extern "C" fn zendoo_verify_certificate_proof(
         sc_vk,
         Some(&mut OsRng::default()),
     ) {
-        Ok(res) => res,
+        Ok(res) => {
+            log::info!("Proof verification succeeded with result: {}", res);
+            res
+        },
         Err(e) => {
             log::error!("Proof verification failure {:?}", e);
             match e {
@@ -1267,6 +1275,11 @@ pub extern "C" fn zendoo_add_certificate_proof_to_batch_verifier(
     let sc_proof = try_read_raw_pointer!("sc_proof", sc_proof, ret_code, false);
     let sc_vk = try_read_raw_pointer!("sc_vk", sc_vk, ret_code, false);
 
+    log::debug!("Adding certificate proof with id: {} to batch verifier", proof_id);
+    log::debug!("Proof: {:?}", sc_proof);
+    log::debug!("Verification key: {:?}", sc_vk);
+    log::debug!("Public inputs: {:?}", usr_ins.clone().unwrap());
+
     // Add proof to the batch
     match rs_batch_verifier.add_zendoo_proof_verifier_data(
         proof_id,
@@ -1274,7 +1287,10 @@ pub extern "C" fn zendoo_add_certificate_proof_to_batch_verifier(
         sc_proof.clone(),
         sc_vk.clone(),
     ) {
-        Ok(()) => true,
+        Ok(()) => {
+            log::debug!("Proof successfully added");
+            true
+        },
         Err(e) => {
             log::error!("Error adding proof to the batch: {:?}", e);
             *ret_code = CctpErrorCode::BatchVerifierFailure;
@@ -1434,7 +1450,10 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
 
     match result {
         // If success, return the result
-        Ok(result) => ret.result = result,
+        Ok(result) => {
+            ret.result = result;
+            log::info!("Batch proof verification succeeded with result: {}", result);
+        },
 
         // Otherwise, return the indices of the failing proofs if it's possible to estabilish it.
         Err(e) => {
@@ -1446,6 +1465,9 @@ pub extern "C" fn zendoo_batch_verify_all_proofs(
                         // Return ids
                         let mut ids = maybe_ids.unwrap();
                         ids.shrink_to_fit();
+
+                        log::debug!("Failed proofs: {:?}", rs_batch_verifier.get_proofs_by_id(Some(ids.clone())));
+
                         let len = ids.len();
                         assert_eq!(len, ids.capacity());
                         let ids_ptr = ids.as_mut_ptr();
@@ -1481,6 +1503,12 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
         zendoo_pause_low_priority_threads();
     }
 
+    log::info!(
+        "Begin batch verification of {} proofs with ids {:?}",
+        rs_ids_list.len(),
+        rs_ids_list
+    );
+
     // Execute batch verification of the proofs with specified id
     let result = match get_batch_verifier_thread_pool(prioritize) {
         Ok(pool) => pool.install(|| {
@@ -1508,6 +1536,7 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
         // If success, return the result
         Ok(result) => {
             ret.result = result;
+            log::info!("Batch proof verification succeeded with result: {}", result);
         }
 
         // Otherwise, return the indices of the failing proofs if it's possible to estabilish it.
@@ -1520,6 +1549,9 @@ pub extern "C" fn zendoo_batch_verify_proofs_by_id(
                         // Return ids
                         let mut ids = maybe_ids.unwrap();
                         ids.shrink_to_fit();
+                        
+                        log::debug!("Failed proofs: {:?}", rs_batch_verifier.get_proofs_by_id(Some(ids.clone())));
+
                         let len = ids.len();
                         assert_eq!(len, ids.capacity());
                         let ids_ptr = ids.as_mut_ptr();

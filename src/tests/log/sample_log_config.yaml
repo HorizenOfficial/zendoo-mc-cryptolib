@@ -8,7 +8,7 @@ appenders:
     policy:
       trigger:
         kind: size
-        limit: 10 kb
+        limit: 10 mb
       roller:
         kind: fixed_window
         pattern: test_log_{}.gz

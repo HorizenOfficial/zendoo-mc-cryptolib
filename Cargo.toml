@@ -19,22 +19,22 @@ crate-type = ["staticlib"]
 [dependencies]
 algebra = { features = [
     "tweedle",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1" }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "ddb/more_logs" }
 primitives = { features = [
     "tweedle",
     "merkle_tree",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1" }
-cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", tag = "0.2.2" }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "ddb/more_logs" }
+cctp_primitives = { git = "https://github.com/HorizenOfficial/zendoo-cctp-lib.git", branch = "ddb/more_logs" }
 proof-systems = { features = [
     "darlin",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1", optional = true }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "ddb/more_logs", optional = true }
 r1cs-crypto = { features = [
     "tweedle",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1", optional = true }
-r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1", optional = true }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "ddb/more_logs", optional = true }
+r1cs-core = { git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "ddb/more_logs", optional = true }
 r1cs-std = { features = [
     "tweedle",
-], git = "https://github.com/HorizenOfficial/ginger-lib.git", tag = "0.6.1", optional = true }
+], git = "https://github.com/HorizenOfficial/ginger-lib.git", branch = "ddb/more_logs", optional = true }
 crossbeam-utils = "0.8.7"
 maybe-uninit = "2.0.0"
 rand = "0.8.4"
